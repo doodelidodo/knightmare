@@ -727,7 +727,9 @@ def run_once(
         message = (
             f"{fetch_result['added']} neue Partien, "
             f"{analysis_result['analyzed']} analysiert, "
-            f"{analysis_result['failed']} fehlerhaft, "
+            # "fehlerhaft" waere in einer Schach-App doppeldeutig - gemeint ist
+            # nicht lesbar, nicht etwa ein schlecht gespielter Zug.
+            f"{analysis_result['failed']} nicht lesbar, "
             f"{analysis_result['remaining']} offen"
         )
         # Ausgefallene Quellen gehoeren in die Meldung - sonst wundert man
