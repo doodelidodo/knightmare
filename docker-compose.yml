@@ -1,6 +1,7 @@
 # Knightmare - one container, no database to set up.
 #
 #   CHESSCOM_USERNAME=yourname docker compose up -d
+#   LICHESS_USERNAME=yourname  docker compose up -d   (or both)
 #   open http://localhost:8000
 #
 services:
@@ -13,7 +14,11 @@ services:
     ports:
       - "${PORT:-8000}:8000"
     environment:
-      CHESSCOM_USERNAME: ${CHESSCOM_USERNAME:?set CHESSCOM_USERNAME, e.g. in a .env file}
+      # At least one of the two is required.
+      CHESSCOM_USERNAME: ${CHESSCOM_USERNAME:-}
+      LICHESS_USERNAME: ${LICHESS_USERNAME:-}
+      # Optional: raises the Lichess rate limit, not needed for normal use.
+      LICHESS_TOKEN: ${LICHESS_TOKEN:-}
       # A recognisable user agent is strongly recommended - Chess.com rejects
       # anonymous requests with 403.
       CHESS_USER_AGENT: "${CHESS_USER_AGENT:-knightmare/1.0 (self-hosted)}"

@@ -168,6 +168,7 @@
 
   <div id="notes"></div>
 
+  <div class="chips" id="platformChips"></div>
   <div class="chips" id="classChips"></div>
   <div class="chips" id="rangeChips"></div>
 
@@ -245,9 +246,11 @@ const I18N = {
     runNote: (p, f, a) => `Run in progress: ${p}. ${f} new games, ${a} analysed so far.`,
     unreachable: (m) => `Backend unreachable: ${m}`,
     noData: (m) => `Could not load data: ${m}`,
-    gameType: "Game type", period: "Period", all: "All",
+    gameType: "Game type", period: "Period", all: "All", platform: "Platform",
     d30: "Last 30 days", d90: "Last 90 days", dAll: "All time",
-    bullet: "Bullet", blitz: "Blitz", rapid: "Rapid", daily: "Daily",
+    ultrabullet: "UltraBullet", bullet: "Bullet", blitz: "Blitz", rapid: "Rapid",
+    classical: "Classical", daily: "Daily",
+    chesscom: "Chess.com", lichess: "Lichess",
     kAnalysed: "Games analysed",
     kAnalysedSub: (g, p, f) => `${g} fetched${p ? `, ${p} pending` : ""}${f ? `, ${f} failed` : ""}.`,
     kScore: "Score", kScoreSub: (w, d, l) => `${w} wins, ${d} draws, ${l} losses.`,
@@ -324,9 +327,11 @@ const I18N = {
     runNote: (p, f, a) => `Durchgang läuft: ${p}. Bisher ${f} neue Partien, ${a} analysiert.`,
     unreachable: (m) => `Dienst nicht erreichbar: ${m}`,
     noData: (m) => `Daten nicht abrufbar: ${m}`,
-    gameType: "Partieart", period: "Zeitraum", all: "Alle",
+    gameType: "Partieart", period: "Zeitraum", all: "Alle", platform: "Plattform",
     d30: "Letzte 30 Tage", d90: "Letzte 90 Tage", dAll: "Alles",
-    bullet: "Bullet", blitz: "Blitz", rapid: "Rapid", daily: "Täglich",
+    ultrabullet: "UltraBullet", bullet: "Bullet", blitz: "Blitz", rapid: "Rapid",
+    classical: "Klassisch", daily: "Täglich",
+    chesscom: "Chess.com", lichess: "Lichess",
     kAnalysed: "Analysierte Partien",
     kAnalysedSub: (g, p, f) => `${g} geholt${p ? `, ${p} offen` : ""}${f ? `, ${f} fehlerhaft` : ""}.`,
     kScore: "Punkteausbeute", kScoreSub: (w, d, l) => `${w} Siege, ${d} Remis, ${l} Niederlagen.`,
@@ -408,6 +413,7 @@ const store = {
 
 let lang = store.get("knightmare.lang", (navigator.language || "en").startsWith("de") ? "de" : "en");
 let timeClass = store.get("knightmare.timeClass", "rapid");
+let platform = store.get("knightmare.platform", "all");
 let range = store.get("knightmare.range", "90");
 let color = "all";
 
@@ -418,6 +424,14 @@ let confirmRe = false;
 const PAGE = 25;
 
 const t = () => I18N[lang];
+
+// Der Wochenreport kennt keinen Zeitraum, nur die beiden anderen Filter.
+function weeklyQuery() {
+  const parts = [];
+  if (timeClass !== "all") parts.push("time_class=" + timeClass);
+  if (platform !== "all") parts.push("platform=" + platform);
+  return parts.length ? "?" + parts.join("&") : "";
+}
 const RANGES = { "30": 30, "90": 90, "all": null };
 
 // Relative Pfade: funktioniert unter / genauso wie hinter /chess/
@@ -471,6 +485,7 @@ function query(extra) {
   const days = RANGES[range];
   if (days) parts.push("days=" + days);
   if (timeClass !== "all") parts.push("time_class=" + timeClass);
+  if (platform !== "all") parts.push("platform=" + platform);
   (extra || []).forEach((p) => parts.push(p));
   return parts.length ? "?" + parts.join("&") : "";
 }
@@ -483,15 +498,17 @@ async function loadAll() {
     const openParts = ["min_games=3", "limit=12"];
     if (RANGES[range]) openParts.push("days=" + RANGES[range]);
     if (timeClass !== "all") openParts.push("time_class=" + timeClass);
+    if (platform !== "all") openParts.push("platform=" + platform);
     if (color !== "all") openParts.push("color=" + color);
     const gameParts = ["limit=12"];
     if (timeClass !== "all") gameParts.push("time_class=" + timeClass);
+    if (platform !== "all") gameParts.push("platform=" + platform);
 
     const [status, overview, weekly, errors, phases, pressure, openings, games] =
       await Promise.all([
         api("status"),
         api("overview" + query()),
-        api("report/weekly" + (timeClass !== "all" ? "?time_class=" + timeClass : "")),
+        api("report/weekly" + weeklyQuery()),
         api("error-types" + query(["examples=0"])),
         api("phases" + query()),
         api("time-pressure" + query()),
@@ -525,6 +542,7 @@ async function loadErrors(type, opts) {
     ];
     if (RANGES[range]) parts.push("days=" + RANGES[range]);
     if (timeClass !== "all") parts.push("time_class=" + timeClass);
+    if (platform !== "all") parts.push("platform=" + platform);
     const res = await api("errors?" + parts.join("&"));
     list = {
       sort, loading: false, total: res.total || 0,
@@ -579,6 +597,18 @@ function render() {
 function renderFilters() {
   const L = t();
   const classes = (data.status && data.status.time_classes) || [];
+  const platforms = (data.status && data.status.platforms) || [];
+
+  // Die Plattform-Auswahl erscheint nur, wenn es tatsächlich etwas zu wählen
+  // gibt - wer nur Chess.com spielt, braucht die Reihe nicht.
+  document.getElementById("platformChips").innerHTML =
+    platforms.length > 1
+      ? `<span class="label">${L.platform}</span>` +
+        `<button class="chip ${platform === "all" ? "on" : ""}" data-pf="all">${L.all}</button>` +
+        platforms.map((p) =>
+          `<button class="chip ${platform === p.platform ? "on" : ""}" data-pf="${esc(p.platform)}">` +
+          `${esc(L[p.platform] || p.platform)} (${p.games})</button>`).join("")
+      : "";
   document.getElementById("classChips").innerHTML =
     `<span class="label">${L.gameType}</span>` +
     `<button class="chip ${timeClass === "all" ? "on" : ""}" data-tc="all">${L.all}</button>` +
@@ -777,6 +807,8 @@ function renderOpenings() {
 function renderGames() {
   const L = t(), g = (data.games && data.games.games) || [];
   document.getElementById("gamesTitle").textContent = L.gamesTitle;
+  const showPlatform = () =>
+    platform === "all" && ((data.status && data.status.platforms) || []).length > 1;
   if (!g.length) {
     document.getElementById("gamesRows").innerHTML = `<p class="muted">${L.gamesEmpty}</p>`;
     return;
@@ -789,7 +821,7 @@ function renderGames() {
     else meta += esc(L.notAnalysed);
     const link = game.url ? ` · <a href="${esc(game.url)}" target="_blank" rel="noreferrer">${esc(L.openOn)}</a>` : "";
     return `<div class="item">
-      <p>${tag} <strong>${esc(game.opponent)}</strong>${game.opponent_rating ? ` (${game.opponent_rating})` : ""} · ${esc(game.color === "white" ? L.white : L.black)} · ${esc(L[game.time_class] || game.time_class)} · ${esc(date(game.played_at))}</p>
+      <p>${tag} <strong>${esc(game.opponent)}</strong>${game.opponent_rating ? ` (${game.opponent_rating})` : ""} · ${esc(game.color === "white" ? L.white : L.black)} · ${esc(L[game.time_class] || game.time_class)}${showPlatform() ? " · " + esc(L[game.platform] || game.platform) : ""} · ${esc(date(game.played_at))}</p>
       <p>${meta}${link}</p></div>`;
   }).join("");
 }
@@ -820,9 +852,19 @@ function renderFooter() {
 // Klicks
 // --------------------------------------------------------------------------
 document.addEventListener("click", (event) => {
-  const el = event.target.closest("[data-tc],[data-range],[data-color],[data-err],[data-sort],[data-more]");
+  const el = event.target.closest("[data-tc],[data-pf],[data-range],[data-color],[data-err],[data-sort],[data-more]");
   if (!el) return;
 
+  if (el.dataset.pf) {
+    platform = el.dataset.pf;
+    store.set("knightmare.platform", platform);
+    // Partiearten hängen von der Plattform ab (Classical gibt es nur bei
+    // Lichess) - eine Auswahl, die es nicht mehr gibt, würde leer aussehen.
+    timeClass = "all";
+    store.set("knightmare.timeClass", timeClass);
+    loadAll();
+    return;
+  }
   if (el.dataset.tc) { timeClass = el.dataset.tc; store.set("knightmare.timeClass", timeClass); loadAll(); return; }
   if (el.dataset.range) { range = el.dataset.range; store.set("knightmare.range", range); loadAll(); return; }
   if (el.dataset.color) { color = el.dataset.color; loadAll(); return; }

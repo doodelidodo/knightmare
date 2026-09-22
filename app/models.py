@@ -19,7 +19,18 @@ class ChessGame(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    # --- Stammdaten aus der Chess.com-API -------------------------------
+    # --- Stammdaten der Plattform ---------------------------------------
+    # server_default sorgt dafuer, dass bestehende Zeilen beim Ergaenzen der
+    # Spalte automatisch als Chess.com markiert werden - alles, was es vor der
+    # Lichess-Unterstuetzung gab, kam von dort.
+    platform: str = Field(
+        default="chesscom",
+        index=True,
+        max_length=12,
+        sa_column_kwargs={"server_default": "chesscom"},
+    )
+    # Plattform-Praefix im Schluessel, damit sich IDs nie ueberschneiden
+    # koennen ("lichess:abcd1234").
     uuid: str = Field(index=True, unique=True, max_length=64)
     url: str = Field(default="", max_length=300)
     played_at: datetime = Field(index=True)
@@ -97,10 +108,21 @@ class ChessMove(SQLModel, table=True):
     played_at: datetime = Field(index=True)
     time_class: str = Field(default="unknown", index=True, max_length=20)
     color: str = Field(default="white", max_length=5)
+    platform: str = Field(
+        default="chesscom",
+        index=True,
+        max_length=12,
+        sa_column_kwargs={"server_default": "chesscom"},
+    )
 
 
 class ChessSyncState(SQLModel, table=True):
-    """Einzelne Zeile (id=1) mit dem Zustand des letzten Laufs."""
+    """Einzelne Zeile (id=1) mit dem Zustand des letzten Laufs.
+
+    Fuer Lichess braucht es hier bewusst keinen Zeiger: wie weit wir sind,
+    steht ohnehin in den Partien selbst (juengstes `played_at` dieser
+    Plattform) - eine Zustandsvariable weniger, die falsch stehen kann.
+    """
 
     __tablename__ = "chess_sync_state"
 

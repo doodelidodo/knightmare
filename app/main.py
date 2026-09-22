@@ -50,6 +50,18 @@ TimeClassParam = Query(
     description="bullet, blitz, rapid oder daily - leer = alle",
 )
 DaysParam = Query(default=None, ge=1, le=3650)
+PlatformParam = Query(
+    default=None,
+    pattern="^(chesscom|lichess|all|alle)?$",
+    description="chesscom oder lichess - leer = beide",
+)
+
+
+def _clean_platform(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    value = value.strip().lower()
+    return None if value in {"", "all", "alle"} else value
 
 
 def _clean_time_class(value: Optional[str]) -> Optional[str]:
@@ -144,7 +156,12 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
     return {
         "version": __version__,
         "configured": settings.configured,
-        "username": settings.username or None,
+        "chesscom_username": settings.chesscom_username or None,
+        "lichess_username": settings.lichess_username or None,
+        "username": ", ".join(
+            filter(None, [settings.chesscom_username, settings.lichess_username])
+        )
+        or None,
         "auto_sync": settings.auto_sync,
         "sync_interval_hours": settings.sync_interval_hours,
         "engine_path": settings.engine_path,
@@ -160,6 +177,8 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
         "games_pending": max(0, total - analyzed - failed),
         "games_failed": failed,
         "time_classes": stats.available_time_classes(session),
+        "platforms": stats.available_platforms(session),
+        "configured_platforms": list(settings.platforms),
         "run": current_status(),
         "last_sync": {
             "at": state.last_sync_at.isoformat() if state and state.last_sync_at else None,
@@ -178,7 +197,7 @@ def sync(
     if not settings.configured:
         raise HTTPException(
             status_code=400,
-            detail="CHESSCOM_USERNAME ist nicht gesetzt.",
+            detail="Weder CHESSCOM_USERNAME noch LICHESS_USERNAME ist gesetzt.",
         )
     if current_status().get("running"):
         return {"started": False, "message": "Es laeuft bereits ein Durchgang."}
@@ -195,14 +214,18 @@ def sync(
 def reanalyze(
     background: BackgroundTasks,
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
     """Alle (oder alle einer Partieart) noch einmal durchrechnen."""
     if current_status().get("running"):
         return {"started": False, "message": "Es laeuft bereits ein Durchgang."}
 
-    selected = _clean_time_class(time_class)
-    count = reset_analysis(session, time_class=selected)
+    count = reset_analysis(
+        session,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
+    )
     background.add_task(run_once, settings, False, None, False)
     return {
         "started": True,
@@ -215,23 +238,38 @@ def reanalyze(
 # Auswertungen
 # --------------------------------------------------------------------------
 @api.get("/time-classes")
-def get_time_classes(session: Session = Depends(get_session)) -> dict[str, object]:
-    return {"time_classes": stats.available_time_classes(session)}
+def get_time_classes(
+    platform: Optional[str] = PlatformParam,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    return {
+        "time_classes": stats.available_time_classes(
+            session, platform=_clean_platform(platform)
+        ),
+        "platforms": stats.available_platforms(session),
+    }
 
 
 @api.get("/overview")
 def get_overview(
     days: Optional[int] = DaysParam,
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
-    return stats.overview(session, days=days, time_class=_clean_time_class(time_class))
+    return stats.overview(
+        session,
+        days=days,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
+    )
 
 
 @api.get("/error-types")
 def get_error_types(
     days: Optional[int] = DaysParam,
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     examples: int = Query(default=3, ge=0, le=10),
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
@@ -239,6 +277,7 @@ def get_error_types(
         session,
         days=days,
         time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
         examples_per_type=examples,
     )
 
@@ -248,6 +287,7 @@ def get_errors(
     error_type: Optional[str] = Query(default=None, max_length=20),
     days: Optional[int] = DaysParam,
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     phase: Optional[str] = Query(
         default=None, pattern="^(opening|middlegame|endgame)$"
     ),
@@ -265,6 +305,7 @@ def get_errors(
         error_type=error_type or None,
         days=days,
         time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
         phase=phase,
         category=category,
         sort=sort,
@@ -278,6 +319,7 @@ def get_openings(
     color: Optional[str] = Query(default=None, pattern="^(white|black)$"),
     days: Optional[int] = DaysParam,
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     min_games: int = Query(default=3, ge=1, le=50),
     limit: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
@@ -287,6 +329,7 @@ def get_openings(
         color=color,
         days=days,
         time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
         min_games=min_games,
         limit=limit,
     )
@@ -296,38 +339,57 @@ def get_openings(
 def get_phases(
     days: Optional[int] = DaysParam,
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
-    return stats.phases(session, days=days, time_class=_clean_time_class(time_class))
+    return stats.phases(
+        session,
+        days=days,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
+    )
 
 
 @api.get("/time-pressure")
 def get_time_pressure(
     days: Optional[int] = DaysParam,
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
     return stats.time_pressure(
-        session, days=days, time_class=_clean_time_class(time_class)
+        session,
+        days=days,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
     )
 
 
 @api.get("/report/weekly")
 def get_weekly_report(
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
-    return stats.weekly_report(session, time_class=_clean_time_class(time_class))
+    return stats.weekly_report(
+        session,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
+    )
 
 
 @api.get("/games")
 def get_games(
     limit: int = Query(default=20, ge=1, le=200),
     time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
     return stats.recent_games(
-        session, limit=limit, time_class=_clean_time_class(time_class)
+        session,
+        limit=limit,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
     )
 
 

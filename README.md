@@ -6,7 +6,7 @@
 
 <p align="center">
   <em>Find the patterns behind your chess mistakes.</em><br>
-  Self-hosted · one container · English and German
+  Chess.com and Lichess · self-hosted · one container · English and German
 </p>
 
 ---
@@ -41,16 +41,19 @@ reading the opponent's last move. Different habits, different training.
 
 On top of that: which openings cost you points, which phase you fall apart in,
 and how your mistakes correlate with the clock — the last one is read from the
-`[%clk]` comments Chess.com writes into the PGN.
+`[%clk]` comments both platforms write into the PGN.
 
 ## Quick start
 
 ```bash
 docker run -d --name knightmare -p 8000:8000 \
   -e CHESSCOM_USERNAME=yourname \
+  -e LICHESS_USERNAME=yourname \
   -v knightmare_data:/app/data \
   ghcr.io/doodelidodo/knightmare:latest
 ```
+
+Either one on its own is fine. With both, you can look at them together or one at a time.
 
 Open <http://localhost:8000>, hit **Fetch & analyse**, and let it work.
 
@@ -59,7 +62,7 @@ Or with compose:
 ```bash
 git clone https://github.com/doodelidodo/knightmare
 cd knightmare
-cp .env.example .env     # put your username in
+cp .env.example .env     # put your username(s) in
 docker compose up -d
 ```
 
@@ -73,9 +76,11 @@ hours; the status line shows what's left.
 
 ## How it works
 
-1. **Fetch** — via the public Chess.com API, no account or key needed. First
-   run pulls the last `CHESS_BACKFILL_MONTHS` months, later runs only the two
-   most recent monthly archives.
+1. **Fetch** — via the public APIs of Chess.com and Lichess. Neither needs an
+   account or a key. Chess.com is read from monthly archives (first run: the
+   last `CHESS_BACKFILL_MONTHS` months, later runs the two most recent);
+   Lichess streams as NDJSON from the newest game already stored. If one
+   platform is down, the other still runs.
 2. **Analyse** — every position of the game is evaluated exactly once. The loss
    of a move is the difference between the evaluation before it and the
    evaluation of the resulting position, both from your side. That halves the
@@ -93,19 +98,22 @@ middlegame. Endgame beats opening, so an early queen trade isn't a middlegame.
 
 ## Configuration
 
-Everything is an environment variable. Only `CHESSCOM_USERNAME` is required.
+Everything is an environment variable. All you need is a username for at
+least one of the two platforms.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `CHESSCOM_USERNAME` | – | Your Chess.com username. |
-| `CHESS_USER_AGENT` | `knightmare/1.0 (self-hosted)` | Chess.com answers 403 without a usable user agent. |
+| `LICHESS_USERNAME` | – | Your Lichess username. At least one of the two is required. |
+| `LICHESS_TOKEN` | – | Optional. Raises the Lichess rate limit; anonymous access works fine. |
+| `CHESS_USER_AGENT` | `knightmare/1.1 (self-hosted)` | Chess.com answers 403 without a usable user agent. |
 | `CHESS_BACKFILL_MONTHS` | `6` | How far back on the first run. |
 | `CHESS_SYNC_INTERVAL_HOURS` | `6` | How often to look for new games. |
 | `CHESS_MAX_GAMES_PER_RUN` | `40` | Cap per run, so the machine isn't busy for hours. |
 | `CHESS_ENGINE_MOVETIME` | `0.15` | Seconds per position. More is more accurate and slower. |
 | `CHESS_ENGINE_DEPTH` | `0` | Fixed depth instead of time (0 = off). |
 | `CHESS_ENGINE_THREADS` / `CHESS_ENGINE_HASH_MB` | `2` / `256` | Stockfish resources. |
-| `CHESS_TIME_CLASSES` | `bullet,blitz,rapid,daily` | Which game types to fetch. |
+| `CHESS_TIME_CLASSES` | all of them | `ultrabullet,bullet,blitz,rapid,classical,daily`. Lichess correspondence is mapped to `daily`. |
 | `CHESS_RATED_ONLY` | `1` | Rated games only. |
 | `CHESS_INACCURACY_CP` / `CHESS_MISTAKE_CP` / `CHESS_BLUNDER_CP` | `50` / `100` / `300` | Mistake thresholds. |
 | `DATABASE_URL` | SQLite in `/app/data` | Postgres works too. |
@@ -126,7 +134,8 @@ GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze
 ```
 
-Every endpoint takes `time_class` and `days`, so you can look at rapid alone.
+Every endpoint takes `time_class`, `platform` and `days`, so you can look at
+rapid on Lichess alone if that is what you are working on.
 
 ## Verify it works
 
@@ -146,20 +155,19 @@ test runs on every push in CI.
   work on", not for judging a single position.
 - **0.15 s per position is not a grandmaster opinion.** Fine for patterns over
   hundreds of games; raise `CHESS_ENGINE_MOVETIME` if you want more.
-- **Chess.com only.** Lichess has an open API too, so support is possible —
-  contributions welcome.
-- **Openings are grouped by the name Chess.com supplies** in the PGN, collapsed
-  to the family: "Sicilian Defense" rather than "Sicilian Defense Najdorf
-  Variation 6.Be3".
+- **Openings are grouped into families.** Lichess names them as
+  "Family: Variation", which splits exactly; Chess.com writes them in one
+  piece, so there a keyword heuristic decides where the family ends.
 - **Variants are skipped** (Chess960, King of the Hill, Bughouse), and daily
   games stay out of the time-pressure view because their clocks run in days.
 
-## Not affiliated with Chess.com
+## Not affiliated with Chess.com or Lichess
 
 Knightmare uses the public
-[Published-Data API](https://support.chess.com/en/articles/9650547-published-data-api)
-and contains none of Chess.com's designs, piece sets, sounds or move
-classification glyphs. Chess.com is a trademark of its owners.
+[Chess.com Published-Data API](https://support.chess.com/en/articles/9650547-published-data-api)
+and the [Lichess API](https://lichess.org/api), and contains none of their
+designs, piece sets, sounds or move classification glyphs. Both names are
+trademarks of their respective owners.
 
 ## License
 

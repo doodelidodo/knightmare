@@ -19,6 +19,22 @@ ENGINE_CANDIDATES = (
     "/usr/local/bin/stockfish",
 )
 
+PLATFORM_CHESSCOM = "chesscom"
+PLATFORM_LICHESS = "lichess"
+PLATFORMS = (PLATFORM_CHESSCOM, PLATFORM_LICHESS)
+
+# Lichess kennt eigene Geschwindigkeitsnamen. Sie werden auf ein gemeinsames
+# Vokabular abgebildet, damit sich beide Plattformen zusammen auswerten lassen.
+# "correspondence" heisst bei Chess.com "daily" - dieselbe Sache.
+LICHESS_SPEEDS = {
+    "ultraBullet": "ultrabullet",
+    "bullet": "bullet",
+    "blitz": "blitz",
+    "rapid": "rapid",
+    "classical": "classical",
+    "correspondence": "daily",
+}
+
 DRAW_RESULTS = frozenset(
     {
         "agreed",
@@ -83,8 +99,12 @@ def detect_engine_path() -> str:
 @dataclass(frozen=True)
 class Settings:
     database_url: str
-    username: str
     user_agent: str
+
+    # Quellen. Mindestens eine muss gesetzt sein, beide gleichzeitig geht auch.
+    chesscom_username: str
+    lichess_username: str
+    lichess_token: str
 
     # Abholen
     backfill_months: int
@@ -115,24 +135,40 @@ class Settings:
 
     @property
     def configured(self) -> bool:
-        return bool(self.username)
+        return bool(self.chesscom_username or self.lichess_username)
+
+    @property
+    def platforms(self) -> tuple[str, ...]:
+        """Welche Quellen tatsaechlich konfiguriert sind."""
+        names = []
+        if self.chesscom_username:
+            names.append(PLATFORM_CHESSCOM)
+        if self.lichess_username:
+            names.append(PLATFORM_LICHESS)
+        return tuple(names)
+
+    def username_for(self, platform: str) -> str:
+        if platform == PLATFORM_LICHESS:
+            return self.lichess_username
+        return self.chesscom_username
 
 
 def load_settings() -> Settings:
     return Settings(
-        database_url=_env_str(
-            "DATABASE_URL", "sqlite:///./data/chess-analyzer.db"
-        ),
-        username=_env_str("CHESSCOM_USERNAME"),
+        database_url=_env_str("DATABASE_URL", "sqlite:///./data/knightmare.db"),
         user_agent=_env_str(
             "CHESS_USER_AGENT",
-            "my-platform-chess-analyzer/1.0 (self-hosted; "
-            "+https://github.com/doodelidodo/my-platform)",
+            "knightmare/1.1 (self-hosted; "
+            "+https://github.com/doodelidodo/knightmare)",
         ),
+        chesscom_username=_env_str("CHESSCOM_USERNAME"),
+        lichess_username=_env_str("LICHESS_USERNAME"),
+        lichess_token=_env_str("LICHESS_TOKEN"),
         backfill_months=max(1, _env_int("CHESS_BACKFILL_MONTHS", 6)),
         incremental_archives=max(1, _env_int("CHESS_INCREMENTAL_ARCHIVES", 2)),
         time_classes=_env_tuple(
-            "CHESS_TIME_CLASSES", ("bullet", "blitz", "rapid", "daily")
+            "CHESS_TIME_CLASSES",
+            ("ultrabullet", "bullet", "blitz", "rapid", "classical", "daily"),
         ),
         rated_only=_env_bool("CHESS_RATED_ONLY", True),
         auto_sync=_env_bool("CHESS_AUTO_SYNC", True),

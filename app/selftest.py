@@ -38,7 +38,12 @@ from .analysis import (
     win_percent,
 )
 from .config import load_settings
-from .pipeline import map_game, opening_family_from_name, opening_name_from_url
+from .pipeline import (
+    map_chesscom_game,
+    map_lichess_game,
+    opening_family_from_name,
+    opening_name_from_url,
+)
 
 # Schulmatt: Schwarz spielt im 3. Zug Sf6?? und wird im 4. Zug matt gesetzt.
 # Kurz genug fuer einen schnellen Test, aber mit einem eindeutigen Patzer.
@@ -71,6 +76,26 @@ SAMPLE_PAYLOAD = {
     "white": {"username": "Gegner", "rating": 1450, "result": "win"},
     "black": {"username": "Ich", "rating": 1430, "result": "checkmated"},
     "accuracies": {"white": 88.5, "black": 41.2},
+}
+
+LICHESS_PAYLOAD = {
+    "id": "aBcD1234",
+    "rated": True,
+    "variant": "standard",
+    "speed": "rapid",
+    "perf": "rapid",
+    "createdAt": 1767225000000,
+    "lastMoveAt": 1767225600000,
+    "status": "mate",
+    "winner": "white",
+    "players": {
+        "white": {"user": {"name": "Gegner", "id": "gegner"}, "rating": 1500},
+        "black": {"user": {"name": "aBetterDodo", "id": "abetterdodo"}, "rating": 1480,
+                  "analysis": {"accuracy": 44.0}},
+    },
+    "opening": {"eco": "C23", "name": "Bishop's Opening: Boi Variation", "ply": 4},
+    "clock": {"initial": 600, "increment": 5, "totalTime": 800},
+    "pgn": SAMPLE_PGN,
 }
 
 PASS = "  OK  "
@@ -111,7 +136,11 @@ def test_helpers() -> bool:
     )
 
     family = opening_family_from_name("Scandinavian Defense Mieses Kotroc Variation")
-    ok &= _check("Eroeffnungsfamilie", family == "Scandinavian Defense", str(family))
+    ok &= _check("Eroeffnungsfamilie (Chess.com-Schreibweise)",
+                 family == "Scandinavian Defense", str(family))
+    lichess_family = opening_family_from_name("Sicilian Defense: Najdorf Variation")
+    ok &= _check("Eroeffnungsfamilie (Lichess-Schreibweise mit Doppelpunkt)",
+                 lichess_family == "Sicilian Defense", str(lichess_family))
 
     name = opening_name_from_url(
         "https://www.chess.com/openings/Sicilian-Defense-Najdorf-Variation-6.Be3"
@@ -128,7 +157,7 @@ def test_helpers() -> bool:
 # 2) Abbildung der Chess.com-Daten
 # --------------------------------------------------------------------------
 def test_mapping() -> bool:
-    game = map_game(SAMPLE_PAYLOAD, "ich")
+    game = map_chesscom_game(SAMPLE_PAYLOAD, "ich")
     if not _check("Partie liess sich abbilden", game is not None):
         return False
     assert game is not None
@@ -143,10 +172,66 @@ def test_mapping() -> bool:
     ok &= _check(
         "eigene Genauigkeit", game.accuracy_self == 41.2, str(game.accuracy_self)
     )
+    ok &= _check("Plattform vermerkt", game.platform == "chesscom", game.platform)
+    ok &= _check(
+        "Schluessel traegt Plattform-Praefix",
+        game.uuid.startswith("chesscom:"),
+        game.uuid,
+    )
     ok &= _check(
         "Partie eines anderen Spielers wird ignoriert",
-        map_game(SAMPLE_PAYLOAD, "jemand-anderes") is None,
+        map_chesscom_game(SAMPLE_PAYLOAD, "jemand-anderes") is None,
     )
+    return bool(ok)
+
+
+def test_lichess_mapping() -> bool:
+    game = map_lichess_game(LICHESS_PAYLOAD, "aBetterDodo")
+    if not _check("Lichess-Partie liess sich abbilden", game is not None):
+        return False
+    assert game is not None
+
+    ok = True
+    ok &= _check("Plattform vermerkt", game.platform == "lichess", game.platform)
+    ok &= _check("Schluessel mit Praefix", game.uuid == "lichess:aBcD1234", game.uuid)
+    ok &= _check("eigene Farbe erkannt", game.color == "black", game.color)
+    ok &= _check("Ergebnis aus dem Sieger abgeleitet", game.result == "loss", game.result)
+    ok &= _check("Gegner erkannt", game.opponent == "Gegner", game.opponent)
+    ok &= _check("eigene Wertung", game.my_rating == 1480, str(game.my_rating))
+    ok &= _check("Zeitkategorie", game.time_class == "rapid", game.time_class)
+    ok &= _check("Zeitkontrolle aus der Uhr", game.time_control == "600+5",
+                 game.time_control)
+    ok &= _check("ECO direkt uebernommen", game.eco == "C23", str(game.eco))
+    ok &= _check("Eroeffnungsfamilie abgeleitet",
+                 game.opening_family == "Bishop's Opening",
+                 str(game.opening_family))
+    ok &= _check("Genauigkeit aus der Lichess-Analyse",
+                 game.accuracy_self == 44.0, str(game.accuracy_self))
+    ok &= _check("Link zeigt die eigene Farbe",
+                 game.url == "https://lichess.org/aBcD1234/black", game.url)
+    ok &= _check("Zeitstempel in Millisekunden umgerechnet",
+                 game.played_at.year == 2026, str(game.played_at))
+
+    # Gross-/Kleinschreibung darf keine Rolle spielen.
+    ok &= _check("Benutzername unabhaengig von Schreibweise",
+                 map_lichess_game(LICHESS_PAYLOAD, "abetterdodo") is not None)
+    ok &= _check("fremde Partie wird ignoriert",
+                 map_lichess_game(LICHESS_PAYLOAD, "jemand-anderes") is None)
+
+    variant = dict(LICHESS_PAYLOAD, variant="chess960")
+    ok &= _check("Variante wird uebersprungen",
+                 map_lichess_game(variant, "aBetterDodo") is None)
+
+    aborted = dict(LICHESS_PAYLOAD, status="aborted")
+    ok &= _check("abgebrochene Partie wird uebersprungen",
+                 map_lichess_game(aborted, "aBetterDodo") is None)
+
+    draw = dict(LICHESS_PAYLOAD)
+    draw.pop("winner")
+    drawn = map_lichess_game(draw, "aBetterDodo")
+    ok &= _check("fehlender Sieger bedeutet Remis",
+                 drawn is not None and drawn.result == "draw",
+                 drawn.result if drawn else "-")
     return bool(ok)
 
 
@@ -356,14 +441,17 @@ def main() -> int:
     print("\n2) Abbildung der Chess.com-Daten")
     mapping_ok = test_mapping()
 
-    print("\n3) Einordnung der Fehlerarten")
+    print("\n3) Abbildung der Lichess-Daten")
+    lichess_ok = test_lichess_mapping()
+
+    print("\n4) Einordnung der Fehlerarten")
     classification_ok = test_classification()
 
-    print("\n4) Stockfish-Analyse einer ganzen Partie")
+    print("\n5) Stockfish-Analyse einer ganzen Partie")
     analysis_ok = test_analysis()
 
     print("\n" + "=" * 66)
-    if helpers_ok and mapping_ok and classification_ok and analysis_ok:
+    if helpers_ok and mapping_ok and lichess_ok and classification_ok and analysis_ok:
         print("Alles in Ordnung.")
         return 0
     print("Mindestens ein Test ist fehlgeschlagen (siehe oben).")

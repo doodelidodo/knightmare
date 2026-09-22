@@ -71,6 +71,7 @@ def load_games(
     days: Optional[int] = None,
     time_class: Optional[str] = None,
     color: Optional[str] = None,
+    platform: Optional[str] = None,
     analyzed_only: bool = False,
 ) -> list[ChessGame]:
     statement = select(ChessGame)
@@ -79,6 +80,8 @@ def load_games(
         statement = statement.where(ChessGame.played_at >= since)
     if time_class:
         statement = statement.where(ChessGame.time_class == time_class)
+    if platform:
+        statement = statement.where(ChessGame.platform == platform)
     if color in {"white", "black"}:
         statement = statement.where(ChessGame.color == color)
     if analyzed_only:
@@ -91,6 +94,7 @@ def load_moves(
     session: Session,
     days: Optional[int] = None,
     time_class: Optional[str] = None,
+    platform: Optional[str] = None,
     errors_only: bool = False,
     with_clock: bool = False,
 ) -> list[ChessMove]:
@@ -100,6 +104,8 @@ def load_moves(
         statement = statement.where(ChessMove.played_at >= since)
     if time_class:
         statement = statement.where(ChessMove.time_class == time_class)
+    if platform:
+        statement = statement.where(ChessMove.platform == platform)
     if errors_only:
         statement = statement.where(ChessMove.category != "ok")
     if with_clock:
@@ -107,13 +113,31 @@ def load_moves(
     return list(session.exec(statement).all())
 
 
-def available_time_classes(session: Session) -> list[dict[str, Any]]:
-    """Welche Partiearten liegen ueberhaupt vor - fuer die Filterleiste."""
-    games = list(session.exec(select(ChessGame)).all())
+def available_time_classes(
+    session: Session, platform: Optional[str] = None
+) -> list[dict[str, Any]]:
+    """Welche Partiearten liegen ueberhaupt vor - fuer die Filterleiste.
+
+    Bewusst aus den Daten abgeleitet statt fest verdrahtet: wer nie Bullet
+    spielt, bekommt auch keinen Bullet-Knopf. Und wenn Lichess spaeter
+    Classical oder UltraBullet liefert, erscheinen die von selbst.
+    """
+    statement = select(ChessGame)
+    if platform:
+        statement = statement.where(ChessGame.platform == platform)
+    games = list(session.exec(statement).all())
     counter: Counter[str] = Counter(game.time_class for game in games)
     return [
-        {"time_class": name, "games": count}
-        for name, count in counter.most_common()
+        {"time_class": name, "games": count} for name, count in counter.most_common()
+    ]
+
+
+def available_platforms(session: Session) -> list[dict[str, Any]]:
+    """Von welchen Plattformen liegen Partien vor."""
+    games = list(session.exec(select(ChessGame)).all())
+    counter: Counter[str] = Counter(game.platform or "chesscom" for game in games)
+    return [
+        {"platform": name, "games": count} for name, count in counter.most_common()
     ]
 
 
@@ -124,8 +148,9 @@ def overview(
     session: Session,
     days: Optional[int] = None,
     time_class: Optional[str] = None,
+    platform: Optional[str] = None,
 ) -> dict[str, Any]:
-    games = load_games(session, days=days, time_class=time_class)
+    games = load_games(session, days=days, time_class=time_class, platform=platform)
     analyzed = _analyzed(games)
     wins, draws, losses, percent = _score_of(games)
 
@@ -191,10 +216,13 @@ def error_types(
     session: Session,
     days: Optional[int] = None,
     time_class: Optional[str] = None,
+    platform: Optional[str] = None,
     examples_per_type: int = 3,
 ) -> dict[str, Any]:
     """Welche Art von Fehler passiert wie oft - die Kategorie zum Ueben."""
-    moves = load_moves(session, days=days, time_class=time_class, errors_only=True)
+    moves = load_moves(
+        session, days=days, time_class=time_class, platform=platform, errors_only=True
+    )
     if not moves:
         return {"time_class": time_class or "all", "errors_total": 0, "types": []}
 
@@ -288,6 +316,7 @@ def _move_row(move: ChessMove, game: Optional[ChessGame]) -> dict[str, Any]:
         "seconds_spent": move.seconds_spent,
         "played_at": move.played_at.isoformat(),
         "time_class": move.time_class,
+        "platform": move.platform,
         "game_url": game.url if game else None,
         "opponent": game.opponent if game else None,
         "opponent_rating": game.opponent_rating if game else None,
@@ -301,6 +330,7 @@ def error_moves(
     error_type: Optional[str] = None,
     days: Optional[int] = None,
     time_class: Optional[str] = None,
+    platform: Optional[str] = None,
     phase: Optional[str] = None,
     category: Optional[str] = None,
     sort: str = "cp_loss",
@@ -320,6 +350,8 @@ def error_moves(
         conditions.append(ChessMove.played_at >= since)
     if time_class:
         conditions.append(ChessMove.time_class == time_class)
+    if platform:
+        conditions.append(ChessMove.platform == platform)
     if phase:
         conditions.append(ChessMove.phase == phase)
     if category:
@@ -371,10 +403,13 @@ def openings(
     color: Optional[str] = None,
     days: Optional[int] = None,
     time_class: Optional[str] = None,
+    platform: Optional[str] = None,
     min_games: int = 3,
     limit: int = 20,
 ) -> dict[str, Any]:
-    games = load_games(session, days=days, time_class=time_class, color=color)
+    games = load_games(
+        session, days=days, time_class=time_class, platform=platform, color=color
+    )
     grouped: dict[str, list[ChessGame]] = defaultdict(list)
     for game in games:
         key = game.opening_family or game.opening_name or game.eco or "unbekannt"
@@ -431,8 +466,9 @@ def phases(
     session: Session,
     days: Optional[int] = None,
     time_class: Optional[str] = None,
+    platform: Optional[str] = None,
 ) -> dict[str, Any]:
-    moves = load_moves(session, days=days, time_class=time_class)
+    moves = load_moves(session, days=days, time_class=time_class, platform=platform)
 
     grouped: dict[str, list[ChessMove]] = defaultdict(list)
     for move in moves:
@@ -480,8 +516,11 @@ def time_pressure(
     session: Session,
     days: Optional[int] = None,
     time_class: Optional[str] = None,
+    platform: Optional[str] = None,
 ) -> dict[str, Any]:
-    moves = load_moves(session, days=days, time_class=time_class, with_clock=True)
+    moves = load_moves(
+        session, days=days, time_class=time_class, platform=platform, with_clock=True
+    )
     # Daily-Partien haben Restzeiten in Tagen - das verzerrt die Klassen.
     moves = [move for move in moves if move.time_class != "daily"]
 
@@ -536,12 +575,16 @@ def time_pressure(
 # --------------------------------------------------------------------------
 # Wochenreport
 # --------------------------------------------------------------------------
-def weekly_report(session: Session, time_class: Optional[str] = None) -> dict[str, Any]:
+def weekly_report(
+    session: Session,
+    time_class: Optional[str] = None,
+    platform: Optional[str] = None,
+) -> dict[str, Any]:
     now = datetime.utcnow()
     this_week_start = now - timedelta(days=7)
     last_week_start = now - timedelta(days=14)
 
-    all_games = load_games(session, days=14, time_class=time_class)
+    all_games = load_games(session, days=14, time_class=time_class, platform=platform)
     this_week = [game for game in all_games if game.played_at >= this_week_start]
     last_week = [
         game for game in all_games if last_week_start <= game.played_at < this_week_start
@@ -660,11 +703,16 @@ def weekly_report(session: Session, time_class: Optional[str] = None) -> dict[st
 # Einzelne Partien
 # --------------------------------------------------------------------------
 def recent_games(
-    session: Session, limit: int = 20, time_class: Optional[str] = None
+    session: Session,
+    limit: int = 20,
+    time_class: Optional[str] = None,
+    platform: Optional[str] = None,
 ) -> dict[str, Any]:
     statement = select(ChessGame)
     if time_class:
         statement = statement.where(ChessGame.time_class == time_class)
+    if platform:
+        statement = statement.where(ChessGame.platform == platform)
     statement = statement.order_by(ChessGame.played_at.desc()).limit(limit)  # type: ignore[union-attr]
     games = list(session.exec(statement).all())
     return {
@@ -675,6 +723,7 @@ def recent_games(
                 "played_at": game.played_at.isoformat(),
                 "url": game.url,
                 "time_class": game.time_class,
+                "platform": game.platform,
                 "color": game.color,
                 "result": game.result,
                 "opponent": game.opponent,

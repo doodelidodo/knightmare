@@ -21,8 +21,15 @@ from sqlmodel import Session, select
 
 from .analysis import AnalysisError, EngineAnalyzer
 from .chesscom import ChessComClient, ChessComError
-from .config import DRAW_RESULTS, Settings
+from .config import (
+    DRAW_RESULTS,
+    LICHESS_SPEEDS,
+    PLATFORM_CHESSCOM,
+    PLATFORM_LICHESS,
+    Settings,
+)
 from .db import new_session
+from .lichess import LichessClient, LichessError
 from .models import ChessGame, ChessMove, ChessSyncState
 
 log = logging.getLogger(__name__)
@@ -69,12 +76,24 @@ def _set_status(**values: Any) -> None:
 # Abbildung Chess.com -> eigenes Modell
 # --------------------------------------------------------------------------
 def opening_family_from_name(name: Optional[str]) -> Optional[str]:
-    """'Scandinavian Defense Mieses Kotroc Variation' -> 'Scandinavian Defense'."""
+    """Kuerzt einen Eroeffnungsnamen auf die Familie.
+
+    Lichess liefert bereits 'Familie: Variante' - dort genuegt der Doppelpunkt
+    und das Ergebnis ist exakt. Chess.com schreibt alles in einem Stueck
+    ('Scandinavian Defense Mieses Kotroc Variation'), da hilft nur das
+    Stichwort - und notfalls die ersten drei Woerter.
+    """
     if not name:
         return None
+
+    if ":" in name:
+        family = name.split(":", 1)[0].strip()
+        if family:
+            return family
+
     words = name.split()
     for index, word in enumerate(words):
-        if word.strip(",.") in _FAMILY_TERMINATORS:
+        if word.strip(",.:;") in _FAMILY_TERMINATORS:
             return " ".join(words[: index + 1])
     return " ".join(words[:3]) if words else None
 
@@ -112,8 +131,8 @@ def _trim(value: Any, length: int) -> Optional[str]:
     return text[:length] if text else None
 
 
-def map_game(payload: dict[str, Any], username: str) -> Optional[ChessGame]:
-    """Baut aus einem API-Eintrag eine Zeile. None = Partie ueberspringen."""
+def map_chesscom_game(payload: dict[str, Any], username: str) -> Optional[ChessGame]:
+    """Baut aus einem Chess.com-Eintrag eine Zeile. None = Partie ueberspringen."""
     pgn_text = payload.get("pgn")
     if not pgn_text or not isinstance(pgn_text, str):
         return None
@@ -167,7 +186,8 @@ def map_game(payload: dict[str, Any], username: str) -> Optional[ChessGame]:
     accuracies = payload.get("accuracies") or {}
 
     return ChessGame(
-        uuid=str(payload.get("uuid") or payload.get("url") or "")[:64],
+        platform=PLATFORM_CHESSCOM,
+        uuid=f"chesscom:{payload.get('uuid') or payload.get('url') or ''}"[:64],
         url=_trim(payload.get("url"), 300) or "",
         played_at=played_at,
         time_class=_trim(payload.get("time_class"), 20) or "unknown",
@@ -187,6 +207,104 @@ def map_game(payload: dict[str, Any], username: str) -> Optional[ChessGame]:
         accuracy_opponent=_to_float(
             accuracies.get("black" if color == "white" else "white")
         ),
+        pgn=pgn_text,
+    )
+
+
+# Partien, die gar nicht erst gespielt wurden - kein PGN, nichts zu analysieren.
+LICHESS_DEAD_STATUS = {"aborted", "noStart", "unknownFinish"}
+
+
+def map_lichess_game(payload: dict[str, Any], username: str) -> Optional[ChessGame]:
+    """Baut aus einem Lichess-Eintrag eine Zeile. None = Partie ueberspringen.
+
+    Lichess liefert Eroeffnungsname und ECO-Code direkt mit - das Raten aus
+    einer URL wie bei Chess.com entfaellt hier.
+    """
+    if str(payload.get("variant") or "standard") != "standard":
+        return None
+    if str(payload.get("status") or "") in LICHESS_DEAD_STATUS:
+        return None
+
+    pgn_text = payload.get("pgn")
+    if not pgn_text or not isinstance(pgn_text, str):
+        return None
+
+    players = payload.get("players") or {}
+    white = players.get("white") or {}
+    black = players.get("black") or {}
+
+    def _name(side: dict[str, Any]) -> str:
+        user = side.get("user") or {}
+        return str(user.get("name") or "").lower()
+
+    wanted = (username or "").lower()
+    if _name(white) == wanted:
+        me, opponent, color = white, black, "white"
+    elif _name(black) == wanted:
+        me, opponent, color = black, white, "black"
+    else:
+        # Kann bei anonymen Gegnern oder Computer-Partien vorkommen.
+        return None
+
+    winner = payload.get("winner")
+    if winner is None:
+        result = "draw"
+    elif str(winner) == color:
+        result = "win"
+    else:
+        result = "loss"
+
+    # Lichess rechnet in Millisekunden.
+    last_move = _to_int(payload.get("lastMoveAt")) or _to_int(payload.get("createdAt")) or 0
+    played_at = datetime.fromtimestamp(last_move / 1000, tz=timezone.utc).replace(
+        tzinfo=None
+    )
+
+    speed = str(payload.get("speed") or "")
+    time_class = LICHESS_SPEEDS.get(speed, speed.lower() or "unknown")
+
+    clock = payload.get("clock") or {}
+    initial = _to_int(clock.get("initial"))
+    increment = _to_int(clock.get("increment"))
+    if initial is not None and increment is not None:
+        time_control = f"{initial}+{increment}" if increment else str(initial)
+    else:
+        time_control = ""
+
+    opening = payload.get("opening") or {}
+    opening_name = _trim(opening.get("name"), 200)
+    opening_family = opening_family_from_name(opening_name)
+
+    game_id = str(payload.get("id") or "")
+    # Lichess zeigt die Partie aus Sicht der angehaengten Farbe an - praktisch,
+    # wenn man den eigenen Fehler nachschauen will.
+    url = f"https://lichess.org/{game_id}/{color}" if game_id else ""
+
+    analysis_self = (me.get("analysis") or {}) if isinstance(me, dict) else {}
+    analysis_opp = (opponent.get("analysis") or {}) if isinstance(opponent, dict) else {}
+
+    return ChessGame(
+        platform=PLATFORM_LICHESS,
+        uuid=f"lichess:{game_id}"[:64],
+        url=url[:300],
+        played_at=played_at,
+        time_class=time_class[:20],
+        time_control=time_control[:30],
+        rated=bool(payload.get("rated", True)),
+        color=color,
+        result=result,
+        termination=_trim(payload.get("status"), 160),
+        my_rating=_to_int(me.get("rating")),
+        opponent=_trim((opponent.get("user") or {}).get("name"), 60) or "",
+        opponent_rating=_to_int(opponent.get("rating")),
+        eco=_trim(opening.get("eco"), 10),
+        opening_name=opening_name,
+        opening_family=_trim(opening_family, 120),
+        opening_url=None,
+        # Genauigkeit gibt es nur, wenn die Partie auf Lichess analysiert wurde.
+        accuracy_self=_to_float(analysis_self.get("accuracy")),
+        accuracy_opponent=_to_float(analysis_opp.get("accuracy")),
         pgn=pgn_text,
     )
 
@@ -215,11 +333,25 @@ def _archives_to_fetch(archives: list[str], settings: Settings, has_games: bool)
 # --------------------------------------------------------------------------
 # Schritt 1: abholen
 # --------------------------------------------------------------------------
-def sync_games(session: Session, settings: Settings, full: bool = False) -> dict[str, Any]:
-    existing_count = len(session.exec(select(ChessGame.id).limit(1)).all())
-    has_games = existing_count > 0 and not full
+def _is_known(session: Session, uuid: str) -> bool:
+    return (
+        session.exec(select(ChessGame.id).where(ChessGame.uuid == uuid)).first()
+        is not None
+    )
 
-    with ChessComClient(settings.username, settings.user_agent) as client:
+
+def sync_chesscom(
+    session: Session, settings: Settings, full: bool = False
+) -> dict[str, Any]:
+    username = settings.chesscom_username
+    existing = session.exec(
+        select(ChessGame.id)
+        .where(ChessGame.platform == PLATFORM_CHESSCOM)
+        .limit(1)
+    ).first()
+    has_games = existing is not None and not full
+
+    with ChessComClient(username, settings.user_agent) as client:
         archives = client.archives()
         targets = _archives_to_fetch(archives, settings, has_games)
 
@@ -229,7 +361,10 @@ def sync_games(session: Session, settings: Settings, full: bool = False) -> dict
 
         for archive_url in targets:
             last_archive = archive_url
-            _set_status(phase=f"hole {archive_url.rsplit('/', 2)[-2]}/{archive_url.rsplit('/', 1)[-1]}")
+            _set_status(
+                phase=f"Chess.com {archive_url.rsplit('/', 2)[-2]}/"
+                f"{archive_url.rsplit('/', 1)[-1]}"
+            )
             for payload in client.games(archive_url):
                 if str(payload.get("rules") or "chess").lower() not in SUPPORTED_RULES:
                     skipped += 1
@@ -242,15 +377,8 @@ def sync_games(session: Session, settings: Settings, full: bool = False) -> dict
                     skipped += 1
                     continue
 
-                game = map_game(payload, settings.username.lower())
-                if game is None or not game.uuid:
-                    skipped += 1
-                    continue
-
-                known = session.exec(
-                    select(ChessGame).where(ChessGame.uuid == game.uuid)
-                ).first()
-                if known is not None:
+                game = map_chesscom_game(payload, username.lower())
+                if game is None or not game.uuid or _is_known(session, game.uuid):
                     skipped += 1
                     continue
 
@@ -259,9 +387,125 @@ def sync_games(session: Session, settings: Settings, full: bool = False) -> dict
             session.commit()
 
     return {
+        "platform": PLATFORM_CHESSCOM,
         "added": added,
         "skipped": skipped,
         "archives": len(targets),
+        "last_archive": last_archive,
+    }
+
+
+def sync_lichess(
+    session: Session, settings: Settings, full: bool = False
+) -> dict[str, Any]:
+    """Holt die Lichess-Partien.
+
+    Wie weit wir schon sind, steht in den Daten selbst: das juengste
+    `played_at` dieser Plattform. Eine Stunde Ueberlappung, damit eine Partie
+    an der Grenze nicht durchrutscht - Doppelte faengt die uuid-Pruefung ab.
+    """
+    username = settings.lichess_username
+    since_ms: Optional[int] = None
+
+    if not full:
+        newest = session.exec(
+            select(ChessGame.played_at)
+            .where(ChessGame.platform == PLATFORM_LICHESS)
+            .order_by(ChessGame.played_at.desc())  # type: ignore[union-attr]
+            .limit(1)
+        ).first()
+        if newest is not None:
+            overlap = newest - timedelta(hours=1)
+            since_ms = int(overlap.replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+    if since_ms is None:
+        cutoff = datetime.now(tz=timezone.utc) - timedelta(
+            days=31 * settings.backfill_months
+        )
+        since_ms = int(cutoff.timestamp() * 1000)
+
+    added = 0
+    skipped = 0
+    seen = 0
+
+    with LichessClient(
+        username, settings.user_agent, token=settings.lichess_token
+    ) as client:
+        _set_status(phase="Lichess")
+        for payload in client.games(since_ms=since_ms, rated_only=settings.rated_only):
+            seen += 1
+            if seen % 50 == 0:
+                _set_status(phase=f"Lichess ({seen} gelesen)")
+
+            game = map_lichess_game(payload, username)
+            if game is None or not game.uuid:
+                skipped += 1
+                continue
+            if settings.time_classes and game.time_class not in settings.time_classes:
+                skipped += 1
+                continue
+            if _is_known(session, game.uuid):
+                skipped += 1
+                continue
+
+            session.add(game)
+            added += 1
+            if added % 100 == 0:
+                session.commit()
+        session.commit()
+
+    return {
+        "platform": PLATFORM_LICHESS,
+        "added": added,
+        "skipped": skipped,
+        "seen": seen,
+    }
+
+
+def sync_games(session: Session, settings: Settings, full: bool = False) -> dict[str, Any]:
+    """Holt von allen konfigurierten Plattformen.
+
+    Faellt eine Quelle aus, laufen die anderen trotzdem durch - ein
+    Chess.com-Ausfall soll die Lichess-Partien nicht blockieren.
+    """
+    added = 0
+    skipped = 0
+    per_platform: list[dict[str, Any]] = []
+    problems: list[str] = []
+    last_archive: Optional[str] = None
+
+    if settings.chesscom_username:
+        try:
+            result = sync_chesscom(session, settings, full=full)
+            per_platform.append(result)
+            added += result["added"]
+            skipped += result["skipped"]
+            last_archive = result.get("last_archive")
+        except ChessComError as exc:
+            session.rollback()
+            problems.append(f"Chess.com: {exc}")
+            log.error("Chess.com-Abgleich fehlgeschlagen: %s", exc)
+
+    if settings.lichess_username:
+        try:
+            result = sync_lichess(session, settings, full=full)
+            per_platform.append(result)
+            added += result["added"]
+            skipped += result["skipped"]
+        except LichessError as exc:
+            session.rollback()
+            problems.append(f"Lichess: {exc}")
+            log.error("Lichess-Abgleich fehlgeschlagen: %s", exc)
+
+    if problems and not per_platform:
+        # Keine einzige Quelle hat funktioniert - das ist ein echter Fehler.
+        raise ChessComError("; ".join(problems))
+
+    return {
+        "added": added,
+        "skipped": skipped,
+        "platforms": per_platform,
+        "problems": problems,
         "last_archive": last_archive,
     }
 
@@ -337,6 +581,7 @@ def analyse_pending(
                         played_at=game.played_at,
                         time_class=game.time_class,
                         color=game.color,
+                        platform=game.platform,
                     )
                 )
 
@@ -370,15 +615,21 @@ def analyse_pending(
     }
 
 
-def reset_analysis(session: Session, time_class: Optional[str] = None) -> int:
+def reset_analysis(
+    session: Session,
+    time_class: Optional[str] = None,
+    platform: Optional[str] = None,
+) -> int:
     """Markiert Partien als unanalysiert und wirft ihre Zuege weg.
 
     Noetig nach geaenderten Schwellen oder erweiterter Analyse - die Partien
-    selbst bleiben erhalten, es wird also nichts neu von Chess.com geholt.
+    selbst bleiben erhalten, es wird also nichts neu abgeholt.
     """
     statement = select(ChessGame)
     if time_class:
         statement = statement.where(ChessGame.time_class == time_class)
+    if platform:
+        statement = statement.where(ChessGame.platform == platform)
     games = list(session.exec(statement).all())
     game_ids = [game.id for game in games if game.id is not None]
 
@@ -414,7 +665,12 @@ def _store_state(
     state = session.get(ChessSyncState, 1)
     if state is None:
         state = ChessSyncState(id=1)
-    state.username = settings.username[:60]
+    names = []
+    if settings.chesscom_username:
+        names.append(f"chess.com/{settings.chesscom_username}")
+    if settings.lichess_username:
+        names.append(f"lichess/{settings.lichess_username}")
+    state.username = ", ".join(names)[:60]
     state.last_sync_at = datetime.utcnow()
     state.last_sync_status = status[:20]
     state.last_sync_message = message[:600]
@@ -434,7 +690,10 @@ def run_once(
 ) -> dict[str, Any]:
     """Ein kompletter Durchlauf. Gibt eine Zusammenfassung zurueck."""
     if not settings.configured:
-        return {"ok": False, "message": "CHESSCOM_USERNAME ist nicht gesetzt."}
+        return {
+            "ok": False,
+            "message": "Weder CHESSCOM_USERNAME noch LICHESS_USERNAME ist gesetzt.",
+        }
 
     if not _run_lock.acquire(blocking=False):
         return {"ok": False, "message": "Es laeuft bereits ein Durchgang."}
@@ -471,6 +730,10 @@ def run_once(
             f"{analysis_result['failed']} fehlerhaft, "
             f"{analysis_result['remaining']} offen"
         )
+        # Ausgefallene Quellen gehoeren in die Meldung - sonst wundert man
+        # sich, warum von einer Plattform nichts ankommt.
+        for problem in fetch_result.get("problems") or []:
+            message += f" · {problem}"
         summary.update(fetch=fetch_result, analysis=analysis_result, message=message)
         _store_state(
             session, settings, "ok", message, fetch_result.get("last_archive"), fetch_result["added"]
