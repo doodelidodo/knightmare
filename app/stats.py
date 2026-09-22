@@ -17,7 +17,7 @@ from typing import Any, Iterable, Optional, Sequence
 
 from sqlmodel import Session, select
 
-from .analysis import ERROR_LABELS, ERROR_UNCLASSIFIED
+from .analysis import ERROR_LABELS, ERROR_UNCLASSIFIED, MISSED_LABELS
 from .models import ChessGame, ChessMove
 
 SCORE_BY_RESULT = {"win": 1.0, "draw": 0.5, "loss": 0.0}
@@ -310,6 +310,8 @@ def _move_row(move: ChessMove, game: Optional[ChessGame]) -> dict[str, Any]:
         "category": move.category,
         "error_type": move.error_type,
         "label": ERROR_LABELS.get(move.error_type or "", None),
+        "missed_motif": move.missed_motif,
+        "missed_label": MISSED_LABELS.get(move.missed_motif or "", None),
         "cp_loss": move.cp_loss,
         "win_loss": move.win_loss,
         "best_move_san": move.best_move_san,
@@ -391,6 +393,124 @@ def error_moves(
     return {
         "error_type": error_type,
         "label": ERROR_LABELS.get(error_type or "", None),
+        "time_class": time_class or "all",
+        "sort": "recent" if sort == "recent" else "cp_loss",
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "returned": len(moves),
+        "moves": [_move_row(move, games_by_id.get(move.game_id)) for move in moves],
+    }
+
+
+# --------------------------------------------------------------------------
+# Verpasste Taktik
+#
+# Gegenstueck zu den Fehlerarten: dort geht es darum, worin man hineinlaeuft,
+# hier um das, was auf dem Brett stand und nicht gespielt wurde. Erfasst wird
+# nur bei Fehlern und Patzern - siehe analysis.classify_missed.
+# --------------------------------------------------------------------------
+def missed_motifs(
+    session: Session,
+    days: Optional[int] = None,
+    time_class: Optional[str] = None,
+    platform: Optional[str] = None,
+) -> dict[str, Any]:
+    """Welche Taktik lag bereit und wurde uebersehen."""
+    moves = load_moves(
+        session, days=days, time_class=time_class, platform=platform, errors_only=True
+    )
+    tagged = [move for move in moves if move.missed_motif]
+    if not tagged:
+        return {
+            "time_class": time_class or "all",
+            "missed_total": 0,
+            "scanned": len(moves),
+            "types": [],
+        }
+
+    grouped: dict[str, list[ChessMove]] = defaultdict(list)
+    for move in tagged:
+        grouped[move.missed_motif].append(move)
+
+    rows: list[dict[str, Any]] = []
+    for name, items in grouped.items():
+        phases_counter: Counter[str] = Counter(item.phase for item in items)
+        clocks = [item.clock_seconds for item in items if item.clock_seconds is not None]
+        rows.append(
+            {
+                "motif": name,
+                "label": MISSED_LABELS.get(name, name),
+                "count": len(items),
+                "share_percent": _round(len(items) / len(tagged) * 100, 1),
+                "avg_cp_loss": _round(_mean([item.cp_loss for item in items]), 0),
+                "blunders": sum(1 for item in items if item.category == "blunder"),
+                "mistakes": sum(1 for item in items if item.category == "mistake"),
+                "main_phase": phases_counter.most_common(1)[0][0] if phases_counter else None,
+                "avg_clock_seconds": _round(_mean(clocks), 0) if clocks else None,
+            }
+        )
+
+    rows.sort(key=lambda row: (-row["count"], row["motif"]))
+    return {
+        "time_class": time_class or "all",
+        # Bezugsgroesse mitliefern: "18 verpasste Motive" sagt wenig, "18 von
+        # 402 Fehlern" sagt, wie oft ueberhaupt etwas zu holen war.
+        "missed_total": len(tagged),
+        "scanned": len(moves),
+        "types": rows,
+    }
+
+
+def missed_moves(
+    session: Session,
+    motif: Optional[str] = None,
+    days: Optional[int] = None,
+    time_class: Optional[str] = None,
+    platform: Optional[str] = None,
+    phase: Optional[str] = None,
+    sort: str = "cp_loss",
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Alle Stellen eines verpassten Motivs - zum Nachspielen, nicht als Stichprobe."""
+    conditions = [ChessMove.missed_motif.is_not(None)]  # type: ignore[union-attr]
+    if motif:
+        conditions.append(ChessMove.missed_motif == motif)
+    if days:
+        since = datetime.utcnow() - timedelta(days=days)
+        conditions.append(ChessMove.played_at >= since)
+    if time_class:
+        conditions.append(ChessMove.time_class == time_class)
+    if platform:
+        conditions.append(ChessMove.platform == platform)
+    if phase:
+        conditions.append(ChessMove.phase == phase)
+
+    total = len(session.exec(select(ChessMove.id).where(*conditions)).all())
+
+    statement = select(ChessMove).where(*conditions)
+    if sort == "recent":
+        statement = statement.order_by(
+            ChessMove.played_at.desc(), ChessMove.ply  # type: ignore[union-attr]
+        )
+    else:
+        statement = statement.order_by(
+            ChessMove.cp_loss.desc(), ChessMove.played_at.desc()  # type: ignore[union-attr]
+        )
+    moves = list(session.exec(statement.offset(offset).limit(limit)).all())
+
+    games_by_id: dict[int, ChessGame] = {}
+    game_ids = {move.game_id for move in moves}
+    if game_ids:
+        found = session.exec(
+            select(ChessGame).where(ChessGame.id.in_(game_ids))  # type: ignore[union-attr]
+        ).all()
+        games_by_id = {game.id: game for game in found if game.id is not None}
+
+    return {
+        "motif": motif,
+        "label": MISSED_LABELS.get(motif or "", None),
         "time_class": time_class or "all",
         "sort": "recent" if sort == "recent" else "cp_loss",
         "total": total,

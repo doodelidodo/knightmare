@@ -574,6 +574,7 @@ def analyse_pending(
                         win_loss=move.win_loss,
                         category=move.category,
                         error_type=_trim(move.error_type, 20),
+                        missed_motif=_trim(move.missed_motif, 20),
                         best_move_san=_trim(move.best_move_san, 16),
                         refutation_san=_trim(move.refutation_san, 16),
                         clock_seconds=move.clock_seconds,

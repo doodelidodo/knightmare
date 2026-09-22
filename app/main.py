@@ -25,7 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
 from . import __version__, stats
-from .analysis import ERROR_LABELS
+from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import load_settings
 from .db import get_session, init_db
 from .models import ChessGame, ChessSyncState
@@ -189,6 +189,7 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
             "blunder": settings.blunder_cp,
         },
         "error_labels": ERROR_LABELS,
+        "missed_labels": MISSED_LABELS,
         "games_total": total,
         "games_analyzed": analyzed,
         "games_pending": max(0, total - analyzed - failed),
@@ -325,6 +326,48 @@ def get_errors(
         platform=_clean_platform(platform),
         phase=phase,
         category=category,
+        sort=sort,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@api.get("/missed")
+def get_missed_motifs(
+    days: Optional[int] = DaysParam,
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Welche Taktik lag bereit und wurde nicht gespielt."""
+    return stats.missed_motifs(
+        session,
+        days=days,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
+    )
+
+
+@api.get("/missed/moves")
+def get_missed_moves(
+    motif: Optional[str] = Query(default=None, max_length=20),
+    days: Optional[int] = DaysParam,
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    phase: Optional[str] = Query(default=None, max_length=20),
+    sort: str = Query(default="cp_loss", pattern="^(cp_loss|recent)$"),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Jede einzelne Stelle - bewusst ohne Obergrenze im Sinne von Stichprobe."""
+    return stats.missed_moves(
+        session,
+        motif=(motif or None),
+        days=days,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
+        phase=(phase or None),
         sort=sort,
         limit=limit,
         offset=offset,

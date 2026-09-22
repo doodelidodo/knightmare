@@ -39,6 +39,31 @@ The split between *hung a piece* and *missed a threat* is the one that matters
 most in practice: the first is a careless destination square, the second is not
 reading the opponent's last move. Different habits, different training.
 
+## The other half: what you left on the board
+
+Every mistake has a second story. Knightmare also runs the engine's **best
+move** — the one you did not play — through the same geometry, and tells you
+which tactic was sitting there:
+
+| Motif | Detected when |
+| --- | --- |
+| **Missed a mate** | A forced mate was available. |
+| **Missed a fork** | The best move attacked two worthwhile targets at once. |
+| **Missed a discovered attack** | The best move vacated a line, and a piece behind it hit something worth at least a minor piece. |
+| **Missed a skewer** | Two enemy pieces on one line, the more valuable one in front. |
+| **Missed a pin** | Two enemy pieces on one line, the more valuable one behind. |
+| **Missed free material** | An undefended piece, or one worth more than the piece taking it. |
+
+This costs no extra engine time — the best move comes back with the evaluation
+either way.
+
+Recorded only for mistakes and blunders, not inaccuracies: below 100
+centipawns a "missed skewer" is usually an accident of geometry rather than
+something to train. And deliberately nothing beyond the list above — zwischenzug,
+deflection over several moves, zugzwang and anything positional cannot be
+decided from one reply, and a wrong label is worse than none. You would train
+the wrong thing.
+
 On top of that: which openings cost you points, which phase you fall apart in,
 and how your mistakes correlate with the clock — the last one is read from the
 `[%clk]` comments both platforms write into the PGN.
@@ -129,6 +154,8 @@ interactive docs at `/api/docs`.
 ```
 GET  /api/error-types?time_class=rapid       # how often each motif happens
 GET  /api/errors?error_type=hanging_piece&sort=cp_loss&limit=50
+GET  /api/missed                             # tactics that were there and weren't played
+GET  /api/missed/moves?motif=fork&sort=recent
 GET  /api/openings?color=black&min_games=3
 GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze
@@ -144,8 +171,9 @@ docker exec knightmare python -m app.selftest
 ```
 
 Checks that Stockfish starts, analyses a complete game, reads the clock
-comments, and — the interesting part — classifies all seven motifs correctly
-against purpose-built positions. Exit code 0 means everything is fine. The same
+comments, and — the interesting part — classifies every motif correctly
+against purpose-built positions: the seven mistake types, and the six missed
+tactics including two positions where the answer must be *nothing*. Exit code 0 means everything is fine. The same
 test runs on every push in CI.
 
 ## Honest limitations

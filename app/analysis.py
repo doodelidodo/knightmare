@@ -199,6 +199,226 @@ def is_fork(board_after_reply: chess.Board, reply: chess.Move, victim_color: che
     return targets >= 2
 
 
+# --------------------------------------------------------------------------
+# Verpasste Taktik
+#
+# Zweite Achse der Auswertung. Die Fehlerarten oben sagen, worin man
+# hineingelaufen ist; hier geht es um das Gegenteil: was auf dem Brett stand
+# und nicht gespielt wurde. Grundlage ist der beste Zug, den Stockfish in der
+# Stellung VOR unserem Zug gesehen hat - der liegt ohnehin vor, die Erkennung
+# kostet also keine zusaetzliche Rechenzeit.
+#
+# Alles hier ist reine Geometrie auf dem Brett. Was sich damit nicht sauber
+# entscheiden laesst - Zwischenzug, Ablenkung ueber mehrere Zuege, Zugzwang -
+# ist bewusst nicht dabei. Ein falsches Etikett waere schlimmer als keins:
+# man wuerde das Falsche trainieren.
+# --------------------------------------------------------------------------
+MISSED_MATE = "mate"
+MISSED_FORK = "fork"
+MISSED_DISCOVERED = "discovered"
+MISSED_SKEWER = "skewer"
+MISSED_PIN = "pin"
+MISSED_MATERIAL = "material"
+
+MISSED_TYPES = (
+    MISSED_MATE,
+    MISSED_FORK,
+    MISSED_DISCOVERED,
+    MISSED_SKEWER,
+    MISSED_PIN,
+    MISSED_MATERIAL,
+)
+
+MISSED_LABELS = {
+    MISSED_MATE: "Missed a mate",
+    MISSED_FORK: "Missed a fork",
+    MISSED_DISCOVERED: "Missed a discovered attack",
+    MISSED_SKEWER: "Missed a skewer",
+    MISSED_PIN: "Missed a pin",
+    MISSED_MATERIAL: "Missed free material",
+}
+
+SLIDERS = (chess.BISHOP, chess.ROOK, chess.QUEEN)
+
+# Ab welchem Wert ein Ziel die Erkennung wert ist. Ein Angriff auf einen Bauern
+# ist kein Motiv, das man trainieren muesste.
+WORTHWHILE_TARGET = 3
+
+
+def _value_at(board: chess.Board, square: int) -> int:
+    piece = board.piece_at(square)
+    if piece is None:
+        return 0
+    if piece.piece_type == chess.KING:
+        # Der Koenig hat keinen Tauschwert, steht aber ueber allem.
+        return 100
+    return MATERIAL_VALUES.get(piece.piece_type, 0)
+
+
+def find_line_motif(
+    board_after: chess.Board, move: chess.Move, victim_color: chess.Color
+) -> Optional[str]:
+    """Fesselung oder Spiess entlang eines Strahls der gerade gezogenen Figur.
+
+    Beide Motive sehen geometrisch gleich aus: zwei gegnerische Figuren
+    hintereinander auf einer Linie der angreifenden Figur. Welches von beiden
+    es ist, entscheidet die Reihenfolge der Werte.
+
+      vorne weniger wert als hinten -> Fesselung (die vordere kann nicht weg)
+      vorne mehr wert als hinten    -> Spiess (die vordere muss weg, die
+                                       hintere faellt)
+
+    Der Koenig zaehlt dabei als das Wertvollste ueberhaupt, eine absolute
+    Fesselung ist also der Normalfall der ersten Zeile.
+    """
+    attacker = board_after.piece_at(move.to_square)
+    if attacker is None or attacker.piece_type not in SLIDERS:
+        return None
+    if attacker.color == victim_color:
+        return None
+    attacker_value = MATERIAL_VALUES.get(attacker.piece_type, 0)
+
+    for target in board_after.attacks(move.to_square):
+        front = board_after.piece_at(target)
+        if front is None or front.color != victim_color:
+            continue
+
+        # Hinter dem ersten Ziel in derselben Richtung weitersuchen.
+        behind = _first_piece_behind(board_after, move.to_square, target)
+        if behind is None:
+            continue
+        back = board_after.piece_at(behind)
+        if back is None or back.color != victim_color:
+            continue
+
+        front_value = _value_at(board_after, target)
+        back_value = _value_at(board_after, behind)
+
+        # Fesselung: hinten steht das Wertvollere, vorne kommt nicht weg.
+        if back_value > front_value and back_value >= WORTHWHILE_TARGET:
+            return MISSED_PIN
+        # Spiess: vorne das Wertvollere, und es lohnt sich nur, wenn die
+        # angreifende Figur selbst weniger wert ist.
+        if front_value > back_value and front_value > attacker_value:
+            return MISSED_SKEWER
+    return None
+
+
+def _first_piece_behind(
+    board: chess.Board, origin: int, target: int
+) -> Optional[int]:
+    """Erstes besetztes Feld hinter 'target', vom 'origin' aus gesehen.
+
+    Schrittweise in dieselbe Richtung weiter. Dass wir dabei auf der Linie
+    bleiben, ergibt sich aus dem Schritt selbst - ein Strahlenabgleich ist
+    dafuer nicht noetig. Nur Ziele auf einer geraden oder diagonalen Linie
+    kommen hier an, weil die angreifende Figur eine Langschrittfigur ist.
+    """
+    file_step = chess.square_file(target) - chess.square_file(origin)
+    rank_step = chess.square_rank(target) - chess.square_rank(origin)
+
+    # Nicht ausgerichtet: weder gerade noch exakt diagonal. Kann nicht
+    # vorkommen, solange der Angreifer ein Laeufer, Turm oder eine Dame ist -
+    # aber die Annahme steht besser im Code als im Kopf.
+    if file_step and rank_step and abs(file_step) != abs(rank_step):
+        return None
+
+    file_step = (file_step > 0) - (file_step < 0)
+    rank_step = (rank_step > 0) - (rank_step < 0)
+    if not file_step and not rank_step:
+        return None
+
+    file_index = chess.square_file(target) + file_step
+    rank_index = chess.square_rank(target) + rank_step
+    while 0 <= file_index <= 7 and 0 <= rank_index <= 7:
+        square = chess.square(file_index, rank_index)
+        if board.piece_at(square) is not None:
+            return square
+        file_index += file_step
+        rank_index += rank_step
+    return None
+
+
+def is_discovered_attack(
+    board_before: chess.Board, board_after: chess.Board, move: chess.Move
+) -> bool:
+    """Hat der Zug eine Linie geraeumt, hinter der eine eigene Figur stand?
+
+    Gesucht wird eine eigene Langschrittfigur, die nach dem Zug etwas
+    Lohnendes angreift, das sie vorher nicht angegriffen hat - und zwar durch
+    genau das Feld, das der Zug verlassen hat.
+    """
+    us = board_before.turn
+    for square in board_after.pieces(chess.BISHOP, us) | board_after.pieces(
+        chess.ROOK, us
+    ) | board_after.pieces(chess.QUEEN, us):
+        if square == move.to_square:
+            continue  # die Figur, die gerade gezogen hat, deckt sich selbst auf nicht
+        gained = board_after.attacks(square) - board_before.attacks(square)
+        for target in gained:
+            piece = board_after.piece_at(target)
+            if piece is None or piece.color == us:
+                continue
+            if _value_at(board_after, target) < WORTHWHILE_TARGET:
+                continue
+            if move.from_square in chess.between(square, target):
+                return True
+    return False
+
+
+def wins_loose_material(board_before: chess.Board, move: chess.Move) -> bool:
+    """Schlaegt der Zug etwas, das ungedeckt oder mehr wert als der Schlaegende ist?"""
+    if not board_before.is_capture(move):
+        return False
+    if board_before.is_en_passant(move):
+        return False  # ein Bauer gegen einen Bauern ist kein verpasstes Motiv
+    victim_value = _value_at(board_before, move.to_square)
+    attacker_value = _value_at(board_before, move.from_square)
+    if victim_value == 0:
+        return False
+    defended = board_before.is_attacked_by(
+        not board_before.turn, move.to_square
+    )
+    return (not defended and victim_value >= WORTHWHILE_TARGET) or (
+        victim_value > attacker_value
+    )
+
+
+def classify_missed(
+    board_before: chess.Board, best: Optional[chess.Move], mate_for_us: bool
+) -> Optional[str]:
+    """Welches Motiv steckt in dem besten Zug, den wir nicht gespielt haben?
+
+    Reihenfolge nach Durchschlagskraft: Matt vor Gabel vor Abzug vor Spiess
+    vor Fesselung vor blossem Materialgewinn. Gibt None zurueck, wenn der
+    beste Zug kein benennbares taktisches Motiv traegt - das ist der
+    Normalfall und ausdruecklich kein Mangel.
+    """
+    if best is None:
+        return None
+    if best not in board_before.legal_moves:
+        return None
+
+    board_after = board_before.copy(stack=False)
+    board_after.push(best)
+    them = not board_before.turn
+
+    if board_after.is_checkmate() or mate_for_us:
+        return MISSED_MATE
+    if is_fork(board_after, best, them):
+        return MISSED_FORK
+    if is_discovered_attack(board_before, board_after, best):
+        return MISSED_DISCOVERED
+
+    line = find_line_motif(board_after, best, them)
+    if line is not None:
+        return line
+
+    if wins_loose_material(board_before, best):
+        return MISSED_MATERIAL
+    return None
+
+
 def classify_error(
     board_before: chess.Board,
     move: chess.Move,
@@ -284,6 +504,7 @@ class MoveReport:
     win_loss: float
     category: str
     error_type: Optional[str] = None
+    missed_motif: Optional[str] = None
     best_move_san: Optional[str] = None
     refutation_san: Optional[str] = None
     clock_seconds: Optional[float] = None
@@ -488,6 +709,11 @@ class EngineAnalyzer:
                 return False
             return (evaluation_result.mate * sign) <= 0
 
+        def mate_for_us(evaluation_result: Evaluation) -> bool:
+            if evaluation_result.mate is None:
+                return False
+            return (evaluation_result.mate * sign) > 0
+
         for index in range(len(moves)):
             position_before = positions[index]
             mover = position_before.turn
@@ -525,7 +751,18 @@ class EngineAnalyzer:
                 san = moves[index].uci()
 
             error_type: Optional[str] = None
+            missed_motif: Optional[str] = None
             refutation_san: Optional[str] = None
+
+            # Verpasste Taktik nur bei Fehlern und Patzern, nicht bei
+            # Ungenauigkeiten: unter 100 Centipawn ist ein "verpasster Spiess"
+            # meist Zufall der Geometrie und kein Trainingsthema. Lieber
+            # weniger Treffer als eine Liste, der man nicht trauen kann.
+            if category in (CATEGORY_MISTAKE, CATEGORY_BLUNDER):
+                missed_motif = classify_missed(
+                    position_before, before.best_move, mate_for_us(before)
+                )
+
             if category != CATEGORY_OK:
                 error_type = classify_error(
                     board_before=position_before,
@@ -551,6 +788,7 @@ class EngineAnalyzer:
                     win_loss=win_loss,
                     category=category,
                     error_type=error_type,
+                    missed_motif=missed_motif,
                     # Den besten Zug nur dort merken, wo er interessant ist.
                     best_move_san=before.best_san if category != CATEGORY_OK else None,
                     refutation_san=refutation_san,

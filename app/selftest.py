@@ -30,8 +30,17 @@ from .analysis import (
     ERROR_MISSED_THREAT,
     ERROR_MISSED_WIN,
     ERROR_POSITIONAL,
+    MISSED_DISCOVERED,
+    MISSED_FORK,
+    MISSED_LABELS,
+    MISSED_MATE,
+    MISSED_MATERIAL,
+    MISSED_PIN,
+    MISSED_SKEWER,
+    MISSED_TYPES,
     EngineAnalyzer,
     classify_error,
+    classify_missed,
     material_balance,
     parse_increment,
     phase_for,
@@ -356,7 +365,99 @@ def test_classification() -> bool:
 
 
 # --------------------------------------------------------------------------
-# 4) Vollstaendige Analyse mit Stockfish
+# 5) Verpasste Taktik
+#
+# Jede Stellung ist von Hand gebaut und enthaelt genau ein Motiv. Die beiden
+# letzten Faelle sind die wichtigeren: sie pruefen, dass NICHTS gemeldet wird,
+# wo nichts ist. Eine Erkennung, die grosszuegig ist, fuellt die Liste mit
+# Rauschen - und dann trainiert man das Falsche.
+# --------------------------------------------------------------------------
+def _missed_case(fen: str, move_uci: str, mate_for_us: bool = False) -> Optional[str]:
+    board = chess.Board(fen)
+    move = chess.Move.from_uci(move_uci)
+    if move not in board.legal_moves:
+        raise ValueError(f"Zug {move_uci} ist in dieser Stellung nicht legal: {fen}")
+    return classify_missed(board, move, mate_for_us)
+
+
+def test_missed() -> bool:
+    ok = True
+
+    # Matt: Turm auf die Grundreihe, der Koenig hat keine Luft.
+    ok &= _check(
+        "Matt erkannt (Grundreihe)",
+        _missed_case("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a8") == MISSED_MATE,
+        str(_missed_case("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a8")),
+    )
+
+    # Gabel: Sc7+ trifft Koenig und Turm zugleich.
+    ok &= _check(
+        "Gabel erkannt (Koenig und Turm)",
+        _missed_case("r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1", "b5c7") == MISSED_FORK,
+        str(_missed_case("r3k3/8/8/1N6/8/8/8/4K3 w - - 0 1", "b5c7")),
+    )
+
+    # Fesselung: Turm auf e1, der Springer auf e7 kann nicht weg.
+    ok &= _check(
+        "Fesselung erkannt (Springer an den Koenig)",
+        _missed_case("4k3/4n3/8/8/8/8/8/R5K1 w - - 0 1", "a1e1") == MISSED_PIN,
+        str(_missed_case("4k3/4n3/8/8/8/8/8/R5K1 w - - 0 1", "a1e1")),
+    )
+
+    # Spiess: Ta8+ zwingt den Koenig weg, dahinter faellt der Turm.
+    ok &= _check(
+        "Spiess erkannt (Koenig vorn, Turm dahinter)",
+        _missed_case("4k2r/8/8/8/8/8/8/R5K1 w - - 0 1", "a1a8") == MISSED_SKEWER,
+        str(_missed_case("4k2r/8/8/8/8/8/8/R5K1 w - - 0 1", "a1a8")),
+    )
+
+    # Abzug: der Springer raeumt die Diagonale b2-g7, der Laeufer trifft die Dame.
+    ok &= _check(
+        "Abzugsangriff erkannt (Springer raeumt die Diagonale)",
+        _missed_case("6k1/6q1/8/8/3N4/8/1B6/7K w - - 0 1", "d4b5") == MISSED_DISCOVERED,
+        str(_missed_case("6k1/6q1/8/8/3N4/8/1B6/7K w - - 0 1", "d4b5")),
+    )
+
+    # Freies Material: der Turm auf d5 ist von nichts gedeckt.
+    ok &= _check(
+        "Ungedecktes Material erkannt",
+        _missed_case("4k3/8/8/3r4/8/8/8/3RK3 w - - 0 1", "d1d5") == MISSED_MATERIAL,
+        str(_missed_case("4k3/8/8/3r4/8/8/8/3RK3 w - - 0 1", "d1d5")),
+    )
+
+    # Gegenprobe 1: derselbe Schlagzug, aber der Turm ist gedeckt. Gleicher
+    # Wert, gedeckt - das ist ein Abtausch und kein verpasstes Motiv.
+    ok &= _check(
+        "gedeckter Gleichwert ist kein Motiv",
+        _missed_case("3rk3/8/8/3r4/8/8/3R4/4K3 w - - 0 1", "d2d5") is None,
+        str(_missed_case("3rk3/8/8/3r4/8/8/3R4/4K3 w - - 0 1", "d2d5")),
+    )
+
+    # Gegenprobe 2: ein stiller Bauernzug, der gar nichts anstellt.
+    ok &= _check(
+        "stiller Zug ist kein Motiv",
+        _missed_case("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1", "e2e3") is None,
+        str(_missed_case("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1", "e2e3")),
+    )
+
+    # Ohne besten Zug darf nichts gemeldet werden.
+    ok &= _check(
+        "fehlender bester Zug liefert nichts",
+        classify_missed(chess.Board(), None, False) is None,
+    )
+
+    # Jede Kategorie braucht eine Beschriftung, sonst steht in der Oberflaeche
+    # der rohe Schluessel.
+    ok &= _check(
+        "alle Motive haben eine Beschriftung",
+        all(name in MISSED_LABELS for name in MISSED_TYPES),
+        ", ".join(sorted(set(MISSED_TYPES) - set(MISSED_LABELS))),
+    )
+    return bool(ok)
+
+
+# --------------------------------------------------------------------------
+# 6) Vollstaendige Analyse mit Stockfish
 # --------------------------------------------------------------------------
 def test_analysis() -> bool:
     settings = load_settings()
@@ -461,11 +562,15 @@ def main() -> int:
     print("\n4) Einordnung der Fehlerarten")
     classification_ok = test_classification()
 
-    print("\n5) Stockfish-Analyse einer ganzen Partie")
+    print("\n5) Verpasste Taktik")
+    missed_ok = test_missed()
+
+    print("\n6) Stockfish-Analyse einer ganzen Partie")
     analysis_ok = test_analysis()
 
     print("\n" + "=" * 66)
-    if helpers_ok and mapping_ok and lichess_ok and classification_ok and analysis_ok:
+    if (helpers_ok and mapping_ok and lichess_ok and classification_ok
+            and missed_ok and analysis_ok):
         print("Alles in Ordnung.")
         return 0
     print("Mindestens ein Test ist fehlgeschlagen (siehe oben).")

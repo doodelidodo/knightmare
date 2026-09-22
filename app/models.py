@@ -94,6 +94,10 @@ class ChessMove(SQLModel, table=True):
     # Art des Fehlers (Figur eingestellt, Gabel kassiert, ...) - nur gesetzt,
     # wenn category != "ok". Siehe analysis.ERROR_TYPES.
     error_type: Optional[str] = Field(default=None, index=True, max_length=20)
+    # Zweite Achse: welches Motiv im besten Zug steckte, den wir nicht
+    # gespielt haben. Nullable, damit die Spalte in bestehende Datenbanken
+    # nachgezogen werden kann - alte Zuege bleiben schlicht leer.
+    missed_motif: Optional[str] = Field(default=None, index=True, max_length=20)
     best_move_san: Optional[str] = Field(default=None, max_length=16)
     # Der Zug, mit dem der Gegner unseren Fehler bestraft haette.
     refutation_san: Optional[str] = Field(default=None, max_length=16)

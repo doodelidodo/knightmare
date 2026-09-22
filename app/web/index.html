@@ -183,6 +183,12 @@
     <div class="rows" id="errRows"></div>
   </div>
 
+  <div class="card">
+    <h2 id="missTitle"></h2>
+    <p class="muted" id="missIntro"></p>
+    <div class="rows" id="missRows"></div>
+  </div>
+
   <div class="two">
     <div class="card">
       <h2 id="weekTitle"></h2>
@@ -306,6 +312,25 @@ const I18N = {
       `User: ${u} · engine: ${e} · ${t}s per position · auto run every ${i} h · ${done} of ${total} games analysed${pending ? `, ${pending} pending` : ""}.`,
     thresholds: (i, m, b) => ` Thresholds: inaccuracy from ${i} cp, mistake from ${m} cp, blunder from ${b} cp.`,
     blunder: "Blunder", mistake: "Mistake", inaccuracy: "Inaccuracy",
+    missTitle: "What you left on the board",
+    missIntro: "When you went wrong, this is what was available instead \u2014 the engine's best move, grouped by motif. Click to see every position.",
+    missEmpty: "Nothing found. Either you took your chances, or there was nothing tactical to take.",
+    missScanned: (n, total) => `Something concrete was available in ${n} of ${total} mistakes.`,
+    missCounts: (b, m) => `${b} in blunders, ${m} in mistakes`,
+    couldHave: (san) => `${san} was there`,
+    missed: {
+      mate: "Missed a mate", fork: "Missed a fork",
+      discovered: "Missed a discovered attack", skewer: "Missed a skewer",
+      pin: "Missed a pin", material: "Missed free material",
+    },
+    madvice: {
+      mate: "A forced mate was on the board. Mate patterns are the cheapest points in chess \u2014 practise the basic nets until you see them without calculating.",
+      fork: "Two targets, one piece. Look for knight and queen squares that hit two things at once, especially when the enemy king and queen share a colour complex.",
+      discovered: "One of your pieces was standing in the line of another. Whenever two of your pieces line up on an enemy target, ask what the front one could do while uncovering the back one.",
+      skewer: "The more valuable piece was in front and had to move. Look for enemy pieces lined up on a rank, file or diagonal \u2014 your bishops, rooks and queen do the work.",
+      pin: "An enemy piece could not move without exposing something worse. Pins win material slowly: set one, then attack the pinned piece again.",
+      material: "A piece was simply undefended, or worth more than the one capturing it. Before every move, scan all enemy pieces for what is defended and what is not.",
+    },
     errors: {
       hanging_piece: "Hung a piece", missed_threat: "Missed a threat",
       fork: "Walked into a fork", allowed_mate: "Allowed mate",
@@ -389,6 +414,25 @@ const I18N = {
       `Benutzer: ${u} · Engine: ${e} · ${t}s pro Stellung · automatischer Lauf alle ${i} h · ${done} von ${total} Partien analysiert${pending ? `, ${pending} offen` : ""}.`,
     thresholds: (i, m, b) => ` Schwellen: Ungenauigkeit ab ${i} cp, Fehler ab ${m} cp, Patzer ab ${b} cp.`,
     blunder: "Patzer", mistake: "Fehler", inaccuracy: "Ungenauigkeit",
+    missTitle: "Was du stehen gelassen hast",
+    missIntro: "Was an den Stellen, an denen du danebengegriffen hast, stattdessen m\u00f6glich war \u2014 der beste Zug der Engine, nach Motiv sortiert. Anklicken zeigt jede Stellung.",
+    missEmpty: "Nichts gefunden. Entweder hast du zugegriffen, oder es gab taktisch nichts zu holen.",
+    missScanned: (n, total) => `Bei ${n} von ${total} Fehlern lag etwas Konkretes bereit.`,
+    missCounts: (b, m) => `${b} bei Patzern, ${m} bei Fehlern`,
+    couldHave: (san) => `${san} stand da`,
+    missed: {
+      mate: "Matt verpasst", fork: "Gabel verpasst",
+      discovered: "Abzugsangriff verpasst", skewer: "Spie\u00df verpasst",
+      pin: "Fesselung verpasst", material: "Material verschenkt",
+    },
+    madvice: {
+      mate: "Es stand ein erzwungenes Matt auf dem Brett. Mattbilder sind die billigsten Punkte im Schach \u2014 die Grundmuster so lange \u00fcben, bis du sie ohne Rechnen siehst.",
+      fork: "Zwei Ziele, eine Figur. Achte auf Springer- und Damenfelder, die zwei Dinge gleichzeitig treffen, vor allem wenn K\u00f6nig und Dame des Gegners auf derselben Farbe stehen.",
+      discovered: "Eine deiner Figuren stand in der Linie einer anderen. Wann immer zwei deiner Figuren auf ein gegnerisches Ziel ausgerichtet sind: frag, was die vordere tun k\u00f6nnte, w\u00e4hrend sie die hintere freilegt.",
+      skewer: "Vorne stand das Wertvollere und musste weg. Such nach gegnerischen Figuren, die auf einer Reihe, Linie oder Diagonale hintereinander stehen \u2014 die Arbeit machen L\u00e4ufer, Turm und Dame.",
+      pin: "Eine gegnerische Figur konnte nicht ziehen, ohne etwas Schlimmeres preiszugeben. Fesselungen gewinnen Material langsam: erst fesseln, dann die gefesselte Figur noch einmal angreifen.",
+      material: "Eine Figur stand schlicht ungedeckt oder war mehr wert als die, die sie geschlagen h\u00e4tte. Vor jedem Zug die gegnerischen Figuren durchgehen: was ist gedeckt, was nicht?",
+    },
     errors: {
       hanging_piece: "Figur eingestellt", missed_threat: "Drohung übersehen",
       fork: "Gabel kassiert", allowed_mate: "Matt zugelassen",
@@ -427,6 +471,10 @@ let color = "all";
 let data = {};
 let expanded = null;
 let list = { items: [], total: 0, sort: "cp_loss", loading: false };
+// Eigener Zustand fuer die verpasste Taktik - sonst wuerde das Aufklappen
+// der einen Liste die andere zuklappen.
+let missExpanded = null;
+let missList = { items: [], total: 0, sort: "cp_loss", loading: false };
 let confirmRe = false;
 const PAGE = 25;
 
@@ -502,6 +550,8 @@ function query(extra) {
 async function loadAll() {
   expanded = null;
   list = { items: [], total: 0, sort: list.sort, loading: false };
+  missExpanded = null;
+  missList = { items: [], total: 0, sort: missList.sort, loading: false };
   setBusy(true);
   try {
     const openParts = ["min_games=3", "limit=12"];
@@ -513,18 +563,19 @@ async function loadAll() {
     if (timeClass !== "all") gameParts.push("time_class=" + timeClass);
     if (platform !== "all") gameParts.push("platform=" + platform);
 
-    const [status, overview, weekly, errors, phases, pressure, openings, games] =
+    const [status, overview, weekly, errors, missed, phases, pressure, openings, games] =
       await Promise.all([
         api("status"),
         api("overview" + query()),
         api("report/weekly" + weeklyQuery()),
         api("error-types" + query(["examples=0"])),
+        api("missed" + query()),
         api("phases" + query()),
         api("time-pressure" + query()),
         api("openings?" + openParts.join("&")),
         api("games?" + gameParts.join("&")),
       ]);
-    data = { status, overview, weekly, errors, phases, pressure, openings, games };
+    data = { status, overview, weekly, errors, missed, phases, pressure, openings, games };
     data.error = null;
   } catch (err) {
     data.error = t().noData(err.message);
@@ -563,6 +614,36 @@ async function loadErrors(type, opts) {
   }
   render();
 }
+async function loadMissed(motif, opts) {
+  const o = opts || {};
+  const sort = o.sort || "cp_loss";
+  const append = !!o.append;
+  missList = {
+    items: append ? missList.items : [],
+    total: append ? missList.total : 0,
+    sort, loading: true,
+  };
+  render();
+  try {
+    const parts = [
+      "motif=" + encodeURIComponent(motif), "sort=" + sort,
+      "limit=" + PAGE, "offset=" + (o.offset || 0),
+    ];
+    if (RANGES[range]) parts.push("days=" + RANGES[range]);
+    if (timeClass !== "all") parts.push("time_class=" + timeClass);
+    if (platform !== "all") parts.push("platform=" + platform);
+    const res = await api("missed/moves?" + parts.join("&"));
+    missList = {
+      sort, loading: false, total: res.total || 0,
+      items: append ? missList.items.concat(res.moves || []) : (res.moves || []),
+    };
+  } catch (err) {
+    missList.loading = false;
+    data.error = t().noData(err.message);
+  }
+  render();
+}
+
 
 let busy = false;
 function setBusy(value) { busy = value; }
@@ -595,6 +676,7 @@ function render() {
   renderFilters();
   renderKpis();
   renderErrors();
+  renderMissed();
   renderWeek();
   renderPhases();
   renderPressure();
@@ -723,6 +805,77 @@ function errorDetail(row) {
     <div class="toolbar"><span class="muted">${head}</span><span class="chips" style="margin:0">${sorts}</span></div>
     <div class="items">${items}</div>${more}</div>`;
 }
+function renderMissed() {
+  const L = t();
+  document.getElementById("missTitle").textContent = L.missTitle;
+  document.getElementById("missIntro").textContent = L.missIntro;
+  const missed = data.missed || {};
+  const types = missed.types || [];
+  if (!types.length) {
+    document.getElementById("missRows").innerHTML = `<p class="muted">${L.missEmpty}</p>`;
+    return;
+  }
+  const max = Math.max(...types.map((r) => r.count), 1);
+  const head = missed.scanned
+    ? `<p class="muted" style="margin:0 0 12px">${esc(L.missScanned(missed.missed_total, missed.scanned))}</p>`
+    : "";
+
+  document.getElementById("missRows").innerHTML = head + types.map((row) => {
+    const open = missExpanded === row.motif;
+    const label = L.missed[row.motif] || row.label || row.motif;
+    return `<div class="row">
+      <button class="row-btn" data-miss="${esc(row.motif)}" aria-expanded="${open}">
+        <span class="row-top"><strong>${esc(label)}</strong>
+          <span class="muted">${esc(L.errShare(row.count, num(row.share_percent, 0, "%")))}</span></span>
+        ${bar(row.count, max, "warn")}
+        <span class="row-bot">
+          <span>${esc(L.missCounts(row.blunders, row.mistakes))}</span>
+          <span>${esc(L.avgCp(num(row.avg_cp_loss, 0)))}${row.main_phase ? " · " + esc(L.mostlyIn(phaseInline(row.main_phase))) : ""}${
+            row.avg_clock_seconds != null ? " · " + esc(L.avgClock(secs(row.avg_clock_seconds))) : ""}</span>
+        </span>
+      </button>
+      ${open ? missedDetail(row) : ""}
+    </div>`;
+  }).join("");
+}
+
+function missedDetail(row) {
+  const L = t();
+  const head = missList.total
+    ? esc(L.shown(missList.items.length, missList.total))
+    : missList.loading ? esc(L.loading) : esc(L.none);
+  const sorts = [["cp_loss", L.sortCost], ["recent", L.sortNew]].map(([k, label]) =>
+    `<button class="chip ${missList.sort === k ? "on" : ""}" data-msort="${k}" data-mfor="${esc(row.motif)}">${label}</button>`).join("");
+
+  const items = missList.items.map((m) => {
+    const num_ = `${m.move_number}. ${m.color === "black" ? "… " : ""}${esc(m.san)}`;
+    // Hier steht der beste Zug vorn: um den geht es, nicht um den gespielten.
+    let line = `<strong>${num_}</strong> <span class="tag ${esc(m.category)}">${esc(L[m.category] || m.category)}</span>`;
+    if (m.best_move_san) line += " — " + esc(L.couldHave(m.best_move_san));
+    line += " · " + esc(L.lost(m.cp_loss));
+    let meta = esc(phaseName(m.phase));
+    if (m.opponent) meta += esc(L.against(m.opponent)) + (m.opponent_rating ? ` (${m.opponent_rating})` : "");
+    if (m.opening) meta += " · " + esc(m.opening);
+    meta += " · " + esc(date(m.played_at));
+    if (m.clock_seconds != null) meta += esc(L.clockLeft(secs(m.clock_seconds)));
+    if (m.seconds_spent != null) meta += esc(L.thought(secs(m.seconds_spent)));
+    const link = m.game_url
+      ? ` · <a href="${esc(m.game_url)}" target="_blank" rel="noreferrer">${esc(L.openGame(m.move_number))}</a>`
+      : "";
+    return `<div class="item"><p>${line}.</p><p>${meta}${link}</p></div>`;
+  }).join("");
+
+  const more = missList.items.length < missList.total
+    ? `<p style="margin-top:10px"><button class="btn" data-mmore="${esc(row.motif)}"${missList.loading ? " disabled" : ""}>` +
+      `${missList.loading ? esc(L.loading) : esc(L.loadMore(Math.min(PAGE, missList.total - missList.items.length)))}</button></p>`
+    : "";
+
+  return `<div class="detail">
+    <p class="advice">${esc(L.madvice[row.motif] || "")}</p>
+    <div class="toolbar"><span class="muted">${head}</span><span class="chips" style="margin:0">${sorts}</span></div>
+    <div class="items">${items}</div>${more}</div>`;
+}
+
 
 function renderWeek() {
   const L = t(), w = data.weekly || {};
@@ -872,7 +1025,7 @@ function renderFooter() {
 // Klicks
 // --------------------------------------------------------------------------
 document.addEventListener("click", (event) => {
-  const el = event.target.closest("[data-tc],[data-pf],[data-range],[data-color],[data-err],[data-sort],[data-more]");
+  const el = event.target.closest("[data-tc],[data-pf],[data-range],[data-color],[data-err],[data-sort],[data-more],[data-miss],[data-msort],[data-mmore]");
   if (!el) return;
 
   if (el.dataset.pf) {
@@ -891,6 +1044,18 @@ document.addEventListener("click", (event) => {
   if (el.dataset.sort) { loadErrors(el.dataset.for, { sort: el.dataset.sort }); return; }
   if (el.dataset.more) {
     loadErrors(el.dataset.more, { sort: list.sort, append: true, offset: list.items.length });
+    return;
+  }
+  if (el.dataset.msort) { loadMissed(el.dataset.mfor, { sort: el.dataset.msort }); return; }
+  if (el.dataset.mmore) {
+    loadMissed(el.dataset.mmore, {
+      sort: missList.sort, append: true, offset: missList.items.length,
+    });
+    return;
+  }
+  if (el.dataset.miss) {
+    if (missExpanded === el.dataset.miss) { missExpanded = null; render(); }
+    else { missExpanded = el.dataset.miss; loadMissed(el.dataset.miss, { sort: missList.sort }); }
     return;
   }
   if (el.dataset.err) {
