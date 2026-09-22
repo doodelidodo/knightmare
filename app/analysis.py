@@ -65,6 +65,12 @@ ERROR_TYPES = (
     ERROR_POSITIONAL,
 )
 
+# Kein Analyseergebnis, sondern ein Datenzustand: diese Zuege stammen aus einer
+# Analyse von vor der Fehlerart-Erkennung. Bewusst NICHT in ERROR_TYPES - es ist
+# keine Fehlerart, und sie als "Stellungsfehler" mitzuzaehlen wuerde die
+# Verteilung verfaelschen und zu falschem Training fuehren.
+ERROR_UNCLASSIFIED = "unclassified"
+
 # Englisch als Vorgabe der API - die Oberflaeche uebersetzt ohnehin selbst,
 # und fuer ein oeffentliches Projekt ist Englisch die groessere Zielgruppe.
 ERROR_LABELS = {
@@ -75,6 +81,7 @@ ERROR_LABELS = {
     ERROR_BAD_TRADE: "Bad trade",
     ERROR_MISSED_WIN: "Missed a win",
     ERROR_POSITIONAL: "Positional slip",
+    ERROR_UNCLASSIFIED: "Not classified yet",
 }
 
 # Materialwerte fuer die Fehlereinordnung (nicht fuer die Bewertung - die

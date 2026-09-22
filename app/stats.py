@@ -17,7 +17,7 @@ from typing import Any, Iterable, Optional, Sequence
 
 from sqlmodel import Session, select
 
-from .analysis import ERROR_LABELS
+from .analysis import ERROR_LABELS, ERROR_UNCLASSIFIED
 from .models import ChessGame, ChessMove
 
 SCORE_BY_RESULT = {"win": 1.0, "draw": 0.5, "loss": 0.0}
@@ -228,7 +228,9 @@ def error_types(
 
     grouped: dict[str, list[ChessMove]] = defaultdict(list)
     for move in moves:
-        grouped[move.error_type or "positional"].append(move)
+        # Leeres Feld heisst "vor der Fehlerart-Erkennung analysiert" - das ist
+        # kein Stellungsfehler und darf die Verteilung nicht verfaelschen.
+        grouped[move.error_type or ERROR_UNCLASSIFIED].append(move)
 
     # Beispiele brauchen die Partie-URL - alle nötigen Partien auf einmal holen.
     example_moves: list[ChessMove] = []
@@ -343,7 +345,11 @@ def error_moves(
     dreistellig wird.
     """
     conditions = [ChessMove.category != "ok"]
-    if error_type:
+    if error_type == ERROR_UNCLASSIFIED:
+        # Sonst liefe die Liste leer, waehrend die Uebersicht Treffer meldet -
+        # genau der Widerspruch, den es hier nicht geben darf.
+        conditions.append(ChessMove.error_type.is_(None))  # type: ignore[union-attr]
+    elif error_type:
         conditions.append(ChessMove.error_type == error_type)
     if days:
         since = datetime.utcnow() - timedelta(days=days)
@@ -650,7 +656,7 @@ def weekly_report(
         )
         if week_moves:
             counter: Counter[str] = Counter(
-                move.error_type or "positional" for move in week_moves
+                move.error_type or ERROR_UNCLASSIFIED for move in week_moves
             )
             name, count = counter.most_common(1)[0]
             top_error = {
