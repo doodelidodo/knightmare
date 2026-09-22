@@ -60,6 +60,9 @@ class ChessGame(SQLModel, table=True):
 
     # --- Ergebnisse der eigenen Stockfish-Analyse -----------------------
     analyzed_at: Optional[datetime] = Field(default=None, index=True)
+    # Mit welchem Stand der Auswertung. Leer heisst: vor der Einfuehrung
+    # dieses Feldes analysiert, also aelter als alles Gezaehlte.
+    analysis_version: Optional[int] = Field(default=None, index=True)
     analysis_error: Optional[str] = Field(default=None, max_length=400)
     acpl: Optional[float] = Field(default=None)
     acpl_opening: Optional[float] = Field(default=None)

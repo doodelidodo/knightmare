@@ -107,6 +107,15 @@ ENDGAME_MATERIAL_THRESHOLD = 6
 MISSED_WIN_BEFORE_CP = 200
 MISSED_WIN_AFTER_CP = 50
 
+# Stand der Auswertung, mit dem eine Partie durchgerechnet wurde. Wird
+# hochgezaehlt, sobald die Analyse etwas Neues erfasst, das alte Ergebnisse
+# nicht haben. Ohne diesen Stempel liesse sich "hier war nichts zu holen"
+# nicht von "das wurde nie geprueft" unterscheiden - und die Oberflaeche
+# wuerde eine leere Liste zeigen, als waere sie ein Befund.
+#   1 = Fehlerarten
+#   2 = zusaetzlich verpasste Taktik
+ANALYSIS_VERSION = 2
+
 _TIME_CONTROL_RE = re.compile(r"^(\d+)(?:\+(\d+))?$")
 
 

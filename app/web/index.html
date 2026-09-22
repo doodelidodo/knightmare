@@ -316,6 +316,7 @@ const I18N = {
     missIntro: "When you went wrong, this is what was available instead \u2014 the engine's best move, grouped by motif. Click to see every position.",
     missEmpty: "Nothing found. Either you took your chances, or there was nothing tactical to take.",
     missScanned: (n, total) => `Something concrete was available in ${n} of ${total} mistakes.`,
+    missStale: (n) => `${n} games were analysed before this section existed, so they carry no motifs yet. Hit \u201cRe-analyse\u201d at the bottom of the page \u2014 nothing is re-fetched, only re-evaluated.`,
     missCounts: (b, m) => `${b} in blunders, ${m} in mistakes`,
     couldHave: (san) => `${san} was there`,
     missed: {
@@ -418,6 +419,7 @@ const I18N = {
     missIntro: "Was an den Stellen, an denen du danebengegriffen hast, stattdessen m\u00f6glich war \u2014 der beste Zug der Engine, nach Motiv sortiert. Anklicken zeigt jede Stellung.",
     missEmpty: "Nichts gefunden. Entweder hast du zugegriffen, oder es gab taktisch nichts zu holen.",
     missScanned: (n, total) => `Bei ${n} von ${total} Fehlern lag etwas Konkretes bereit.`,
+    missStale: (n) => `${n} Partien wurden analysiert, bevor es diesen Abschnitt gab, und tragen daher noch kein Motiv. Unten auf der Seite \u201eNeu analysieren\u201c dr\u00fccken \u2014 es wird nichts neu geholt, nur neu gerechnet.`,
     missCounts: (b, m) => `${b} bei Patzern, ${m} bei Fehlern`,
     couldHave: (san) => `${san} stand da`,
     missed: {
@@ -811,8 +813,14 @@ function renderMissed() {
   document.getElementById("missIntro").textContent = L.missIntro;
   const missed = data.missed || {};
   const types = missed.types || [];
+  // Alte Partien koennen kein Motiv tragen - das gehoert dazugesagt, sonst
+  // liest sich eine leere Liste wie ein Befund.
+  const stale = missed.stale_games
+    ? `<p class="advice" style="margin-top:0">${esc(L.missStale(missed.stale_games))}</p>`
+    : "";
   if (!types.length) {
-    document.getElementById("missRows").innerHTML = `<p class="muted">${L.missEmpty}</p>`;
+    document.getElementById("missRows").innerHTML =
+      stale || `<p class="muted">${L.missEmpty}</p>`;
     return;
   }
   const max = Math.max(...types.map((r) => r.count), 1);
@@ -820,7 +828,7 @@ function renderMissed() {
     ? `<p class="muted" style="margin:0 0 12px">${esc(L.missScanned(missed.missed_total, missed.scanned))}</p>`
     : "";
 
-  document.getElementById("missRows").innerHTML = head + types.map((row) => {
+  document.getElementById("missRows").innerHTML = stale + head + types.map((row) => {
     const open = missExpanded === row.motif;
     const label = L.missed[row.motif] || row.label || row.motif;
     return `<div class="row">

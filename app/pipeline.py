@@ -19,7 +19,7 @@ import chess.pgn
 from sqlalchemy import delete
 from sqlmodel import Session, select
 
-from .analysis import AnalysisError, EngineAnalyzer
+from .analysis import ANALYSIS_VERSION, AnalysisError, EngineAnalyzer
 from .chesscom import ChessComClient, ChessComError
 from .config import (
     DRAW_RESULTS,
@@ -596,6 +596,7 @@ def analyse_pending(
             game.first_error_ply = report.first_error_ply
             game.move_count = report.move_count
             game.analyzed_at = datetime.utcnow()
+            game.analysis_version = ANALYSIS_VERSION
             game.analysis_error = None
             session.add(game)
             session.commit()
@@ -641,6 +642,7 @@ def reset_analysis(
 
     for game in games:
         game.analyzed_at = None
+        game.analysis_version = None
         game.analysis_error = None
         game.acpl = None
         game.acpl_opening = None

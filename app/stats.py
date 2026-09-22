@@ -17,7 +17,12 @@ from typing import Any, Iterable, Optional, Sequence
 
 from sqlmodel import Session, select
 
-from .analysis import ERROR_LABELS, ERROR_UNCLASSIFIED, MISSED_LABELS
+from .analysis import (
+    ANALYSIS_VERSION,
+    ERROR_LABELS,
+    ERROR_UNCLASSIFIED,
+    MISSED_LABELS,
+)
 from .models import ChessGame, ChessMove
 
 SCORE_BY_RESULT = {"win": 1.0, "draw": 0.5, "loss": 0.0}
@@ -421,11 +426,24 @@ def missed_motifs(
         session, days=days, time_class=time_class, platform=platform, errors_only=True
     )
     tagged = [move for move in moves if move.missed_motif]
+
+    # Partien, die vor dieser Auswertung durchgerechnet wurden, koennen gar
+    # kein Motiv tragen. Ohne diese Zahl saehe eine leere Liste aus wie ein
+    # Befund ("es lag nie etwas bereit"), obwohl schlicht nie geprueft wurde.
+    games = load_games(session, days=days, time_class=time_class, platform=platform)
+    stale = sum(
+        1
+        for game in games
+        if game.analyzed_at is not None
+        and (game.analysis_version or 0) < ANALYSIS_VERSION
+    )
+
     if not tagged:
         return {
             "time_class": time_class or "all",
             "missed_total": 0,
             "scanned": len(moves),
+            "stale_games": stale,
             "types": [],
         }
 
@@ -458,6 +476,7 @@ def missed_motifs(
         # 402 Fehlern" sagt, wie oft ueberhaupt etwas zu holen war.
         "missed_total": len(tagged),
         "scanned": len(moves),
+        "stale_games": stale,
         "types": rows,
     }
 
