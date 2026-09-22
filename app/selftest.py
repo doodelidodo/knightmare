@@ -38,6 +38,7 @@ from .analysis import (
     win_percent,
 )
 from .config import load_settings
+from .lichess import QUERY_PARAMS
 from .pipeline import (
     map_chesscom_game,
     map_lichess_game,
@@ -186,12 +187,25 @@ def test_mapping() -> bool:
 
 
 def test_lichess_mapping() -> bool:
+    # Diese drei Parameter entscheiden, ob ueberhaupt etwas Analysierbares
+    # ankommt. "moves=false" liefert ein PGN aus reinen Kopfzeilen - die
+    # Partien landen dann alle als "enthaelt keine Zuege" im Fehlertopf.
+    ok = True
+    ok &= _check("Lichess liefert die Zuege mit",
+                 QUERY_PARAMS.get("moves") == "true",
+                 str(QUERY_PARAMS.get("moves")))
+    ok &= _check("PGN kommt im JSON",
+                 QUERY_PARAMS.get("pgnInJson") == "true",
+                 str(QUERY_PARAMS.get("pgnInJson")))
+    ok &= _check("Uhrzeiten kommen mit",
+                 QUERY_PARAMS.get("clocks") == "true",
+                 str(QUERY_PARAMS.get("clocks")))
+
     game = map_lichess_game(LICHESS_PAYLOAD, "aBetterDodo")
     if not _check("Lichess-Partie liess sich abbilden", game is not None):
         return False
     assert game is not None
 
-    ok = True
     ok &= _check("Plattform vermerkt", game.platform == "lichess", game.platform)
     ok &= _check("Schluessel mit Praefix", game.uuid == "lichess:aBcD1234", game.uuid)
     ok &= _check("eigene Farbe erkannt", game.color == "black", game.color)

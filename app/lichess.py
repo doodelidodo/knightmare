@@ -26,6 +26,25 @@ BASE_URL = "https://lichess.org/api"
 DEFAULT_PERF_TYPES = "ultraBullet,bullet,blitz,rapid,classical,correspondence"
 
 
+# Feste Abfrageparameter. Absichtlich hier oben und nicht in der Methode
+# versteckt, damit der Selbsttest sie pruefen kann - "moves" war schon einmal
+# falsch gesetzt und hat jede Lichess-Partie unanalysierbar gemacht.
+QUERY_PARAMS: dict[str, str] = {
+    "perfType": DEFAULT_PERF_TYPES,
+    "pgnInJson": "true",   # PGN mitliefern, das ist unsere Analysequelle
+    "clocks": "true",      # [%clk]-Kommentare ins PGN - fuer die Zeitdruck-Auswertung
+    "opening": "true",     # Eroeffnungsname und ECO ohne eigenes Raten
+    "tags": "true",
+    # NICHT abschalten: "moves" steuert, ob die Zuege ueberhaupt mitkommen -
+    # auch die im PGN. Mit moves=false liefert Lichess ein PGN aus reinen
+    # Kopfzeilen, und jede Analyse scheitert mit "Partie enthaelt keine Zuege".
+    "moves": "true",
+    "evals": "false",      # wir rechnen selbst
+    "sort": "dateDesc",
+    "finished": "true",
+}
+
+
 class LichessError(RuntimeError):
     pass
 
@@ -89,17 +108,7 @@ class LichessClient:
         Bewusst ein Generator: bei mehreren tausend Partien soll nicht erst
         alles im Speicher landen.
         """
-        params: dict[str, Any] = {
-            "perfType": DEFAULT_PERF_TYPES,
-            "pgnInJson": "true",   # PGN mitliefern, das ist unsere Analysequelle
-            "clocks": "true",      # [%clk]-Kommentare ins PGN - fuer die Zeitdruck-Auswertung
-            "opening": "true",     # Eroeffnungsname und ECO ohne eigenes Raten
-            "tags": "true",
-            "moves": "false",      # steckt schon im PGN, spart Bandbreite
-            "evals": "false",      # wir rechnen selbst
-            "sort": "dateDesc",
-            "finished": "true",
-        }
+        params: dict[str, Any] = dict(QUERY_PARAMS)
         if rated_only:
             params["rated"] = "true"
         if since_ms:
