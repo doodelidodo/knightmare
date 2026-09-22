@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knightmare</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface-soft: #eef2f7;
+    --border: rgba(18, 32, 55, 0.13);
+    --text: #16202e;
+    --muted: #5d6b7e;
+    --heading: #0a1420;
+    --accent: #5b6ef5;
+    --good: #16794a;
+    --warn: #9a6100;
+    --bad: #c2410c;
+    --shadow: 0 12px 40px rgba(15, 23, 42, 0.09);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0a1018;
+      --surface: #121b27;
+      --surface-soft: #0e1623;
+      --border: rgba(148, 163, 184, 0.18);
+      --text: #e4ecf7;
+      --muted: #94a3b8;
+      --heading: #f6fafe;
+      --accent: #8098ff;
+      --good: #5fd39b;
+      --warn: #e5b567;
+      --bad: #ff9a68;
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0a1018; --surface: #121b27; --surface-soft: #0e1623;
+    --border: rgba(148, 163, 184, 0.18); --text: #e4ecf7; --muted: #94a3b8;
+    --heading: #f6fafe; --accent: #8098ff; --good: #5fd39b; --warn: #e5b567;
+    --bad: #ff9a68; --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  header { display: flex; flex-wrap: wrap; gap: 16px; align-items: center;
+           justify-content: space-between; margin-bottom: 8px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 40px; height: 40px; }
+  .brand h1 { margin: 0; font-size: 1.5rem; color: var(--heading); letter-spacing: -0.02em; }
+  .brand p { margin: 2px 0 0; color: var(--muted); font-size: 0.88rem; }
+  .head-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+  button { font: inherit; cursor: pointer; }
+  .btn { border: 1px solid var(--border); background: var(--surface);
+         color: var(--text); border-radius: 9px; padding: 7px 13px; }
+  .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: 0.55; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.primary:hover:not(:disabled) { filter: brightness(1.08); color: #fff; }
+  .btn.danger { border-color: var(--bad); color: var(--bad); }
+
+  .chip { border: 1px solid var(--border); background: transparent; color: var(--muted);
+          border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; }
+  .chip:hover { color: var(--text); }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 12px 0; }
+  .chips .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase;
+                  letter-spacing: 0.06em; margin-right: 4px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border);
+          border-radius: 14px; padding: 18px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .card h2 { margin: 0 0 4px; font-size: 1.05rem; color: var(--heading); }
+  .muted { color: var(--muted); font-size: 0.88rem; }
+
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+          margin-bottom: 16px; }
+  .kpi { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+         padding: 16px; box-shadow: var(--shadow); }
+  .kpi .num { font-size: 2rem; font-weight: 700; color: var(--heading); line-height: 1.1; }
+  .kpi h3 { margin: 6px 0 4px; font-size: 0.92rem; }
+  .kpi p { margin: 0; color: var(--muted); font-size: 0.82rem; }
+
+  .rows { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+  .row { border: 1px solid var(--border); border-radius: 11px; padding: 12px 14px;
+         background: var(--surface-soft); }
+  .row-btn { display: flex; flex-direction: column; gap: 6px; width: 100%;
+             padding: 0; border: 0; background: none; color: inherit; text-align: left; }
+  .row-top, .row-bot { display: flex; flex-wrap: wrap; gap: 8px;
+                       justify-content: space-between; align-items: baseline; }
+  .row-bot { font-size: 0.82rem; color: var(--muted); }
+  .row-btn:hover .row-top strong { color: var(--accent); }
+
+  .bar { height: 7px; border-radius: 999px; background: var(--border); overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 999px; background: var(--accent); }
+  .bar > i.good { background: var(--good); }
+  .bar > i.warn { background: var(--warn); }
+  .bar > i.bad { background: var(--bad); }
+
+  .detail { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .detail .advice { margin: 0 0 10px; color: var(--muted); font-size: 0.88rem; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+             justify-content: space-between; margin-bottom: 8px; }
+  .items { display: flex; flex-direction: column; gap: 8px;
+           max-height: 60vh; overflow-y: auto; padding-right: 4px; }
+  .item { border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px;
+          background: var(--surface); }
+  .item p { margin: 0; }
+  .item p + p { margin-top: 3px; font-size: 0.82rem; color: var(--muted); }
+
+  .tag { display: inline-block; border-radius: 999px; padding: 1px 8px;
+         font-size: 0.72rem; font-weight: 600; border: 1px solid var(--border); }
+  .tag.blunder { color: var(--bad); border-color: var(--bad); }
+  .tag.mistake { color: var(--warn); border-color: var(--warn); }
+  .tag.inaccuracy { color: var(--muted); }
+  .tag.win { color: var(--good); border-color: var(--good); }
+  .tag.loss { color: var(--bad); border-color: var(--bad); }
+
+  .note { border-radius: 10px; padding: 11px 13px; margin-bottom: 14px; font-size: 0.9rem; }
+  .note.err { background: rgba(194, 65, 12, 0.12); color: var(--bad); }
+  .note.ok { background: rgba(22, 121, 74, 0.12); color: var(--good); }
+  .note.info { background: rgba(91, 110, 245, 0.12); color: var(--accent); }
+
+  .week { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+          gap: 12px; margin: 10px 0; }
+  .week .num { font-size: 1.4rem; font-weight: 700; color: var(--heading); }
+  .week .cap { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em;
+               color: var(--muted); }
+  .delta.up { color: var(--good); font-size: 0.8rem; font-weight: 600; }
+  .delta.down { color: var(--bad); font-size: 0.8rem; font-weight: 600; }
+
+  footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border);
+           color: var(--muted); font-size: 0.82rem; }
+  footer a { margin-right: 14px; }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  code { background: var(--surface-soft); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <img src="assets/logo.svg" alt="">
+      <div>
+        <h1>Knightmare</h1>
+        <p id="tagline"></p>
+      </div>
+    </div>
+    <div class="head-actions">
+      <button class="chip" id="langBtn" type="button"></button>
+      <button class="btn" id="refreshBtn" type="button"></button>
+      <button class="btn primary" id="syncBtn" type="button"></button>
+    </div>
+  </header>
+
+  <div id="notes"></div>
+
+  <div class="chips" id="classChips"></div>
+  <div class="chips" id="rangeChips"></div>
+
+  <div class="grid" id="kpis"></div>
+
+  <div class="card">
+    <h2 id="errTitle"></h2>
+    <p class="muted" id="errIntro"></p>
+    <div class="rows" id="errRows"></div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2 id="weekTitle"></h2>
+      <div id="weekBody"></div>
+    </div>
+    <div class="card">
+      <h2 id="notableTitle"></h2>
+      <div id="notableBody"></div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2 id="phaseTitle"></h2>
+      <p class="muted" id="phaseIntro"></p>
+      <div class="rows" id="phaseRows"></div>
+    </div>
+    <div class="card">
+      <h2 id="pressTitle"></h2>
+      <p class="muted" id="pressIntro"></p>
+      <div class="rows" id="pressRows"></div>
+      <p class="muted" id="pressLong"></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="openTitle"></h2>
+    <p class="muted" id="openIntro"></p>
+    <div class="chips" id="colorChips"></div>
+    <div class="rows" id="openRows"></div>
+  </div>
+
+  <div class="card">
+    <h2 id="gamesTitle"></h2>
+    <div class="items" id="gamesRows" style="max-height:none"></div>
+  </div>
+
+  <div class="card">
+    <div class="toolbar">
+      <div>
+        <h2 id="reTitle"></h2>
+        <p class="muted" id="reIntro"></p>
+      </div>
+      <button class="btn" id="reBtn" type="button"></button>
+    </div>
+    <p class="muted" id="statusLine"></p>
+  </div>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+"use strict";
+
+// --------------------------------------------------------------------------
+// Texte. Alles was der Nutzer sieht, steht hier - die API liefert nur
+// sprachneutrale Schluessel.
+// --------------------------------------------------------------------------
+const I18N = {
+  en: {
+    lang: "Deutsch", tagline: "Find the patterns behind your mistakes",
+    refresh: "Refresh", loading: "Loading…", sync: "Fetch & analyse", running: "Running…",
+    notConfigured: "No Chess.com username set. Start the container with <code>-e CHESSCOM_USERNAME=yourname</code>.",
+    runNote: (p, f, a) => `Run in progress: ${p}. ${f} new games, ${a} analysed so far.`,
+    unreachable: (m) => `Backend unreachable: ${m}`,
+    noData: (m) => `Could not load data: ${m}`,
+    gameType: "Game type", period: "Period", all: "All",
+    d30: "Last 30 days", d90: "Last 90 days", dAll: "All time",
+    bullet: "Bullet", blitz: "Blitz", rapid: "Rapid", daily: "Daily",
+    kAnalysed: "Games analysed",
+    kAnalysedSub: (g, p, f) => `${g} fetched${p ? `, ${p} pending` : ""}${f ? `, ${f} failed` : ""}.`,
+    kScore: "Score", kScoreSub: (w, d, l) => `${w} wins, ${d} draws, ${l} losses.`,
+    kAcpl: "Avg. loss per move", kAcplSub: (a) => `In centipawns — lower is better. Chess.com accuracy: ${a}.`,
+    kBlunders: "Blunders per game", kBlundersSub: (m, i) => `Plus ${m} mistakes and ${i} inaccuracies.`,
+    errTitle: "What actually goes wrong",
+    errIntro: "Every mistake grouped by what it was, derived from the move your opponent could have punished you with. Click to see every single one.",
+    errEmpty: "No analysed mistakes yet in this selection.",
+    errCounts: (b, m, i) => `${b} blunders, ${m} mistakes, ${i} inaccuracies`,
+    errShare: (c, s) => `${c}× · ${s} of all mistakes`,
+    avgCp: (v) => `avg ${v} cp`, mostlyIn: (p) => `mostly in the ${p}`,
+    avgClock: (t) => `avg clock left ${t}`,
+    shown: (n, t) => `${n} of ${t} shown`, none: "Nothing found.",
+    sortCost: "Costliest first", sortNew: "Newest first",
+    loadMore: (n) => `Load ${n} more`,
+    lost: (cp) => `lost ${cp} cp`,
+    punished: (m) => `, punished by ${m}`, better: (m) => `. ${m} was better`,
+    against: (o) => ` · vs ${o}`, clockLeft: (t) => ` · ${t} left`,
+    thought: (t) => ` · thought ${t}`, openGame: (n) => `Open game (move ${n})`,
+    weekTitle: "This week", weekNone: "No games in the last seven days.",
+    wGames: "Games", wScore: "Score", wAcpl: "Avg. loss", wBlunders: "Blunders/game",
+    weekCompare: "Compared with the seven days before.",
+    unchanged: "unchanged",
+    notableTitle: "Notable this week",
+    topError: (l, c, s) => `Most frequent: <strong>${l}</strong> — ${c}× (${s} of this week's mistakes).`,
+    worstOpening: (o, s, g, w, d, l) => `<strong>${o}</strong> went badly: ${s} from ${g} games (${w}/${d}/${l}).`,
+    noOpening: "No opening came up more than once this week.",
+    worstMove: (n, s, p) => `Biggest blunder: <strong>${n}. ${s}</strong> in the ${p}`,
+    noErrors: "No analysed mistakes this week yet.",
+    phaseTitle: "Where it slips", phaseIntro: "Average loss per move and error rate by game phase.",
+    pressTitle: "Time pressure", pressIntro: "Mistakes by remaining clock — daily games excluded.",
+    pressNone: "No clock information found in these games.",
+    longThink: (n, a, b) => `After long thinks (20 s+): ${n} moves, avg ${a} cp, ${b} blunders per 100 moves.`,
+    moves: (n) => `${n} moves`, per100: (v) => `${v} blunders per 100 moves`,
+    opening: "Opening", middlegame: "middlegame", endgame: "endgame",
+    phOpening: "Opening", phMiddlegame: "Middlegame", phEndgame: "Endgame",
+    openTitle: "Openings", openIntro: "Worst score first, from three games up. These are the ones to review.",
+    openEmpty: "Not enough games for an opening breakdown in this selection.",
+    bothColors: "Both colours", asWhite: "As White", asBlack: "As Black",
+    games: (n) => `${n} games`, inOpening: (v) => ` · ${v} cp in the opening`,
+    gamesTitle: "Recent games", gamesEmpty: "No games in this selection.",
+    win: "Win", draw: "Draw", loss: "Loss",
+    white: "White", black: "Black",
+    notAnalysed: " · not analysed yet", failed: (e) => ` · analysis failed: ${e}`,
+    gameStats: (a, b, m) => ` · avg ${a} cp · ${b} blunders, ${m} mistakes`,
+    openOn: "open on Chess.com",
+    reTitle: "Re-analyse", reIntro: "Needed after changing thresholds, or when older games are missing newer fields. Nothing is re-fetched — only re-evaluated.",
+    reBtn: "Re-analyse", reConfirm: "Sure? Click again",
+    statusLine: (u, e, t, i, done, total, pending) =>
+      `User: ${u} · engine: ${e} · ${t}s per position · auto run every ${i} h · ${done} of ${total} games analysed${pending ? `, ${pending} pending` : ""}.`,
+    thresholds: (i, m, b) => ` Thresholds: inaccuracy from ${i} cp, mistake from ${m} cp, blunder from ${b} cp.`,
+    blunder: "Blunder", mistake: "Mistake", inaccuracy: "Inaccuracy",
+    errors: {
+      hanging_piece: "Hung a piece", missed_threat: "Missed a threat",
+      fork: "Walked into a fork", allowed_mate: "Allowed mate",
+      bad_trade: "Bad trade", missed_win: "Missed a win", positional: "Positional slip",
+    },
+    advice: {
+      hanging_piece: "Before you move, check whether the destination square is attacked and defended. The classic slip.",
+      missed_threat: "After every opponent move, ask what it threatens. Something was already hanging here.",
+      fork: "Tactics training on forks. Watch knights and queens that can reach two targets at once.",
+      allowed_mate: "King safety. With an open king, check the opponent's mating ideas first.",
+      bad_trade: "Calculate the whole exchange sequence before capturing, not just the first capture.",
+      missed_win: "Convert won positions technically instead of looking for the fastest move.",
+      positional: "No material lost, position just worse. Best improved by playing with a plan rather than move by move.",
+    },
+    buckets: { under_10s: "Under 10s", "10_30s": "10–30s", "30_60s": "30–60s",
+               "1_3min": "1–3 min", over_3min: "Over 3 min" },
+  },
+  de: {
+    lang: "English", tagline: "Findet die Muster hinter deinen Fehlern",
+    refresh: "Aktualisieren", loading: "Lädt …", sync: "Holen & analysieren", running: "Läuft …",
+    notConfigured: "Kein Chess.com-Benutzername gesetzt. Container starten mit <code>-e CHESSCOM_USERNAME=deinname</code>.",
+    runNote: (p, f, a) => `Durchgang läuft: ${p}. Bisher ${f} neue Partien, ${a} analysiert.`,
+    unreachable: (m) => `Dienst nicht erreichbar: ${m}`,
+    noData: (m) => `Daten nicht abrufbar: ${m}`,
+    gameType: "Partieart", period: "Zeitraum", all: "Alle",
+    d30: "Letzte 30 Tage", d90: "Letzte 90 Tage", dAll: "Alles",
+    bullet: "Bullet", blitz: "Blitz", rapid: "Rapid", daily: "Täglich",
+    kAnalysed: "Analysierte Partien",
+    kAnalysedSub: (g, p, f) => `${g} geholt${p ? `, ${p} offen` : ""}${f ? `, ${f} fehlerhaft` : ""}.`,
+    kScore: "Punkteausbeute", kScoreSub: (w, d, l) => `${w} Siege, ${d} Remis, ${l} Niederlagen.`,
+    kAcpl: "Ø Verlust pro Zug", kAcplSub: (a) => `In Centipawn — je tiefer, desto genauer. Chess.com-Genauigkeit: ${a}.`,
+    kBlunders: "Patzer pro Partie", kBlundersSub: (m, i) => `Dazu ${m} Fehler und ${i} Ungenauigkeiten.`,
+    errTitle: "Woran es liegt",
+    errIntro: "Alle Fehler nach Art sortiert, abgeleitet aus dem Zug, mit dem der Gegner dich hätte bestrafen können. Anklicken zeigt jede einzelne Stelle.",
+    errEmpty: "Noch keine analysierten Fehler in dieser Auswahl.",
+    errCounts: (b, m, i) => `${b} Patzer, ${m} Fehler, ${i} Ungenauigkeiten`,
+    errShare: (c, s) => `${c}× · ${s} aller Fehler`,
+    avgCp: (v) => `Ø ${v} cp`, mostlyIn: (p) => `meist im ${p}`,
+    avgClock: (t) => `Ø Restzeit ${t}`,
+    shown: (n, t) => `${n} von ${t} angezeigt`, none: "Nichts gefunden.",
+    sortCost: "Teuerste zuerst", sortNew: "Neueste zuerst",
+    loadMore: (n) => `Weitere ${n} laden`,
+    lost: (cp) => `${cp} cp verloren`,
+    punished: (m) => `, bestraft mit ${m}`, better: (m) => `. Besser war ${m}`,
+    against: (o) => ` · gegen ${o}`, clockLeft: (t) => ` · Restzeit ${t}`,
+    thought: (t) => ` · ${t} überlegt`, openGame: (n) => `Partie öffnen (Zug ${n})`,
+    weekTitle: "Diese Woche", weekNone: "In den letzten sieben Tagen keine Partien.",
+    wGames: "Partien", wScore: "Ausbeute", wAcpl: "Ø Verlust", wBlunders: "Patzer/Partie",
+    weekCompare: "Verglichen mit den sieben Tagen davor.",
+    unchanged: "unverändert",
+    notableTitle: "Auffälligkeiten der Woche",
+    topError: (l, c, s) => `Häufigste Art: <strong>${l}</strong> — ${c}× (${s} aller Fehler dieser Woche).`,
+    worstOpening: (o, s, g, w, d, l) => `<strong>${o}</strong> lief schlecht: ${s} aus ${g} Partien (${w}/${d}/${l}).`,
+    noOpening: "Keine Eröffnung kam diese Woche mehrfach vor.",
+    worstMove: (n, s, p) => `Grösster Patzer: <strong>${n}. ${s}</strong> im ${p}`,
+    noErrors: "Noch keine analysierten Fehler in dieser Woche.",
+    phaseTitle: "Wo es kippt", phaseIntro: "Durchschnittlicher Verlust pro Zug und Fehlerquote je Spielphase.",
+    pressTitle: "Zeitdruck", pressIntro: "Fehler nach verbleibender Bedenkzeit — ohne Daily-Partien.",
+    pressNone: "Keine Zeitinformationen in diesen Partien gefunden.",
+    longThink: (n, a, b) => `Nach langem Nachdenken (ab 20 s): ${n} Züge, Ø ${a} cp, ${b} Patzer je 100 Züge.`,
+    moves: (n) => `${n} Züge`, per100: (v) => `${v} Patzer je 100 Züge`,
+    opening: "Eröffnung", middlegame: "Mittelspiel", endgame: "Endspiel",
+    phOpening: "Eröffnung", phMiddlegame: "Mittelspiel", phEndgame: "Endspiel",
+    openTitle: "Eröffnungen", openIntro: "Schlechteste Ausbeute zuerst, ab drei Partien. Das sind die Kandidaten zum Nacharbeiten.",
+    openEmpty: "Noch zu wenige Partien für eine Eröffnungsauswertung in dieser Auswahl.",
+    bothColors: "Beide Farben", asWhite: "Mit Weiss", asBlack: "Mit Schwarz",
+    games: (n) => `${n} Partien`, inOpening: (v) => ` · in der Eröffnung ${v} cp`,
+    gamesTitle: "Letzte Partien", gamesEmpty: "Keine Partien in dieser Auswahl.",
+    win: "Sieg", draw: "Remis", loss: "Niederlage",
+    white: "Weiss", black: "Schwarz",
+    notAnalysed: " · noch nicht analysiert", failed: (e) => ` · Analyse fehlgeschlagen: ${e}`,
+    gameStats: (a, b, m) => ` · Ø ${a} cp · ${b} Patzer, ${m} Fehler`,
+    openOn: "auf Chess.com öffnen",
+    reTitle: "Neu analysieren", reIntro: "Nötig nach geänderten Schwellen oder wenn älteren Partien neue Felder fehlen. Es wird nichts neu geholt, nur neu bewertet.",
+    reBtn: "Neu analysieren", reConfirm: "Wirklich? Nochmal klicken",
+    statusLine: (u, e, t, i, done, total, pending) =>
+      `Benutzer: ${u} · Engine: ${e} · ${t}s pro Stellung · automatischer Lauf alle ${i} h · ${done} von ${total} Partien analysiert${pending ? `, ${pending} offen` : ""}.`,
+    thresholds: (i, m, b) => ` Schwellen: Ungenauigkeit ab ${i} cp, Fehler ab ${m} cp, Patzer ab ${b} cp.`,
+    blunder: "Patzer", mistake: "Fehler", inaccuracy: "Ungenauigkeit",
+    errors: {
+      hanging_piece: "Figur eingestellt", missed_threat: "Drohung übersehen",
+      fork: "Gabel kassiert", allowed_mate: "Matt zugelassen",
+      bad_trade: "Schlechter Abtausch", missed_win: "Gewinn verpasst", positional: "Stellungsfehler",
+    },
+    advice: {
+      hanging_piece: "Vor dem Zug prüfen, ob die Figur auf dem Zielfeld angegriffen und gedeckt ist. Der klassische Flüchtigkeitsfehler.",
+      missed_threat: "Nach jedem Gegnerzug fragen: Was droht jetzt? Hier stand schon etwas hängen.",
+      fork: "Taktiktraining mit Gabeln. Besonders auf Springer und Damen achten, die zwei Ziele gleichzeitig erreichen.",
+      allowed_mate: "Königssicherheit. Bei offener Stellung zuerst die gegnerischen Mattdrohungen durchgehen.",
+      bad_trade: "Vor dem Schlagen die ganze Abtauschfolge zu Ende rechnen, nicht nur den ersten Schlagzug.",
+      missed_win: "Gewonnene Stellungen technisch zu Ende spielen statt den schnellsten Zug zu suchen.",
+      positional: "Kein Material verloren, aber die Stellung schlechter. Am ehesten über Partien mit Plan zu verbessern.",
+    },
+    buckets: { under_10s: "Unter 10s", "10_30s": "10–30s", "30_60s": "30–60s",
+               "1_3min": "1–3 min", over_3min: "Über 3 min" },
+  },
+};
+
+// --------------------------------------------------------------------------
+// Zustand
+// --------------------------------------------------------------------------
+const store = {
+  get(key, fallback) { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } },
+  set(key, value) { try { localStorage.setItem(key, value); } catch { /* egal */ } },
+};
+
+let lang = store.get("knightmare.lang", (navigator.language || "en").startsWith("de") ? "de" : "en");
+let timeClass = store.get("knightmare.timeClass", "rapid");
+let range = store.get("knightmare.range", "90");
+let color = "all";
+
+let data = {};
+let expanded = null;
+let list = { items: [], total: 0, sort: "cp_loss", loading: false };
+let confirmRe = false;
+const PAGE = 25;
+
+const t = () => I18N[lang];
+const RANGES = { "30": 30, "90": 90, "all": null };
+
+// Relative Pfade: funktioniert unter / genauso wie hinter /chess/
+async function api(path) {
+  const res = await fetch("api/" + path);
+  if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
+  return res.json();
+}
+async function post(path) {
+  const res = await fetch("api/" + path, { method: "POST" });
+  return res.json();
+}
+
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const num = (v, d = 1, suffix = "") =>
+  v === null || v === undefined ? "–" : Number(v).toFixed(d) + suffix;
+
+function secs(v) {
+  if (v === null || v === undefined) return "–";
+  const total = Math.round(Number(v));
+  if (total < 60) return total + "s";
+  return Math.floor(total / 60) + ":" + String(total % 60).padStart(2, "0");
+}
+function date(v) {
+  if (!v) return "–";
+  try {
+    return new Date(v).toLocaleDateString(lang === "de" ? "de-CH" : "en-GB",
+      { day: "2-digit", month: "2-digit", year: "numeric" });
+  } catch { return v; }
+}
+function bar(value, max, tone) {
+  const pct = max > 0 && value ? Math.min(100, (value / max) * 100) : 0;
+  return `<div class="bar"><i class="${tone}" style="width:${pct}%"></i></div>`;
+}
+function delta(value, digits, suffix, positiveIsGood) {
+  if (value === null || value === undefined) return `<span class="muted">–</span>`;
+  const v = Number(value);
+  if (Math.abs(v) < 0.005) return `<span class="muted">${t().unchanged}</span>`;
+  const good = positiveIsGood ? v > 0 : v < 0;
+  return `<span class="delta ${good ? "up" : "down"}">${v > 0 ? "+" : ""}${v.toFixed(digits)}${suffix}</span>`;
+}
+const phaseName = (p) => ({ opening: t().phOpening, middlegame: t().phMiddlegame, endgame: t().phEndgame }[p] || p);
+const phaseInline = (p) => ({ opening: t().opening, middlegame: t().middlegame, endgame: t().endgame }[p] || p);
+
+// --------------------------------------------------------------------------
+// Laden
+// --------------------------------------------------------------------------
+function query(extra) {
+  const parts = [];
+  const days = RANGES[range];
+  if (days) parts.push("days=" + days);
+  if (timeClass !== "all") parts.push("time_class=" + timeClass);
+  (extra || []).forEach((p) => parts.push(p));
+  return parts.length ? "?" + parts.join("&") : "";
+}
+
+async function loadAll() {
+  expanded = null;
+  list = { items: [], total: 0, sort: list.sort, loading: false };
+  setBusy(true);
+  try {
+    const openParts = ["min_games=3", "limit=12"];
+    if (RANGES[range]) openParts.push("days=" + RANGES[range]);
+    if (timeClass !== "all") openParts.push("time_class=" + timeClass);
+    if (color !== "all") openParts.push("color=" + color);
+    const gameParts = ["limit=12"];
+    if (timeClass !== "all") gameParts.push("time_class=" + timeClass);
+
+    const [status, overview, weekly, errors, phases, pressure, openings, games] =
+      await Promise.all([
+        api("status"),
+        api("overview" + query()),
+        api("report/weekly" + (timeClass !== "all" ? "?time_class=" + timeClass : "")),
+        api("error-types" + query(["examples=0"])),
+        api("phases" + query()),
+        api("time-pressure" + query()),
+        api("openings?" + openParts.join("&")),
+        api("games?" + gameParts.join("&")),
+      ]);
+    data = { status, overview, weekly, errors, phases, pressure, openings, games };
+    data.error = null;
+  } catch (err) {
+    data.error = t().noData(err.message);
+  } finally {
+    setBusy(false);
+    render();
+  }
+}
+
+async function loadStatus() {
+  try { data.status = await api("status"); render(); } catch { /* still */ }
+}
+
+async function loadErrors(type, opts) {
+  const o = opts || {};
+  const sort = o.sort || "cp_loss";
+  const append = !!o.append;
+  list = { items: append ? list.items : [], total: append ? list.total : 0, sort, loading: true };
+  render();
+  try {
+    const parts = [
+      "error_type=" + encodeURIComponent(type), "sort=" + sort,
+      "limit=" + PAGE, "offset=" + (o.offset || 0),
+    ];
+    if (RANGES[range]) parts.push("days=" + RANGES[range]);
+    if (timeClass !== "all") parts.push("time_class=" + timeClass);
+    const res = await api("errors?" + parts.join("&"));
+    list = {
+      sort, loading: false, total: res.total || 0,
+      items: append ? list.items.concat(res.moves || []) : (res.moves || []),
+    };
+  } catch (err) {
+    list.loading = false;
+    data.error = t().noData(err.message);
+  }
+  render();
+}
+
+let busy = false;
+function setBusy(value) { busy = value; }
+
+// --------------------------------------------------------------------------
+// Darstellung
+// --------------------------------------------------------------------------
+function render() {
+  const L = t();
+  document.documentElement.lang = lang;
+  document.getElementById("tagline").textContent = L.tagline;
+  document.getElementById("langBtn").textContent = L.lang;
+  document.getElementById("refreshBtn").textContent = busy ? L.loading : L.refresh;
+  document.getElementById("refreshBtn").disabled = busy;
+
+  const run = data.status && data.status.run;
+  const syncBtn = document.getElementById("syncBtn");
+  syncBtn.textContent = run && run.running ? L.running : L.sync;
+  syncBtn.disabled = !!(run && run.running) || (data.status && data.status.configured === false);
+
+  // Hinweise
+  const notes = [];
+  if (data.error) notes.push(`<div class="note err">${data.error}</div>`);
+  if (data.status && data.status.configured === false)
+    notes.push(`<div class="note err">${L.notConfigured}</div>`);
+  if (run && run.running)
+    notes.push(`<div class="note info">${esc(L.runNote(run.phase, run.fetched || 0, run.analyzed || 0))}</div>`);
+  document.getElementById("notes").innerHTML = notes.join("");
+
+  renderFilters();
+  renderKpis();
+  renderErrors();
+  renderWeek();
+  renderPhases();
+  renderPressure();
+  renderOpenings();
+  renderGames();
+  renderFooter();
+}
+
+function renderFilters() {
+  const L = t();
+  const classes = (data.status && data.status.time_classes) || [];
+  document.getElementById("classChips").innerHTML =
+    `<span class="label">${L.gameType}</span>` +
+    `<button class="chip ${timeClass === "all" ? "on" : ""}" data-tc="all">${L.all}</button>` +
+    classes.map((c) =>
+      `<button class="chip ${timeClass === c.time_class ? "on" : ""}" data-tc="${esc(c.time_class)}">` +
+      `${esc(L[c.time_class] || c.time_class)} (${c.games})</button>`).join("");
+
+  document.getElementById("rangeChips").innerHTML =
+    `<span class="label">${L.period}</span>` +
+    [["30", L.d30], ["90", L.d90], ["all", L.dAll]].map(([k, label]) =>
+      `<button class="chip ${range === k ? "on" : ""}" data-range="${k}">${label}</button>`).join("");
+
+  document.getElementById("colorChips").innerHTML =
+    [["all", L.bothColors], ["white", L.asWhite], ["black", L.asBlack]].map(([k, label]) =>
+      `<button class="chip ${color === k ? "on" : ""}" data-color="${k}">${label}</button>`).join("");
+}
+
+function renderKpis() {
+  const L = t(), o = data.overview || {};
+  document.getElementById("kpis").innerHTML = [
+    [o.analyzed ?? "–", L.kAnalysed, L.kAnalysedSub(o.games || 0, o.pending || 0, o.failed || 0)],
+    [num(o.score_percent, 0, "%"), L.kScore, L.kScoreSub(o.wins || 0, o.draws || 0, o.losses || 0)],
+    [num(o.acpl, 0), L.kAcpl, L.kAcplSub(num(o.accuracy_chesscom, 1, "%"))],
+    [num(o.blunders_per_game, 2), L.kBlunders,
+      L.kBlundersSub(num(o.mistakes_per_game, 2), num(o.inaccuracies_per_game, 2))],
+  ].map(([n, h, p]) =>
+    `<div class="kpi"><div class="num">${esc(n)}</div><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join("");
+}
+
+function renderErrors() {
+  const L = t();
+  document.getElementById("errTitle").textContent = L.errTitle;
+  document.getElementById("errIntro").textContent = L.errIntro;
+  const types = (data.errors && data.errors.types) || [];
+  if (!types.length) {
+    document.getElementById("errRows").innerHTML = `<p class="muted">${L.errEmpty}</p>`;
+    return;
+  }
+  const max = Math.max(...types.map((r) => r.count), 1);
+  document.getElementById("errRows").innerHTML = types.map((row) => {
+    const open = expanded === row.error_type;
+    const label = L.errors[row.error_type] || row.label || row.error_type;
+    return `<div class="row">
+      <button class="row-btn" data-err="${esc(row.error_type)}" aria-expanded="${open}">
+        <span class="row-top"><strong>${esc(label)}</strong>
+          <span class="muted">${esc(L.errShare(row.count, num(row.share_percent, 0, "%")))}</span></span>
+        ${bar(row.count, max, "bad")}
+        <span class="row-bot">
+          <span>${esc(L.errCounts(row.blunders, row.mistakes, row.inaccuracies))}</span>
+          <span>${esc(L.avgCp(num(row.avg_cp_loss, 0)))}${row.main_phase ? " · " + esc(L.mostlyIn(phaseInline(row.main_phase))) : ""}${
+            row.avg_clock_seconds != null ? " · " + esc(L.avgClock(secs(row.avg_clock_seconds))) : ""}</span>
+        </span>
+      </button>
+      ${open ? errorDetail(row) : ""}
+    </div>`;
+  }).join("");
+}
+
+function errorDetail(row) {
+  const L = t();
+  const head = list.total
+    ? esc(L.shown(list.items.length, list.total))
+    : list.loading ? esc(L.loading) : esc(L.none);
+  const sorts = [["cp_loss", L.sortCost], ["recent", L.sortNew]].map(([k, label]) =>
+    `<button class="chip ${list.sort === k ? "on" : ""}" data-sort="${k}" data-for="${esc(row.error_type)}">${label}</button>`).join("");
+
+  const items = list.items.map((m) => {
+    const num_ = `${m.move_number}. ${m.color === "black" ? "… " : ""}${esc(m.san)}`;
+    let line = `<strong>${num_}</strong> <span class="tag ${esc(m.category)}">${esc(L[m.category] || m.category)}</span> — ${esc(L.lost(m.cp_loss))}`;
+    if (m.refutation_san) line += esc(L.punished(m.refutation_san));
+    if (m.best_move_san) line += esc(L.better(m.best_move_san));
+    let meta = esc(phaseName(m.phase));
+    if (m.opponent) meta += esc(L.against(m.opponent)) + (m.opponent_rating ? ` (${m.opponent_rating})` : "");
+    if (m.result) meta += " · " + esc(L[m.result] || m.result);
+    if (m.opening) meta += " · " + esc(m.opening);
+    meta += " · " + esc(date(m.played_at));
+    if (m.clock_seconds != null) meta += esc(L.clockLeft(secs(m.clock_seconds)));
+    if (m.seconds_spent != null) meta += esc(L.thought(secs(m.seconds_spent)));
+    const link = m.game_url
+      ? ` · <a href="${esc(m.game_url)}" target="_blank" rel="noreferrer">${esc(L.openGame(m.move_number))}</a>`
+      : "";
+    return `<div class="item"><p>${line}.</p><p>${meta}${link}</p></div>`;
+  }).join("");
+
+  const more = list.items.length < list.total
+    ? `<p style="margin-top:10px"><button class="btn" data-more="${esc(row.error_type)}"${list.loading ? " disabled" : ""}>` +
+      `${list.loading ? esc(L.loading) : esc(L.loadMore(Math.min(PAGE, list.total - list.items.length)))}</button></p>`
+    : "";
+
+  return `<div class="detail">
+    <p class="advice">${esc(L.advice[row.error_type] || "")}</p>
+    <div class="toolbar"><span class="muted">${head}</span><span class="chips" style="margin:0">${sorts}</span></div>
+    <div class="items">${items}</div>${more}</div>`;
+}
+
+function renderWeek() {
+  const L = t(), w = data.weekly || {};
+  document.getElementById("weekTitle").textContent = L.weekTitle;
+  document.getElementById("notableTitle").textContent = L.notableTitle;
+
+  const cur = w.current || {};
+  document.getElementById("weekBody").innerHTML = cur.games
+    ? `<div class="week">
+        <div><div class="cap">${L.wGames}</div><div class="num">${cur.games}</div>${delta(w.delta && w.delta.games, 0, "", true)}</div>
+        <div><div class="cap">${L.wScore}</div><div class="num">${num(cur.score_percent, 0, "%")}</div>${delta(w.delta && w.delta.score_percent, 1, "%", true)}</div>
+        <div><div class="cap">${L.wAcpl}</div><div class="num">${num(cur.acpl, 0)}</div>${delta(w.delta && w.delta.acpl, 1, "", false)}</div>
+        <div><div class="cap">${L.wBlunders}</div><div class="num">${num(cur.blunders_per_game, 2)}</div>${delta(w.delta && w.delta.blunders_per_game, 2, "", false)}</div>
+      </div><p class="muted">${L.weekCompare}</p>`
+    : `<p class="muted">${L.weekNone}</p>`;
+
+  const parts = [];
+  if (w.top_error) {
+    const label = L.errors[w.top_error.error_type] || w.top_error.label;
+    parts.push(`<div class="item"><p>${L.topError(esc(label), w.top_error.count, num(w.top_error.share_percent, 0, "%"))}</p></div>`);
+  }
+  if (w.worst_opening) {
+    const o = w.worst_opening;
+    parts.push(`<div class="item"><p>${L.worstOpening(esc(o.opening), num(o.score_percent, 0, "%"), o.games, o.wins, o.draws, o.losses)}</p></div>`);
+  } else {
+    parts.push(`<div class="item"><p class="muted">${L.noOpening}</p></div>`);
+  }
+  if (w.worst_move) {
+    const m = w.worst_move;
+    let line = L.worstMove(m.move_number, esc(m.san), esc(phaseInline(m.phase))) + " — " + esc(L.lost(m.cp_loss));
+    if (m.best_move_san) line += esc(L.better(m.best_move_san));
+    if (m.clock_seconds != null) line += esc(L.clockLeft(secs(m.clock_seconds)));
+    const link = m.game_url ? ` · <a href="${esc(m.game_url)}" target="_blank" rel="noreferrer">${esc(L.openGame(m.move_number))}</a>` : "";
+    parts.push(`<div class="item"><p>${line}.</p><p>${link}</p></div>`);
+  } else {
+    parts.push(`<div class="item"><p class="muted">${L.noErrors}</p></div>`);
+  }
+  document.getElementById("notableBody").innerHTML = `<div class="items" style="max-height:none">${parts.join("")}</div>`;
+}
+
+function renderPhases() {
+  const L = t(), p = data.phases || {};
+  document.getElementById("phaseTitle").textContent = L.phaseTitle;
+  document.getElementById("phaseIntro").textContent = L.phaseIntro;
+  const rows = p.phases || [];
+  if (!p.moves_total) {
+    document.getElementById("phaseRows").innerHTML = `<p class="muted">${L.errEmpty}</p>`;
+    return;
+  }
+  const max = Math.max(...rows.map((r) => r.acpl || 0), 1);
+  document.getElementById("phaseRows").innerHTML = rows.map((r) =>
+    `<div class="row">
+      <div class="row-top"><strong>${esc(phaseName(r.phase))}</strong><span class="muted">${esc(L.moves(r.moves))}</span></div>
+      ${bar(r.acpl, max, "warn")}
+      <div class="row-bot"><span>${esc(L.avgCp(num(r.acpl, 0)))}</span><span>${esc(L.per100(num(r.blunders_per_100, 2)))}</span></div>
+    </div>`).join("");
+}
+
+function renderPressure() {
+  const L = t(), p = data.pressure || {};
+  document.getElementById("pressTitle").textContent = L.pressTitle;
+  document.getElementById("pressIntro").textContent = L.pressIntro;
+  const rows = p.buckets || [];
+  if (!p.moves_with_clock) {
+    document.getElementById("pressRows").innerHTML = `<p class="muted">${L.pressNone}</p>`;
+    document.getElementById("pressLong").textContent = "";
+    return;
+  }
+  const max = Math.max(...rows.map((r) => r.acpl || 0), 1);
+  document.getElementById("pressRows").innerHTML = rows.map((r) =>
+    `<div class="row">
+      <div class="row-top"><strong>${esc(L.buckets[r.bucket] || r.bucket)}</strong><span class="muted">${esc(L.moves(r.moves))}</span></div>
+      ${bar(r.acpl, max, "bad")}
+      <div class="row-bot"><span>${esc(L.avgCp(num(r.acpl, 0)))}</span><span>${esc(L.per100(num(r.blunders_per_100, 2)))}</span></div>
+    </div>`).join("");
+  document.getElementById("pressLong").textContent = p.long_thinks
+    ? L.longThink(p.long_thinks.moves, num(p.long_thinks.acpl, 0), num(p.long_thinks.blunders_per_100, 2))
+    : "";
+}
+
+function renderOpenings() {
+  const L = t(), o = data.openings || {};
+  document.getElementById("openTitle").textContent = L.openTitle;
+  document.getElementById("openIntro").textContent = L.openIntro;
+  const rows = o.openings || [];
+  if (!rows.length) {
+    document.getElementById("openRows").innerHTML = `<p class="muted">${L.openEmpty}</p>`;
+    return;
+  }
+  document.getElementById("openRows").innerHTML = rows.map((r) =>
+    `<div class="row">
+      <div class="row-top"><strong>${esc(r.opening)}</strong>
+        <span class="muted">${r.eco ? esc(r.eco) + " · " : ""}${esc(L.games(r.games))}</span></div>
+      ${bar(r.score_percent, 100, r.score_percent >= 50 ? "good" : "bad")}
+      <div class="row-bot">
+        <span>${num(r.score_percent, 0, "%")} (${r.wins}/${r.draws}/${r.losses})</span>
+        <span>${esc(L.avgCp(num(r.acpl, 0)))}${r.acpl_opening != null ? esc(L.inOpening(num(r.acpl_opening, 0))) : ""}</span>
+      </div>
+    </div>`).join("");
+}
+
+function renderGames() {
+  const L = t(), g = (data.games && data.games.games) || [];
+  document.getElementById("gamesTitle").textContent = L.gamesTitle;
+  if (!g.length) {
+    document.getElementById("gamesRows").innerHTML = `<p class="muted">${L.gamesEmpty}</p>`;
+    return;
+  }
+  document.getElementById("gamesRows").innerHTML = g.map((game) => {
+    const tag = `<span class="tag ${game.result === "win" ? "win" : game.result === "loss" ? "loss" : ""}">${esc(L[game.result] || game.result)}</span>`;
+    let meta = esc(game.opening || "—");
+    if (game.analyzed) meta += esc(L.gameStats(num(game.acpl, 0), game.blunders, game.mistakes));
+    else if (game.analysis_error) meta += esc(L.failed(game.analysis_error));
+    else meta += esc(L.notAnalysed);
+    const link = game.url ? ` · <a href="${esc(game.url)}" target="_blank" rel="noreferrer">${esc(L.openOn)}</a>` : "";
+    return `<div class="item">
+      <p>${tag} <strong>${esc(game.opponent)}</strong>${game.opponent_rating ? ` (${game.opponent_rating})` : ""} · ${esc(game.color === "white" ? L.white : L.black)} · ${esc(L[game.time_class] || game.time_class)} · ${esc(date(game.played_at))}</p>
+      <p>${meta}${link}</p></div>`;
+  }).join("");
+}
+
+function renderFooter() {
+  const L = t(), s = data.status || {};
+  document.getElementById("reTitle").textContent = L.reTitle;
+  document.getElementById("reIntro").textContent = L.reIntro;
+  const reBtn = document.getElementById("reBtn");
+  reBtn.textContent = confirmRe ? L.reConfirm : L.reBtn;
+  reBtn.className = confirmRe ? "btn danger" : "btn";
+  reBtn.disabled = !!(s.run && s.run.running);
+
+  document.getElementById("statusLine").textContent = s.version
+    ? L.statusLine(s.username || "—", s.engine_path, s.engine_movetime,
+        s.sync_interval_hours, s.games_analyzed, s.games_total, s.games_pending) +
+      (s.thresholds ? L.thresholds(s.thresholds.inaccuracy, s.thresholds.mistake, s.thresholds.blunder) : "")
+    : "";
+
+  document.getElementById("footer").innerHTML =
+    `<a href="https://github.com/doodelidodo/knightmare" target="_blank" rel="noreferrer">GitHub</a>` +
+    `<a href="https://ko-fi.com/abetterdodo" target="_blank" rel="noreferrer">Ko-fi</a>` +
+    `<a href="api/docs" target="_blank">API</a>` +
+    `<span>Knightmare ${esc(s.version || "")} · MIT</span>`;
+}
+
+// --------------------------------------------------------------------------
+// Klicks
+// --------------------------------------------------------------------------
+document.addEventListener("click", (event) => {
+  const el = event.target.closest("[data-tc],[data-range],[data-color],[data-err],[data-sort],[data-more]");
+  if (!el) return;
+
+  if (el.dataset.tc) { timeClass = el.dataset.tc; store.set("knightmare.timeClass", timeClass); loadAll(); return; }
+  if (el.dataset.range) { range = el.dataset.range; store.set("knightmare.range", range); loadAll(); return; }
+  if (el.dataset.color) { color = el.dataset.color; loadAll(); return; }
+  if (el.dataset.sort) { loadErrors(el.dataset.for, { sort: el.dataset.sort }); return; }
+  if (el.dataset.more) {
+    loadErrors(el.dataset.more, { sort: list.sort, append: true, offset: list.items.length });
+    return;
+  }
+  if (el.dataset.err) {
+    if (expanded === el.dataset.err) { expanded = null; render(); }
+    else { expanded = el.dataset.err; loadErrors(el.dataset.err, { sort: list.sort }); }
+  }
+});
+
+document.getElementById("langBtn").addEventListener("click", () => {
+  lang = lang === "de" ? "en" : "de";
+  store.set("knightmare.lang", lang);
+  render();
+});
+document.getElementById("refreshBtn").addEventListener("click", loadAll);
+document.getElementById("syncBtn").addEventListener("click", async () => {
+  await post("sync");
+  loadStatus();
+});
+document.getElementById("reBtn").addEventListener("click", async () => {
+  if (!confirmRe) {
+    confirmRe = true; render();
+    setTimeout(() => { confirmRe = false; render(); }, 5000);
+    return;
+  }
+  confirmRe = false;
+  await post("reanalyze" + (timeClass !== "all" ? "?time_class=" + timeClass : ""));
+  loadStatus();
+});
+
+// Waehrend ein Durchgang laeuft, den Status nachziehen.
+setInterval(() => {
+  if (data.status && data.status.run && data.status.run.running) loadStatus();
+}, 4000);
+
+loadAll();
+</script>
+</body>
+</html>

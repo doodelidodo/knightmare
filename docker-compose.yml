@@ -1,0 +1,30 @@
+# Knightmare - one container, no database to set up.
+#
+#   CHESSCOM_USERNAME=yourname docker compose up -d
+#   open http://localhost:8000
+#
+services:
+  knightmare:
+    # Use the published image, or comment it out and uncomment "build" to
+    # build from source.
+    image: ghcr.io/doodelidodo/knightmare:latest
+    # build: .
+    container_name: knightmare
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      CHESSCOM_USERNAME: ${CHESSCOM_USERNAME:?set CHESSCOM_USERNAME, e.g. in a .env file}
+      # A recognisable user agent is strongly recommended - Chess.com rejects
+      # anonymous requests with 403.
+      CHESS_USER_AGENT: "${CHESS_USER_AGENT:-knightmare/1.0 (self-hosted)}"
+      CHESS_BACKFILL_MONTHS: ${CHESS_BACKFILL_MONTHS:-6}
+      CHESS_SYNC_INTERVAL_HOURS: ${CHESS_SYNC_INTERVAL_HOURS:-6}
+      CHESS_ENGINE_MOVETIME: ${CHESS_ENGINE_MOVETIME:-0.15}
+      CHESS_ENGINE_THREADS: ${CHESS_ENGINE_THREADS:-2}
+      CHESS_MAX_GAMES_PER_RUN: ${CHESS_MAX_GAMES_PER_RUN:-40}
+    volumes:
+      - knightmare_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  knightmare_data:

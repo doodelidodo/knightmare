@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Knightmare">
+  <title>Knightmare</title>
+  <!-- The knight's move as an L, with the square it lands on marked: the
+       pattern this tool looks for. Original drawing. -->
+  <rect width="64" height="64" rx="14" fill="#121b27"/>
+
+  <!-- Hint of a board -->
+  <g fill="#ffffff" opacity="0.06">
+    <rect x="10" y="10" width="11" height="11"/>
+    <rect x="32" y="10" width="11" height="11"/>
+    <rect x="21" y="21" width="11" height="11"/>
+    <rect x="43" y="21" width="11" height="11"/>
+    <rect x="10" y="32" width="11" height="11"/>
+    <rect x="32" y="32" width="11" height="11"/>
+    <rect x="21" y="43" width="11" height="11"/>
+    <rect x="43" y="43" width="11" height="11"/>
+  </g>
+
+  <!-- The move -->
+  <path d="M19 48 V26 H40" fill="none" stroke="#8098ff" stroke-width="6"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="19" cy="48" r="4.5" fill="#8098ff"/>
+
+  <!-- The flagged square: something went wrong here -->
+  <circle cx="42" cy="26" r="8" fill="#0a1018"/>
+  <circle cx="42" cy="26" r="6" fill="#ff7a4d"/>
+</svg>
