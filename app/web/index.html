@@ -443,12 +443,14 @@ const RANGES = { "30": 30, "90": 90, "all": null };
 
 // Relative Pfade: funktioniert unter / genauso wie hinter /chess/
 async function api(path) {
-  const res = await fetch("api/" + path);
+  // no-store zusaetzlich zum Header des Servers: ein Zwischenspeicher, der
+  // veraltete Zahlen ausliefert, ist schlimmer als einer, der nichts spart.
+  const res = await fetch("api/" + path, { cache: "no-store" });
   if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
   return res.json();
 }
 async function post(path) {
-  const res = await fetch("api/" + path, { method: "POST" });
+  const res = await fetch("api/" + path, { method: "POST", cache: "no-store" });
   return res.json();
 }
 

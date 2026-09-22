@@ -119,6 +119,23 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+
+@app.middleware("http")
+async def no_store_for_api(request, call_next):
+    """API-Antworten duerfen nie aus dem Browser-Cache kommen.
+
+    Sie sind Momentaufnahmen - Stand der Analyse, gefundene Partien, offene
+    Zuege. Ohne Cache-Control raet der Browser eine Haltbarkeit und liefert
+    eine Stunde alte Zahlen aus, ohne zu fragen. Das hat hier bereits zu
+    einem verschwundenen Plattform-Filter und einer falsch gelesenen
+    Versionsnummer gefuehrt.
+    """
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
