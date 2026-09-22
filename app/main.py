@@ -430,4 +430,18 @@ def health_root() -> dict[str, object]:
 
 @app.get("/", include_in_schema=False)
 def index() -> FileResponse:
-    return FileResponse(WEB_DIR / "index.html")
+    """Die Seite selbst darf der Browser nicht auf Verdacht behalten.
+
+    FileResponse schickt nur ETag und Last-Modified. Ohne Cache-Control
+    *raet* der Browser eine Haltbarkeit (ueblich: ein Zehntel des Alters der
+    Datei) und liefert die Seite bis dahin aus dem Speicher, ohne zu fragen.
+    Nach einem Update sieht man dann die alte Oberflaeche mit frischen Zahlen
+    darin - ein Zustand, der ratlos macht.
+
+    "no-cache" heisst nicht "nicht speichern", sondern "vor dem Benutzen
+    nachfragen": der ETag bleibt, unveraendert kostet es nur ein 304.
+    """
+    return FileResponse(
+        WEB_DIR / "index.html",
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
