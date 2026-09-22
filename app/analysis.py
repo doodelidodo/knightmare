@@ -253,6 +253,10 @@ SLIDERS = (chess.BISHOP, chess.ROOK, chess.QUEEN)
 # ist kein Motiv, das man trainieren muesste.
 WORTHWHILE_TARGET = 3
 
+# Was hinter einer Fesselung stehen muss, damit sie eine ist: Dame oder
+# Koenig. Ein Turm dahinter laesst der vorderen Figur meist noch Luft.
+PIN_ANCHOR_VALUE = 9
+
 
 def _value_at(board: chess.Board, square: int) -> int:
     piece = board.piece_at(square)
@@ -304,7 +308,19 @@ def find_line_motif(
         back_value = _value_at(board_after, behind)
 
         # Fesselung: hinten steht das Wertvollere, vorne kommt nicht weg.
-        if back_value > front_value and back_value >= WORTHWHILE_TARGET:
+        #
+        # Die beiden Schranken sind gemessen, nicht geraten: mit "hinten
+        # mindestens Leichtfigur" trug fast jeder neunte zufaellige Zug das
+        # Etikett - diese eine Kategorie haette die Liste geflutet. Eine
+        # Fesselung ist dann ein Thema, wenn hinten Dame oder Koenig steht
+        # (nur dann ist vorn wirklich nichts zu machen) und vorn mehr als ein
+        # Bauer. Damit liegt sie bei 0,5 %, in derselben Groessenordnung wie
+        # Gabel und Spiess.
+        if (
+            back_value > front_value
+            and back_value >= PIN_ANCHOR_VALUE
+            and front_value >= WORTHWHILE_TARGET
+        ):
             return MISSED_PIN
         # Spiess: vorne das Wertvollere, und es lohnt sich nur, wenn die
         # angreifende Figur selbst weniger wert ist.
@@ -370,7 +386,10 @@ def is_discovered_attack(
                 continue
             if _value_at(board_after, target) < WORTHWHILE_TARGET:
                 continue
-            if move.from_square in chess.between(square, target):
+            # chess.between() liefert je nach Fassung von python-chess ein
+            # SquareSet oder ein rohes Bitboard (eine Zahl). SquareSet()
+            # nimmt beides entgegen - so bleibt der Test gueltig.
+            if move.from_square in chess.SquareSet(chess.between(square, target)):
                 return True
     return False
 

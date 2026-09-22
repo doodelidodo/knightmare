@@ -57,6 +57,11 @@ which tactic was sitting there:
 This costs no extra engine time — the best move comes back with the evaluation
 either way.
 
+A pin only counts with a queen or king behind it and at least a minor piece in
+front. That threshold is measured, not guessed: against tens of thousands of
+random positions the looser rule tagged nearly one move in nine, which would
+have drowned every other motif.
+
 Recorded only for mistakes and blunders, not inaccuracies: below 100
 centipawns a "missed skewer" is usually an accident of geometry rather than
 something to train. And deliberately nothing beyond the list above — zwischenzug,
@@ -173,7 +178,8 @@ docker exec knightmare python -m app.selftest
 Checks that Stockfish starts, analyses a complete game, reads the clock
 comments, and — the interesting part — classifies every motif correctly
 against purpose-built positions: the seven mistake types, and the six missed
-tactics including two positions where the answer must be *nothing*. Exit code 0 means everything is fine. The same
+tactics — plus three positions where the answer must be *nothing*, which are
+the ones that keep the detection honest. Exit code 0 means everything is fine. The same
 test runs on every push in CI.
 
 ## Honest limitations

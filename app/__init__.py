@@ -5,4 +5,4 @@ mistake by what actually went wrong: hung a piece, missed a threat, walked
 into a fork, allowed mate, bad trade, missed a win.
 """
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"

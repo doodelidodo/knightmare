@@ -440,6 +440,22 @@ def test_missed() -> bool:
         str(_missed_case("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1", "e2e3")),
     )
 
+    # Klassiker aus der Eroeffnung: Laeufer fesselt den Springer an die Dame.
+    ok &= _check(
+        "Fesselung an die Dame erkannt",
+        _missed_case("3qk3/8/5n2/8/8/8/8/2B1K3 w - - 0 1", "c1g5") == MISSED_PIN,
+        str(_missed_case("3qk3/8/5n2/8/8/8/8/2B1K3 w - - 0 1", "c1g5")),
+    )
+
+    # Gegenprobe 3: ein Bauer vor einem Turm ist keine Fesselung, die man
+    # ueben muesste. Mit der frueheren, grosszuegigeren Schranke war sie eine -
+    # und trug damit fast jeder neunte zufaellige Zug dieses Etikett.
+    ok &= _check(
+        "Bauer vor Turm ist keine Fesselung",
+        _missed_case("4k3/8/4r3/3p4/8/1B6/8/7K w - - 0 1", "b3c4") is None,
+        str(_missed_case("4k3/8/4r3/3p4/8/1B6/8/7K w - - 0 1", "b3c4")),
+    )
+
     # Ohne besten Zug darf nichts gemeldet werden.
     ok &= _check(
         "fehlender bester Zug liefert nichts",
