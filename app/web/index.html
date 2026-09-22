@@ -77,6 +77,9 @@
           border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; }
   .chip:hover { color: var(--text); }
   .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  /* Eingerichtet, aber noch keine Partie geholt: sichtbar, nicht anwaehlbar. */
+  .chip.empty { opacity: 0.45; cursor: default; border-style: dashed; }
+  .chip.empty:hover { color: var(--muted); }
   .chips { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 12px 0; }
   .chips .label { color: var(--muted); font-size: 0.78rem; text-transform: uppercase;
                   letter-spacing: 0.06em; margin-right: 4px; }
@@ -603,15 +606,26 @@ function renderFilters() {
   const classes = (data.status && data.status.time_classes) || [];
   const platforms = (data.status && data.status.platforms) || [];
 
-  // Die Plattform-Auswahl erscheint nur, wenn es tatsächlich etwas zu wählen
-  // gibt - wer nur Chess.com spielt, braucht die Reihe nicht.
+  // Massgeblich ist, was EINGERICHTET ist, nicht was schon an Partien da ist.
+  // Sonst verschwindet die Reihe genau dann, wenn man wissen will, ob die
+  // zweite Quelle ueberhaupt ankommt - und man sieht nichts statt einer Null.
+  const configured = (data.status && data.status.configured_platforms) || [];
+  const counted = new Map(platforms.map((p) => [p.platform, p.games]));
+  const sources = configured.length ? configured : platforms.map((p) => p.platform);
+
   document.getElementById("platformChips").innerHTML =
-    platforms.length > 1
+    sources.length > 1
       ? `<span class="label">${L.platform}</span>` +
         `<button class="chip ${platform === "all" ? "on" : ""}" data-pf="all">${L.all}</button>` +
-        platforms.map((p) =>
-          `<button class="chip ${platform === p.platform ? "on" : ""}" data-pf="${esc(p.platform)}">` +
-          `${esc(L[p.platform] || p.platform)} (${p.games})</button>`).join("")
+        sources.map((name) => {
+          const games = counted.get(name) || 0;
+          // Eine Quelle ohne Partien bleibt sichtbar, aber nicht anwaehlbar -
+          // ein leerer Filter waere nur verwirrend.
+          const off = games === 0 ? " empty" : "";
+          return `<button class="chip ${platform === name ? "on" : ""}${off}" ` +
+                 `data-pf="${esc(name)}"${games === 0 ? " disabled" : ""}>` +
+                 `${esc(L[name] || name)} (${games})</button>`;
+        }).join("")
       : "";
   document.getElementById("classChips").innerHTML =
     `<span class="label">${L.gameType}</span>` +
