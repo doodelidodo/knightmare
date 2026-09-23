@@ -17,6 +17,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
+# Messwerkzeuge - nicht Teil der App, aber im Container nuetzlich:
+#   python -m tools.positional_probe
+COPY tools ./tools
 
 # Default: SQLite inside the container. Mount a volume on /app/data to keep
 # your games across restarts.
