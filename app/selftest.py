@@ -22,6 +22,8 @@ import chess
 
 from .analysis import (
     CATEGORY_BLUNDER,
+    CATEGORY_MISTAKE,
+    CATEGORY_OK,
     ERROR_ALLOWED_MATE,
     ERROR_BAD_TRADE,
     ERROR_FORK,
@@ -41,6 +43,7 @@ from .analysis import (
     MISSED_TYPES,
     EngineAnalyzer,
     classify_error,
+    categorize,
     classify_missed,
     material_balance,
     parse_increment,
@@ -144,6 +147,40 @@ def test_helpers() -> bool:
     ok &= _check(
         "Materialbilanz: ein Bauer mehr",
         material_balance(chess.Board("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1"), chess.WHITE) == 1,
+    )
+
+    # Einstufung: derselbe Zug, zwei Massstaebe. 100 Centipawn bei +800
+    # sind nach Centipawn ein "Fehler", nach Gewinnwahrscheinlichkeit nichts -
+    # genau der Unterschied, der den Resttopf Stellungsfehler aufgeblaeht hat.
+    class _Scale:
+        def __init__(self, scale: str) -> None:
+            self.error_scale = scale
+            self.inaccuracy_cp, self.mistake_cp, self.blunder_cp = 50, 100, 300
+            self.inaccuracy_win, self.mistake_win, self.blunder_win = 10.0, 20.0, 30.0
+
+    drop_at_equality = win_percent(0) - win_percent(-100)      # ~9.2 Punkte
+    drop_when_winning = win_percent(800) - win_percent(700)   # ~1.4 Punkte
+    ok &= _check(
+        "100 cp bei Gleichstand: nach Centipawn ein Fehler",
+        categorize(_Scale("centipawn"), 100, drop_at_equality) == CATEGORY_MISTAKE,
+    )
+    ok &= _check(
+        "100 cp bei +800: nach Centipawn immer noch ein Fehler",
+        categorize(_Scale("centipawn"), 100, drop_when_winning) == CATEGORY_MISTAKE,
+    )
+    ok &= _check(
+        "100 cp bei +800: nach Gewinnwahrscheinlichkeit kein Fehler",
+        categorize(_Scale("winprob"), 100, drop_when_winning) == CATEGORY_OK,
+        f"{drop_when_winning:.1f} Punkte",
+    )
+    ok &= _check(
+        "Patzer bleibt Patzer: 35 Punkte Verlust",
+        categorize(_Scale("winprob"), 400, 35.0) == CATEGORY_BLUNDER,
+    )
+    ok &= _check(
+        "unter 50 cp erreicht nie 10 Punkte - nach Umstellung kommen keine neuen Fehler hinzu",
+        win_percent(0) - win_percent(-49) < 10.0,
+        f"{win_percent(0) - win_percent(-49):.1f} Punkte bei 49 cp am steilsten Punkt",
     )
 
     family = opening_family_from_name("Scandinavian Defense Mieses Kotroc Variation")

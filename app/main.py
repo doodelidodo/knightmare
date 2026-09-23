@@ -27,9 +27,9 @@ from sqlmodel import Session, select
 from . import __version__, stats
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import load_settings
-from .db import get_session, init_db
-from .models import ChessGame, ChessSyncState
-from .pipeline import current_status, reset_analysis, run_once
+from .db import get_session, init_db, new_session
+from .models import ChessGame, ChessSyncState, utc_now
+from .pipeline import current_status, recategorize, reset_analysis, run_once
 
 logging.basicConfig(
     level=logging.INFO,
@@ -91,6 +91,15 @@ def _scheduler_loop() -> None:
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
+    # Massstab und Schwellen wirken sofort, ohne Neuberechnung: die Werte pro
+    # Zug liegen vor, nur die Einstufung wird nachgezogen. Sekunden, kein
+    # Engine-Lauf. Ein Fehler hier darf den Start nicht verhindern.
+    try:
+        with new_session() as session:
+            result = recategorize(session, settings)
+        log.info("Einstufung geprueft: %s", result)
+    except Exception as exc:  # noqa: BLE001
+        log.error("Umstufung beim Start fehlgeschlagen: %s", exc)
     global _scheduler_thread
     if settings.auto_sync and settings.configured:
         _scheduler_thread = threading.Thread(
@@ -183,11 +192,22 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
         "sync_interval_hours": settings.sync_interval_hours,
         "engine_path": settings.engine_path,
         "engine_movetime": settings.engine_movetime,
-        "thresholds": {
-            "inaccuracy": settings.inaccuracy_cp,
-            "mistake": settings.mistake_cp,
-            "blunder": settings.blunder_cp,
-        },
+        "error_scale": settings.error_scale,
+        "thresholds": (
+            {
+                "inaccuracy": settings.inaccuracy_win,
+                "mistake": settings.mistake_win,
+                "blunder": settings.blunder_win,
+                "unit": "win%",
+            }
+            if settings.error_scale == "winprob"
+            else {
+                "inaccuracy": settings.inaccuracy_cp,
+                "mistake": settings.mistake_cp,
+                "blunder": settings.blunder_cp,
+                "unit": "cp",
+            }
+        ),
         "error_labels": ERROR_LABELS,
         "missed_labels": MISSED_LABELS,
         "games_total": total,
@@ -224,7 +244,7 @@ def sync(
     return {
         "started": True,
         "message": "Durchgang gestartet - Fortschritt siehe Status.",
-        "started_at": datetime.utcnow().isoformat(),
+        "started_at": utc_now().isoformat(),
     }
 
 

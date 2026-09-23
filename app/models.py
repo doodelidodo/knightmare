@@ -8,7 +8,13 @@ diese Modelle nicht und fasst sie auch nicht an.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def utc_now() -> datetime:
+    """Jetzt in UTC, ohne Zeitzone - so, wie alle Zeitstempel hier gespeichert
+    werden. Ersetzt datetime.utcnow(), das seit Python 3.12 abgekuendigt ist."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -73,7 +79,7 @@ class ChessGame(SQLModel, table=True):
     blunders: int = Field(default=0)
     first_error_ply: Optional[int] = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
 class ChessMove(SQLModel, table=True):
@@ -140,4 +146,4 @@ class ChessSyncState(SQLModel, table=True):
     last_sync_message: str = Field(default="", max_length=600)
     last_archive: Optional[str] = Field(default=None, max_length=200)
     games_fetched_total: int = Field(default=0)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)

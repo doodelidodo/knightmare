@@ -19,7 +19,16 @@ import chess.pgn
 from sqlalchemy import delete
 from sqlmodel import Session, select
 
-from .analysis import ANALYSIS_VERSION, AnalysisError, EngineAnalyzer
+from .analysis import (
+    ANALYSIS_VERSION,
+    CATEGORY_BLUNDER,
+    CATEGORY_INACCURACY,
+    CATEGORY_MISTAKE,
+    CATEGORY_OK,
+    AnalysisError,
+    EngineAnalyzer,
+    categorize,
+)
 from .chesscom import ChessComClient, ChessComError
 from .config import (
     DRAW_RESULTS,
@@ -30,7 +39,7 @@ from .config import (
 )
 from .db import new_session
 from .lichess import LichessClient, LichessError
-from .models import ChessGame, ChessMove, ChessSyncState
+from .models import ChessGame, ChessMove, ChessSyncState, utc_now
 
 log = logging.getLogger(__name__)
 
@@ -595,7 +604,7 @@ def analyse_pending(
             game.blunders = report.blunders
             game.first_error_ply = report.first_error_ply
             game.move_count = report.move_count
-            game.analyzed_at = datetime.utcnow()
+            game.analyzed_at = utc_now()
             game.analysis_version = ANALYSIS_VERSION
             game.analysis_error = None
             session.add(game)
@@ -615,6 +624,76 @@ def analyse_pending(
         "remaining": remaining,
         "engine": engine_name,
     }
+
+
+# --------------------------------------------------------------------------
+# Umstufen ohne Engine
+# --------------------------------------------------------------------------
+def recategorize(session: Session, settings: Settings) -> dict[str, int]:
+    """Stuft alle analysierten Zuege nach dem aktuellen Massstab neu ein.
+
+    Braucht keine Engine: Bewertungsverlust und Verlust an
+    Gewinnwahrscheinlichkeit liegen pro Zug in der Datenbank. Damit wirkt
+    ein geaenderter Massstab oder eine geaenderte Schwelle sofort beim
+    naechsten Start - Sekunden statt Stunden.
+
+    Idempotent und sparsam: geschrieben wird nur, was sich aendert.
+    """
+    changed_moves = 0
+    changed_games = 0
+
+    games = list(
+        session.exec(
+            select(ChessGame).where(ChessGame.analyzed_at.is_not(None))  # type: ignore[union-attr]
+        ).all()
+    )
+    game_ids = [game.id for game in games if game.id is not None]
+    moves_by_game: dict[int, list[ChessMove]] = {}
+    for start in range(0, len(game_ids), 500):
+        chunk = game_ids[start : start + 500]
+        for move in session.exec(
+            select(ChessMove).where(ChessMove.game_id.in_(chunk))  # type: ignore[union-attr]
+        ).all():
+            moves_by_game.setdefault(move.game_id, []).append(move)
+
+    for game in games:
+        moves = moves_by_game.get(game.id or -1, [])
+        blunders = mistakes = inaccuracies = 0
+        first_error: Optional[int] = None
+        for move in sorted(moves, key=lambda item: item.ply):
+            category = categorize(settings, move.cp_loss, move.win_loss)
+            if category != move.category:
+                move.category = category
+                session.add(move)
+                changed_moves += 1
+            if category == CATEGORY_BLUNDER:
+                blunders += 1
+            elif category == CATEGORY_MISTAKE:
+                mistakes += 1
+            elif category == CATEGORY_INACCURACY:
+                inaccuracies += 1
+            if category != CATEGORY_OK and first_error is None:
+                first_error = move.ply
+        if (
+            game.blunders != blunders
+            or game.mistakes != mistakes
+            or game.inaccuracies != inaccuracies
+            or game.first_error_ply != first_error
+        ):
+            game.blunders = blunders
+            game.mistakes = mistakes
+            game.inaccuracies = inaccuracies
+            game.first_error_ply = first_error
+            session.add(game)
+            changed_games += 1
+
+    session.commit()
+    if changed_moves or changed_games:
+        log.info(
+            "Umgestuft nach '%s': %d Zuege, %d Partien angepasst",
+            settings.error_scale, changed_moves, changed_games,
+        )
+    return {"games": len(games), "changed_moves": changed_moves, "changed_games": changed_games}
 
 
 def reset_analysis(
@@ -674,13 +753,13 @@ def _store_state(
     if settings.lichess_username:
         names.append(f"lichess/{settings.lichess_username}")
     state.username = ", ".join(names)[:60]
-    state.last_sync_at = datetime.utcnow()
+    state.last_sync_at = utc_now()
     state.last_sync_status = status[:20]
     state.last_sync_message = message[:600]
     if last_archive:
         state.last_archive = last_archive[:200]
     state.games_fetched_total = (state.games_fetched_total or 0) + fetched
-    state.updated_at = datetime.utcnow()
+    state.updated_at = utc_now()
     session.add(state)
     session.commit()
 
@@ -704,7 +783,7 @@ def run_once(
     _set_status(
         running=True,
         phase="start",
-        started_at=datetime.utcnow().isoformat(),
+        started_at=utc_now().isoformat(),
         finished_at=None,
         message="",
         fetched=0,
@@ -762,7 +841,7 @@ def run_once(
     finally:
         session.close()
         _set_status(
-            running=False, phase="idle", finished_at=datetime.utcnow().isoformat()
+            running=False, phase="idle", finished_at=utc_now().isoformat()
         )
         _run_lock.release()
 

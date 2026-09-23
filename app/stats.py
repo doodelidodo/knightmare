@@ -23,7 +23,7 @@ from .analysis import (
     ERROR_UNCLASSIFIED,
     MISSED_LABELS,
 )
-from .models import ChessGame, ChessMove
+from .models import ChessGame, ChessMove, utc_now
 
 SCORE_BY_RESULT = {"win": 1.0, "draw": 0.5, "loss": 0.0}
 
@@ -81,7 +81,7 @@ def load_games(
 ) -> list[ChessGame]:
     statement = select(ChessGame)
     if days:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = utc_now() - timedelta(days=days)
         statement = statement.where(ChessGame.played_at >= since)
     if time_class:
         statement = statement.where(ChessGame.time_class == time_class)
@@ -105,7 +105,7 @@ def load_moves(
 ) -> list[ChessMove]:
     statement = select(ChessMove)
     if days:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = utc_now() - timedelta(days=days)
         statement = statement.where(ChessMove.played_at >= since)
     if time_class:
         statement = statement.where(ChessMove.time_class == time_class)
@@ -359,7 +359,7 @@ def error_moves(
     elif error_type:
         conditions.append(ChessMove.error_type == error_type)
     if days:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = utc_now() - timedelta(days=days)
         conditions.append(ChessMove.played_at >= since)
     if time_class:
         conditions.append(ChessMove.time_class == time_class)
@@ -497,7 +497,7 @@ def missed_moves(
     if motif:
         conditions.append(ChessMove.missed_motif == motif)
     if days:
-        since = datetime.utcnow() - timedelta(days=days)
+        since = utc_now() - timedelta(days=days)
         conditions.append(ChessMove.played_at >= since)
     if time_class:
         conditions.append(ChessMove.time_class == time_class)
@@ -725,7 +725,7 @@ def weekly_report(
     time_class: Optional[str] = None,
     platform: Optional[str] = None,
 ) -> dict[str, Any]:
-    now = datetime.utcnow()
+    now = utc_now()
     this_week_start = now - timedelta(days=7)
     last_week_start = now - timedelta(days=14)
 

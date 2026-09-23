@@ -6,9 +6,12 @@ nutzt wie der Rest der Plattform.
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 from dataclasses import dataclass
+
+log = logging.getLogger(__name__)
 
 # Uebliche Ablageorte des Stockfish-Binaries. Das Debian-Paket "stockfish"
 # installiert nach /usr/games/stockfish - das ist NICHT im Standard-PATH von
@@ -53,6 +56,17 @@ def _env_str(name: str, default: str = "") -> str:
         return default
     value = value.strip()
     return value if value else default
+
+
+ERROR_SCALES = ("winprob", "centipawn")
+
+
+def _env_scale(name: str, default: str) -> str:
+    value = _env_str(name, default).strip().lower()
+    if value not in ERROR_SCALES:
+        log.warning("%s=%r unbekannt - nehme %r.", name, value, default)
+        return default
+    return value
 
 
 def _env_int(name: str, default: int) -> int:
@@ -132,6 +146,13 @@ class Settings:
     inaccuracy_cp: int
     mistake_cp: int
     blunder_cp: int
+    # Massstab der Einstufung: "winprob" (Verlust an Gewinnwahrscheinlichkeit
+    # in Prozentpunkten, wie Lichess) oder "centipawn" (fester Bewertungs-
+    # verlust, egal wo die Stellung steht). Siehe Settings.error_scale.
+    error_scale: str
+    inaccuracy_win: float
+    mistake_win: float
+    blunder_win: float
 
     @property
     def configured(self) -> bool:
@@ -186,4 +207,14 @@ def load_settings() -> Settings:
         inaccuracy_cp=max(1, _env_int("CHESS_INACCURACY_CP", 50)),
         mistake_cp=max(1, _env_int("CHESS_MISTAKE_CP", 100)),
         blunder_cp=max(1, _env_int("CHESS_BLUNDER_CP", 300)),
+        # Vorgabe ist die Gewinnwahrscheinlichkeit. Gemessen an 587 echten
+        # "Stellungsfehlern" nach Centipawn-Massstab: 73 Prozent davon
+        # kosteten weniger als 10 Prozentpunkte, ein Viertel lag in schon
+        # entschiedenen Stellungen. 100 Centipawn bei Gleichstand sind ein
+        # Fehler, 100 Centipawn bei +800 sind nichts - der feste Massstab
+        # kann das nicht unterscheiden.
+        error_scale=_env_scale("CHESS_ERROR_SCALE", "winprob"),
+        inaccuracy_win=max(0.5, _env_float("CHESS_INACCURACY_WIN", 10.0)),
+        mistake_win=max(0.5, _env_float("CHESS_MISTAKE_WIN", 20.0)),
+        blunder_win=max(0.5, _env_float("CHESS_BLUNDER_WIN", 30.0)),
     )

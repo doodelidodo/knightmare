@@ -118,7 +118,8 @@ MISSED_WIN_AFTER_CP = 50
 #   1 = Fehlerarten
 #   2 = zusaetzlich verpasste Taktik
 #   3 = "Matt verpasst" als eigene Fehlerart
-ANALYSIS_VERSION = 3
+#   4 = Einstufung nach Gewinnwahrscheinlichkeit (ohne Engine nachziehbar)
+ANALYSIS_VERSION = 4
 
 # Ab welchem Stand eine Partie verpasste Motive traegt. Bewusst getrennt von
 # ANALYSIS_VERSION: nicht jede spaetere Erweiterung entwertet diesen einen
@@ -185,6 +186,30 @@ def parse_increment(time_control: str) -> float:
     if not match:
         return 0.0
     return float(match.group(2) or 0)
+
+
+def categorize(settings, cp_loss: int, win_loss: float) -> str:
+    """Einstufung eines Zuges - nach Gewinnwahrscheinlichkeit oder Centipawn.
+
+    Als Modulfunktion, weil auch die Umstufung bereits analysierter Zuege
+    (ohne Engine) genau dieselbe Regel anwenden muss. Zwei Stellen mit
+    derselben Logik driften auseinander.
+    """
+    if getattr(settings, "error_scale", "winprob") == "centipawn":
+        if cp_loss >= settings.blunder_cp:
+            return CATEGORY_BLUNDER
+        if cp_loss >= settings.mistake_cp:
+            return CATEGORY_MISTAKE
+        if cp_loss >= settings.inaccuracy_cp:
+            return CATEGORY_INACCURACY
+        return CATEGORY_OK
+    if win_loss >= settings.blunder_win:
+        return CATEGORY_BLUNDER
+    if win_loss >= settings.mistake_win:
+        return CATEGORY_MISTAKE
+    if win_loss >= settings.inaccuracy_win:
+        return CATEGORY_INACCURACY
+    return CATEGORY_OK
 
 
 # --------------------------------------------------------------------------
@@ -652,14 +677,8 @@ class EngineAnalyzer:
             return chess.engine.Limit(depth=self.settings.engine_depth)
         return chess.engine.Limit(time=self.settings.engine_movetime)
 
-    def _categorize(self, cp_loss: int) -> str:
-        if cp_loss >= self.settings.blunder_cp:
-            return CATEGORY_BLUNDER
-        if cp_loss >= self.settings.mistake_cp:
-            return CATEGORY_MISTAKE
-        if cp_loss >= self.settings.inaccuracy_cp:
-            return CATEGORY_INACCURACY
-        return CATEGORY_OK
+    def _categorize(self, cp_loss: int, win_loss: float) -> str:
+        return categorize(self.settings, cp_loss, win_loss)
 
     def evaluate(self, board: chess.Board) -> Evaluation:
         """Bewertung aus Sicht von Weiss plus bester Zug in dieser Stellung."""
@@ -795,7 +814,7 @@ class EngineAnalyzer:
             win_loss = round(
                 max(0.0, win_percent(cp_before) - win_percent(cp_after)), 2
             )
-            category = self._categorize(cp_loss)
+            category = self._categorize(cp_loss, win_loss)
             phase = phase_for(position_before, index, settings.opening_plies)
 
             try:

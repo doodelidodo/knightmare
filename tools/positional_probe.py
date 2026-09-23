@@ -226,13 +226,13 @@ def main() -> int:
 
     from sqlmodel import Session, select
     from app.db import engine
-    from app.models import ChessGame, ChessMove
+    from app.models import ChessGame, ChessMove, utc_now
 
     conditions = [ChessMove.error_type == args.error_type]
     if args.time_class:
         conditions.append(ChessMove.time_class == args.time_class)
     if args.days:
-        conditions.append(ChessMove.played_at >= datetime.utcnow() - timedelta(days=args.days))
+        conditions.append(ChessMove.played_at >= utc_now() - timedelta(days=args.days))
 
     with Session(engine) as session:
         moves = list(session.exec(select(ChessMove).where(*conditions).limit(args.limit)).all())

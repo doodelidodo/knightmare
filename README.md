@@ -146,11 +146,26 @@ least one of the two platforms.
 | `CHESS_ENGINE_THREADS` / `CHESS_ENGINE_HASH_MB` | `2` / `256` | Stockfish resources. |
 | `CHESS_TIME_CLASSES` | all of them | `ultrabullet,bullet,blitz,rapid,classical,daily`. Lichess correspondence is mapped to `daily`. |
 | `CHESS_RATED_ONLY` | `1` | Rated games only. |
-| `CHESS_INACCURACY_CP` / `CHESS_MISTAKE_CP` / `CHESS_BLUNDER_CP` | `50` / `100` / `300` | Mistake thresholds. |
+| `CHESS_ERROR_SCALE` | `winprob` | How a move is graded: `winprob` = win probability lost, `centipawn` = fixed evaluation loss. See below. |
+| `CHESS_INACCURACY_WIN` / `CHESS_MISTAKE_WIN` / `CHESS_BLUNDER_WIN` | `10` / `20` / `30` | Thresholds in win-probability points (`winprob` scale). |
+| `CHESS_INACCURACY_CP` / `CHESS_MISTAKE_CP` / `CHESS_BLUNDER_CP` | `50` / `100` / `300` | Thresholds in centipawns (`centipawn` scale). |
 | `DATABASE_URL` | SQLite in `/app/data` | Postgres works too. |
 
-Changed the thresholds? Hit **Re-analyse** — nothing is re-fetched, only
-re-evaluated.
+Changed the scale or a threshold? Just restart. Every move already stores both
+its centipawn loss and its win-probability loss, so regrading is a pass over the
+database — seconds, no engine.
+
+### Why win probability is the default
+
+A fixed centipawn scale cannot tell a real mistake from noise. Losing 100
+centipawns at equality swings the game; losing 100 at +800 changes nothing. On a
+sample of 587 "positional slips" graded by centipawns, 73 % cost less than ten
+points of win probability and a quarter happened in positions that were already
+decided. They were not mistakes worth a category — they were the scale.
+
+The win-probability curve is the one Lichess uses (`k = 0.00368208`), and so are
+the default thresholds: 10, 20 and 30 points. Set `CHESS_ERROR_SCALE=centipawn`
+if you want the old behaviour.
 
 ## API
 

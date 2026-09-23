@@ -306,11 +306,13 @@ const I18N = {
     notAnalysed: " · not analysed yet", failed: (e) => ` · analysis failed: ${e}`,
     gameStats: (a, b, m) => ` · avg ${a} cp · ${b} blunders, ${m} mistakes`,
     openOn: "open on Chess.com",
-    reTitle: "Re-analyse", reIntro: "Needed after changing thresholds, or when older games are missing newer fields. Nothing is re-fetched — only re-evaluated.",
+    reTitle: "Re-analyse", reIntro: "Only needed when older games are missing newer fields. Changed thresholds apply on the next start by themselves. Nothing is re-fetched — only re-evaluated.",
     reBtn: "Re-analyse", reConfirm: "Sure? Click again",
     statusLine: (u, e, t, i, done, total, pending) =>
       `User: ${u} · engine: ${e} · ${t}s per position · auto run every ${i} h · ${done} of ${total} games analysed${pending ? `, ${pending} pending` : ""}.`,
-    thresholds: (i, m, b) => ` Thresholds: inaccuracy from ${i} cp, mistake from ${m} cp, blunder from ${b} cp.`,
+    thresholds: (i, m, b, u) => u === "win%"
+      ? ` Thresholds in win probability lost: inaccuracy from ${i} points, mistake from ${m}, blunder from ${b}.`
+      : ` Thresholds: inaccuracy from ${i} cp, mistake from ${m} cp, blunder from ${b} cp.`,
     blunder: "Blunder", mistake: "Mistake", inaccuracy: "Inaccuracy",
     missTitle: "What you left on the board",
     missIntro: "When you went wrong, this is what was available instead \u2014 the engine's best move, grouped by motif. Click to see every position.",
@@ -411,11 +413,13 @@ const I18N = {
     notAnalysed: " · noch nicht analysiert", failed: (e) => ` · Analyse fehlgeschlagen: ${e}`,
     gameStats: (a, b, m) => ` · Ø ${a} cp · ${b} Patzer, ${m} Fehler`,
     openOn: "auf Chess.com öffnen",
-    reTitle: "Neu analysieren", reIntro: "Nötig nach geänderten Schwellen oder wenn älteren Partien neue Felder fehlen. Es wird nichts neu geholt, nur neu bewertet.",
+    reTitle: "Neu analysieren", reIntro: "Nur nötig, wenn älteren Partien neuere Felder fehlen. Geänderte Schwellen greifen beim nächsten Start von selbst. Es wird nichts neu geholt, nur neu bewertet.",
     reBtn: "Neu analysieren", reConfirm: "Wirklich? Nochmal klicken",
     statusLine: (u, e, t, i, done, total, pending) =>
       `Benutzer: ${u} · Engine: ${e} · ${t}s pro Stellung · automatischer Lauf alle ${i} h · ${done} von ${total} Partien analysiert${pending ? `, ${pending} offen` : ""}.`,
-    thresholds: (i, m, b) => ` Schwellen: Ungenauigkeit ab ${i} cp, Fehler ab ${m} cp, Patzer ab ${b} cp.`,
+    thresholds: (i, m, b, u) => u === "win%"
+      ? ` Schwellen in verlorener Gewinnwahrscheinlichkeit: Ungenauigkeit ab ${i} Punkten, Fehler ab ${m}, Patzer ab ${b}.`
+      : ` Schwellen: Ungenauigkeit ab ${i} cp, Fehler ab ${m} cp, Patzer ab ${b} cp.`,
     blunder: "Patzer", mistake: "Fehler", inaccuracy: "Ungenauigkeit",
     missTitle: "Was du stehen gelassen hast",
     missIntro: "Was an den Stellen, an denen du danebengegriffen hast, stattdessen m\u00f6glich war \u2014 der beste Zug der Engine, nach Motiv sortiert. Anklicken zeigt jede Stellung.",
@@ -1028,7 +1032,7 @@ function renderFooter() {
   document.getElementById("statusLine").textContent = s.version
     ? L.statusLine(s.username || "—", s.engine_path, s.engine_movetime,
         s.sync_interval_hours, s.games_analyzed, s.games_total, s.games_pending) +
-      (s.thresholds ? L.thresholds(s.thresholds.inaccuracy, s.thresholds.mistake, s.thresholds.blunder) : "")
+      (s.thresholds ? L.thresholds(s.thresholds.inaccuracy, s.thresholds.mistake, s.thresholds.blunder, s.thresholds.unit) : "")
     : "";
 
   document.getElementById("footer").innerHTML =
