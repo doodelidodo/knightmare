@@ -28,6 +28,7 @@ is what shows what was actually wrong.
 | Category | Detected when | What to work on |
 | --- | --- | --- |
 | **Allowed mate** | A forced mate against you appears that wasn't there before. | King safety |
+| **Missed a forced mate** | A forced mate was there before your move and gone after it. | Looking for mate when you are winning |
 | **Walked into a fork** | The refuting piece then attacks two worthwhile targets: your king, something worth more than itself, or an undefended piece of at least minor-piece value. | Tactics |
 | **Bad trade** | You captured, the opponent recaptures on the same square, and you come out behind. | Calculating exchanges |
 | **Hung a piece** | The refutation captures the very piece you just moved. | Checking the destination square |
@@ -179,7 +180,8 @@ Checks that Stockfish starts, analyses a complete game, reads the clock
 comments, and — the interesting part — classifies every motif correctly
 against purpose-built positions: the seven mistake types, and the six missed
 tactics — plus three positions where the answer must be *nothing*, which are
-the ones that keep the detection honest. Exit code 0 means everything is fine. The same
+the ones that keep the detection honest. Among them the case that started it:
+a forced mate on the board, stalemate played instead. Exit code 0 means everything is fine. The same
 test runs on every push in CI.
 
 ## Honest limitations

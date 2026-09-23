@@ -335,6 +335,7 @@ const I18N = {
     errors: {
       hanging_piece: "Hung a piece", missed_threat: "Missed a threat",
       fork: "Walked into a fork", allowed_mate: "Allowed mate",
+      missed_mate: "Missed a forced mate",
       bad_trade: "Bad trade", missed_win: "Missed a win", positional: "Positional slip",
       unclassified: "Not classified yet",
     },
@@ -343,6 +344,7 @@ const I18N = {
       missed_threat: "After every opponent move, ask what it threatens. Something was already hanging here.",
       fork: "Tactics training on forks. Watch knights and queens that can reach two targets at once.",
       allowed_mate: "King safety. With an open king, check the opponent's mating ideas first.",
+      missed_mate: "A forced mate was on the board and you played something else. When you are clearly winning, spend the extra seconds looking for mate before grabbing material \u2014 the win is already there.",
       bad_trade: "Calculate the whole exchange sequence before capturing, not just the first capture.",
       missed_win: "Convert won positions technically instead of looking for the fastest move.",
       positional: "No material lost, position just worse. Best improved by playing with a plan rather than move by move.",
@@ -438,6 +440,7 @@ const I18N = {
     errors: {
       hanging_piece: "Figur eingestellt", missed_threat: "Drohung übersehen",
       fork: "Gabel kassiert", allowed_mate: "Matt zugelassen",
+      missed_mate: "Matt verpasst",
       bad_trade: "Schlechter Abtausch", missed_win: "Gewinn verpasst", positional: "Stellungsfehler",
       unclassified: "Noch nicht eingeordnet",
     },
@@ -446,6 +449,7 @@ const I18N = {
       missed_threat: "Nach jedem Gegnerzug fragen: Was droht jetzt? Hier stand schon etwas hängen.",
       fork: "Taktiktraining mit Gabeln. Besonders auf Springer und Damen achten, die zwei Ziele gleichzeitig erreichen.",
       allowed_mate: "Königssicherheit. Bei offener Stellung zuerst die gegnerischen Mattdrohungen durchgehen.",
+      missed_mate: "Es stand ein erzwungenes Matt auf dem Brett, und du hast etwas anderes gespielt. Wenn du klar gewinnst: erst nach Matt suchen, dann Material nehmen \u2014 der Gewinn ist ja schon da.",
       bad_trade: "Vor dem Schlagen die ganze Abtauschfolge zu Ende rechnen, nicht nur den ersten Schlagzug.",
       missed_win: "Gewonnene Stellungen technisch zu Ende spielen statt den schnellsten Zug zu suchen.",
       positional: "Kein Material verloren, aber die Stellung schlechter. Am ehesten über Partien mit Plan zu verbessern.",
@@ -784,6 +788,11 @@ function errorDetail(row) {
     let line = `<strong>${num_}</strong> <span class="tag ${esc(m.category)}">${esc(L[m.category] || m.category)}</span> — ${esc(L.lost(m.cp_loss))}`;
     if (m.refutation_san) line += esc(L.punished(m.refutation_san));
     if (m.best_move_san) line += esc(L.better(m.best_move_san));
+    // Die zweite Achse hier mit anzeigen: "Stellungsfehler" sagt wenig, wenn
+    // daneben steht, dass eine Gabel bereitlag.
+    if (m.missed_motif) {
+      line += esc(" · " + (L.missed[m.missed_motif] || m.missed_label || m.missed_motif));
+    }
     let meta = esc(phaseName(m.phase));
     if (m.opponent) meta += esc(L.against(m.opponent)) + (m.opponent_rating ? ` (${m.opponent_rating})` : "");
     if (m.result) meta += " · " + esc(L[m.result] || m.result);

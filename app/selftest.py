@@ -27,6 +27,7 @@ from .analysis import (
     ERROR_FORK,
     ERROR_HANGING_PIECE,
     ERROR_LABELS,
+    ERROR_MISSED_MATE,
     ERROR_MISSED_THREAT,
     ERROR_MISSED_WIN,
     ERROR_POSITIONAL,
@@ -269,6 +270,8 @@ def _classify_case(
     cp_after: int,
     mate_now: bool = False,
     mate_before: bool = False,
+    mate_for_us_before: bool = False,
+    mate_for_us_now: bool = False,
 ) -> str:
     """Baut eine Stellung auf, spielt Zug und Gegenzug, und ordnet den Fehler ein."""
     board_before = chess.Board(fen)
@@ -336,6 +339,28 @@ def test_classification() -> bool:
             "Matt zugelassen schlaegt alles andere",
             ("4k3/8/8/2p5/8/B7/8/3K4 w - - 0 1", "a3b4", "c5b4", 200, -1000, True, False),
             ERROR_ALLOWED_MATE,
+        ),
+        (
+            # Weiss: Ta1, Kg1. Schwarz: Kg8 ohne Luft. Ta8 waere matt, Ta7 nicht.
+            "Matt verpasst, Stellung bleibt trotzdem gewonnen",
+            ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a7", "g8h8",
+             1000, 400, False, False, True, False),
+            ERROR_MISSED_MATE,
+        ),
+        (
+            # Der wichtige Fall: kein Gegenzug, weil die Partie zu Ende ist -
+            # patt gesetzt statt matt gesetzt. Fiel frueher in den Resttopf,
+            # weil die Einordnung bei fehlendem Gegenzug sofort ausstieg.
+            "Matt verpasst, auch ohne Gegenzug (patt statt matt)",
+            ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a7", None,
+             1000, 0, False, False, True, False),
+            ERROR_MISSED_MATE,
+        ),
+        (
+            "weiter bestehendes Matt ist kein verpasstes",
+            ("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", "a1a7", "g8h8",
+             1000, 1000, False, False, True, True),
+            ERROR_POSITIONAL,
         ),
     ]
 

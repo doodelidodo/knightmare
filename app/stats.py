@@ -18,7 +18,7 @@ from typing import Any, Iterable, Optional, Sequence
 from sqlmodel import Session, select
 
 from .analysis import (
-    ANALYSIS_VERSION,
+    MISSED_SINCE_VERSION,
     ERROR_LABELS,
     ERROR_UNCLASSIFIED,
     MISSED_LABELS,
@@ -435,7 +435,7 @@ def missed_motifs(
         1
         for game in games
         if game.analyzed_at is not None
-        and (game.analysis_version or 0) < ANALYSIS_VERSION
+        and (game.analysis_version or 0) < MISSED_SINCE_VERSION
     )
 
     if not tagged:

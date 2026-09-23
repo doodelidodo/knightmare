@@ -48,6 +48,7 @@ CATEGORY_BLUNDER = "blunder"
 
 # --- Fehlerarten ----------------------------------------------------------
 ERROR_ALLOWED_MATE = "allowed_mate"
+ERROR_MISSED_MATE = "missed_mate"
 ERROR_FORK = "fork"
 ERROR_BAD_TRADE = "bad_trade"
 ERROR_HANGING_PIECE = "hanging_piece"
@@ -57,6 +58,7 @@ ERROR_POSITIONAL = "positional"
 
 ERROR_TYPES = (
     ERROR_ALLOWED_MATE,
+    ERROR_MISSED_MATE,
     ERROR_FORK,
     ERROR_HANGING_PIECE,
     ERROR_MISSED_THREAT,
@@ -75,6 +77,7 @@ ERROR_UNCLASSIFIED = "unclassified"
 # und fuer ein oeffentliches Projekt ist Englisch die groessere Zielgruppe.
 ERROR_LABELS = {
     ERROR_ALLOWED_MATE: "Allowed mate",
+    ERROR_MISSED_MATE: "Missed a forced mate",
     ERROR_FORK: "Walked into a fork",
     ERROR_HANGING_PIECE: "Hung a piece",
     ERROR_MISSED_THREAT: "Missed a threat",
@@ -114,7 +117,14 @@ MISSED_WIN_AFTER_CP = 50
 # wuerde eine leere Liste zeigen, als waere sie ein Befund.
 #   1 = Fehlerarten
 #   2 = zusaetzlich verpasste Taktik
-ANALYSIS_VERSION = 2
+#   3 = "Matt verpasst" als eigene Fehlerart
+ANALYSIS_VERSION = 3
+
+# Ab welchem Stand eine Partie verpasste Motive traegt. Bewusst getrennt von
+# ANALYSIS_VERSION: nicht jede spaetere Erweiterung entwertet diesen einen
+# Abschnitt, und ein Hinweis "muss nachgerechnet werden", der nicht stimmt,
+# ist schlimmer als keiner.
+MISSED_SINCE_VERSION = 2
 
 _TIME_CONTROL_RE = re.compile(r"^(\d+)(?:\+(\d+))?$")
 
@@ -456,6 +466,8 @@ def classify_error(
     cp_after: int,
     mate_against_now: bool,
     mate_against_before: bool,
+    mate_for_us_before: bool = False,
+    mate_for_us_now: bool = False,
 ) -> str:
     """Ordnet einen fehlerhaften Zug einer Fehlerart zu.
 
@@ -468,6 +480,19 @@ def classify_error(
     # Matt zugelassen - aber nur, wenn vorher noch keins gegen uns stand.
     if mate_against_now and not mate_against_before:
         return ERROR_ALLOWED_MATE
+
+    # Matt verpasst: vorher sah die Engine ein erzwungenes Matt fuer uns,
+    # nachher nicht mehr.
+    #
+    # Muss vor dem Ausstieg bei fehlendem Gegenzug stehen. Sonst landet
+    # ausgerechnet der schlimmste Fall im Resttopf: Matt in eins auf dem
+    # Brett, stattdessen patt gesetzt - dann gibt es keinen Gegenzug mehr,
+    # und die Einordnung stieg hier bisher mit "Stellungsfehler" aus.
+    #
+    # Und vor der Materialpruefung, weil "du hattest Matt" der lehrreichere
+    # Satz ist als "du hast einen Bauern verloren".
+    if mate_for_us_before and not mate_for_us_now:
+        return ERROR_MISSED_MATE
 
     if reply is None:
         return ERROR_POSITIONAL
@@ -801,6 +826,8 @@ class EngineAnalyzer:
                     cp_after=cp_after,
                     mate_against_now=mate_against(after),
                     mate_against_before=mate_against(before),
+                    mate_for_us_before=mate_for_us(before),
+                    mate_for_us_now=mate_for_us(after),
                 )
                 refutation_san = after.best_san
 
