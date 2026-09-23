@@ -297,6 +297,8 @@ def _classify_case(
         cp_after=cp_after,
         mate_against_now=mate_now,
         mate_against_before=mate_before,
+        mate_for_us_before=mate_for_us_before,
+        mate_for_us_now=mate_for_us_now,
     )
 
 
