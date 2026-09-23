@@ -188,13 +188,28 @@ def parse_increment(time_control: str) -> float:
     return float(match.group(2) or 0)
 
 
-def categorize(settings, cp_loss: int, win_loss: float) -> str:
+def categorize(
+    settings, cp_loss: int, win_loss: float, missed_mate: bool = False
+) -> str:
     """Einstufung eines Zuges - nach Gewinnwahrscheinlichkeit oder Centipawn.
 
     Als Modulfunktion, weil auch die Umstufung bereits analysierter Zuege
     (ohne Engine) genau dieselbe Regel anwenden muss. Zwei Stellen mit
     derselben Logik driften auseinander.
+
+    Eine Ausnahme vom Massstab: ein verpasstes erzwungenes Matt zaehlt
+    immer mindestens als Fehler. Wer bei +900 das Matt uebersieht, verliert
+    nach Gewinnwahrscheinlichkeit fast nichts - fuer das Training ist es
+    trotzdem das Muster, das man sehen will. Gemessen: ohne diese Ausnahme
+    verschwand die Haelfte der verpassten Matts aus der Liste.
     """
+    base = _categorize_by_scale(settings, cp_loss, win_loss)
+    if missed_mate and base in (CATEGORY_OK, CATEGORY_INACCURACY):
+        return CATEGORY_MISTAKE
+    return base
+
+
+def _categorize_by_scale(settings, cp_loss: int, win_loss: float) -> str:
     if getattr(settings, "error_scale", "winprob") == "centipawn":
         if cp_loss >= settings.blunder_cp:
             return CATEGORY_BLUNDER
@@ -677,8 +692,8 @@ class EngineAnalyzer:
             return chess.engine.Limit(depth=self.settings.engine_depth)
         return chess.engine.Limit(time=self.settings.engine_movetime)
 
-    def _categorize(self, cp_loss: int, win_loss: float) -> str:
-        return categorize(self.settings, cp_loss, win_loss)
+    def _categorize(self, cp_loss: int, win_loss: float, missed_mate: bool = False) -> str:
+        return categorize(self.settings, cp_loss, win_loss, missed_mate)
 
     def evaluate(self, board: chess.Board) -> Evaluation:
         """Bewertung aus Sicht von Weiss plus bester Zug in dieser Stellung."""
@@ -814,7 +829,12 @@ class EngineAnalyzer:
             win_loss = round(
                 max(0.0, win_percent(cp_before) - win_percent(cp_after)), 2
             )
-            category = self._categorize(cp_loss, win_loss)
+            # Vor der Einstufung: lag ein erzwungenes Matt bereit, das jetzt
+            # weg ist? Das muss VOR der Motivpruefung feststehen, denn die
+            # laeuft nur bei Fehlern und Patzern - ohne die Untergrenze hier
+            # wuerde das Matt bei +900 als "ok" gelten und nie erfasst.
+            missed_forced_mate = mate_for_us(before) and not mate_for_us(after)
+            category = self._categorize(cp_loss, win_loss, missed_forced_mate)
             phase = phase_for(position_before, index, settings.opening_plies)
 
             try:

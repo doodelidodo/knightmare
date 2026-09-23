@@ -25,6 +25,8 @@ from .analysis import (
     CATEGORY_INACCURACY,
     CATEGORY_MISTAKE,
     CATEGORY_OK,
+    ERROR_MISSED_MATE,
+    MISSED_MATE,
     AnalysisError,
     EngineAnalyzer,
     categorize,
@@ -661,7 +663,13 @@ def recategorize(session: Session, settings: Settings) -> dict[str, int]:
         blunders = mistakes = inaccuracies = 0
         first_error: Optional[int] = None
         for move in sorted(moves, key=lambda item: item.ply):
-            category = categorize(settings, move.cp_loss, move.win_loss)
+            # Beide Felder stammen aus der Engine (Mattwert bzw. Mattstellung),
+            # nicht aus der auf +/-1000 abgeschnittenen Bewertung - die waere
+            # hier nicht eindeutig.
+            missed_mate = (
+                move.missed_motif == MISSED_MATE or move.error_type == ERROR_MISSED_MATE
+            )
+            category = categorize(settings, move.cp_loss, move.win_loss, missed_mate)
             if category != move.category:
                 move.category = category
                 session.add(move)

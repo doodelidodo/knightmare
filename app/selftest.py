@@ -178,6 +178,14 @@ def test_helpers() -> bool:
         categorize(_Scale("winprob"), 400, 35.0) == CATEGORY_BLUNDER,
     )
     ok &= _check(
+        "verpasstes Matt bei +900 zaehlt trotzdem als Fehler",
+        categorize(_Scale("winprob"), 100, 1.0, missed_mate=True) == CATEGORY_MISTAKE,
+    )
+    ok &= _check(
+        "verpasstes Matt macht aus einem Patzer keinen Fehler",
+        categorize(_Scale("winprob"), 900, 45.0, missed_mate=True) == CATEGORY_BLUNDER,
+    )
+    ok &= _check(
         "unter 50 cp erreicht nie 10 Punkte - nach Umstellung kommen keine neuen Fehler hinzu",
         win_percent(0) - win_percent(-49) < 10.0,
         f"{win_percent(0) - win_percent(-49):.1f} Punkte bei 49 cp am steilsten Punkt",
