@@ -107,6 +107,9 @@ class ChessMove(SQLModel, table=True):
     # gespielt haben. Nullable, damit die Spalte in bestehende Datenbanken
     # nachgezogen werden kann - alte Zuege bleiben schlicht leer.
     missed_motif: Optional[str] = Field(default=None, index=True, max_length=20)
+    # Laenge eines verpassten erzwungenen Matts in Zuegen (1 = Matt in 1).
+    # Nur gesetzt, wenn vor dem Zug ein Matt bereitlag und danach keins mehr.
+    mate_in: Optional[int] = Field(default=None, index=True)
     best_move_san: Optional[str] = Field(default=None, max_length=16)
     # Der Zug, mit dem der Gegner unseren Fehler bestraft haette.
     refutation_san: Optional[str] = Field(default=None, max_length=16)

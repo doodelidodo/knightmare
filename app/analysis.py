@@ -108,6 +108,19 @@ ENDGAME_MATERIAL_THRESHOLD = 6
 
 # Ab hier gilt ein Vorteil als "klarer Gewinn", der nicht verspielt werden darf.
 MISSED_WIN_BEFORE_CP = 200
+
+# Verpasstes Matt: bis zu welcher Laenge es IMMER als Fehler zaehlt, auch in
+# einer Stellung, die ohnehin gewonnen war. Matt in 1 bis 4 ist ein Muster,
+# das man sehen lernen kann und soll. Ein uebersehenes Matt in 9 bei +900 ist
+# fuer einen Klubspieler kein Trainingsthema - das wird ganz normal nach
+# Gewinnwahrscheinlichkeit eingestuft.
+MATE_FLOOR_MAX_MOVES = 4
+
+# Rechenzeit fuer den zweiten, tieferen Blick auf Stellungen mit verpasstem
+# Matt. Bei 0.15 s findet Stockfish Matt in 1 bis 3 praktisch immer, laengere
+# nur teilweise - und manchmal zuerst einen laengeren Weg als den kuerzesten.
+# Die Stellungen sind selten (einige pro hundert Partien), die Sekunde lohnt.
+MATE_PROBE_SECONDS = 1.0
 MISSED_WIN_AFTER_CP = 50
 
 # Stand der Auswertung, mit dem eine Partie durchgerechnet wurde. Wird
@@ -119,7 +132,8 @@ MISSED_WIN_AFTER_CP = 50
 #   2 = zusaetzlich verpasste Taktik
 #   3 = "Matt verpasst" als eigene Fehlerart
 #   4 = Einstufung nach Gewinnwahrscheinlichkeit (ohne Engine nachziehbar)
-ANALYSIS_VERSION = 4
+#   5 = Laenge verpasster Matts (fuer den Altbestand per Nachholschritt)
+ANALYSIS_VERSION = 5
 
 # Ab welchem Stand eine Partie verpasste Motive traegt. Bewusst getrennt von
 # ANALYSIS_VERSION: nicht jede spaetere Erweiterung entwertet diesen einen
@@ -189,7 +203,11 @@ def parse_increment(time_control: str) -> float:
 
 
 def categorize(
-    settings, cp_loss: int, win_loss: float, missed_mate: bool = False
+    settings,
+    cp_loss: int,
+    win_loss: float,
+    missed_mate: bool = False,
+    mate_in: Optional[int] = None,
 ) -> str:
     """Einstufung eines Zuges - nach Gewinnwahrscheinlichkeit oder Centipawn.
 
@@ -202,11 +220,28 @@ def categorize(
     nach Gewinnwahrscheinlichkeit fast nichts - fuer das Training ist es
     trotzdem das Muster, das man sehen will. Gemessen: ohne diese Ausnahme
     verschwand die Haelfte der verpassten Matts aus der Liste.
+
+    Die Ausnahme gilt nur bis Matt in MATE_FLOOR_MAX_MOVES. Ist die Laenge
+    unbekannt (Analyse aus der Zeit, bevor sie gespeichert wurde), gilt sie
+    weiter - bis der Nachholschritt die Laenge nachgetragen hat.
     """
     base = _categorize_by_scale(settings, cp_loss, win_loss)
-    if missed_mate and base in (CATEGORY_OK, CATEGORY_INACCURACY):
+    # -1 heisst: nachgeprueft, der tiefere Blick fand kein Matt - dann nicht.
+    floor_applies = missed_mate and (
+        mate_in is None or 0 < mate_in <= MATE_FLOOR_MAX_MOVES
+    )
+    if floor_applies and base in (CATEGORY_OK, CATEGORY_INACCURACY):
         return CATEGORY_MISTAKE
     return base
+
+
+def mate_bucket(mate_in: Optional[int]) -> str:
+    """Gruppe fuer die Aufschluesselung: "1".."4", "5+" oder "?" (unbekannt)."""
+    if mate_in is None or mate_in <= 0:
+        return "?"
+    if mate_in > MATE_FLOOR_MAX_MOVES:
+        return f"{MATE_FLOOR_MAX_MOVES + 1}+"
+    return str(mate_in)
 
 
 def _categorize_by_scale(settings, cp_loss: int, win_loss: float) -> str:
@@ -598,6 +633,7 @@ class MoveReport:
     category: str
     error_type: Optional[str] = None
     missed_motif: Optional[str] = None
+    mate_in: Optional[int] = None
     best_move_san: Optional[str] = None
     refutation_san: Optional[str] = None
     clock_seconds: Optional[float] = None
@@ -692,8 +728,30 @@ class EngineAnalyzer:
             return chess.engine.Limit(depth=self.settings.engine_depth)
         return chess.engine.Limit(time=self.settings.engine_movetime)
 
-    def _categorize(self, cp_loss: int, win_loss: float, missed_mate: bool = False) -> str:
-        return categorize(self.settings, cp_loss, win_loss, missed_mate)
+    def _categorize(
+        self, cp_loss: int, win_loss: float, missed_mate: bool = False,
+        mate_in: Optional[int] = None,
+    ) -> str:
+        return categorize(self.settings, cp_loss, win_loss, missed_mate, mate_in)
+
+    def mate_distance(self, board: chess.Board, color: chess.Color) -> Optional[int]:
+        """Kuerzestes erzwungenes Matt fuer 'color' in Zuegen, mit laengerer
+        Rechenzeit. None, wenn auch der tiefere Blick keins findet.
+
+        Eigene Suche statt der Bewertung aus dem normalen Durchlauf: die hat
+        nur einen Bruchteil der Zeit und liefert bei laengeren Matts manchmal
+        einen Umweg statt des kuerzesten Wegs.
+        """
+        if board.is_game_over(claim_draw=False):
+            return None
+        engine = self.open()
+        seconds = max(MATE_PROBE_SECONDS, self.settings.engine_movetime)
+        info = engine.analyse(board, chess.engine.Limit(time=seconds))
+        score = info.get("score")
+        if score is None:
+            return None
+        mate = score.pov(color).mate()
+        return mate if mate is not None and mate > 0 else None
 
     def evaluate(self, board: chess.Board) -> Evaluation:
         """Bewertung aus Sicht von Weiss plus bester Zug in dieser Stellung."""
@@ -834,7 +892,15 @@ class EngineAnalyzer:
             # laeuft nur bei Fehlern und Patzern - ohne die Untergrenze hier
             # wuerde das Matt bei +900 als "ok" gelten und nie erfasst.
             missed_forced_mate = mate_for_us(before) and not mate_for_us(after)
-            category = self._categorize(cp_loss, win_loss, missed_forced_mate)
+            mate_in: Optional[int] = None
+            if missed_forced_mate:
+                # Zweiter, tieferer Blick nur auf diese seltene Stellung. Faellt
+                # er leer aus, bleibt der Wert aus dem schnellen Durchlauf.
+                fast = (before.mate or 0) * sign
+                mate_in = self.mate_distance(position_before, my_color) or (
+                    fast if fast > 0 else None
+                )
+            category = self._categorize(cp_loss, win_loss, missed_forced_mate, mate_in)
             phase = phase_for(position_before, index, settings.opening_plies)
 
             try:
@@ -883,6 +949,7 @@ class EngineAnalyzer:
                     category=category,
                     error_type=error_type,
                     missed_motif=missed_motif,
+                    mate_in=mate_in if missed_forced_mate else None,
                     # Den besten Zug nur dort merken, wo er interessant ist.
                     best_move_san=before.best_san if category != CATEGORY_OK else None,
                     refutation_san=refutation_san,

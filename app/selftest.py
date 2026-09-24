@@ -45,6 +45,7 @@ from .analysis import (
     classify_error,
     categorize,
     classify_missed,
+    mate_bucket,
     material_balance,
     parse_increment,
     phase_for,
@@ -180,6 +181,23 @@ def test_helpers() -> bool:
     ok &= _check(
         "verpasstes Matt bei +900 zaehlt trotzdem als Fehler",
         categorize(_Scale("winprob"), 100, 1.0, missed_mate=True) == CATEGORY_MISTAKE,
+    )
+    ok &= _check(
+        "verpasstes Matt in 4 bei +900 zaehlt noch als Fehler",
+        categorize(_Scale("winprob"), 100, 1.0, missed_mate=True, mate_in=4) == CATEGORY_MISTAKE,
+    )
+    ok &= _check(
+        "verpasstes Matt in 5 bei +900 zaehlt nicht mehr - kein Trainingsthema",
+        categorize(_Scale("winprob"), 100, 1.0, missed_mate=True, mate_in=5) == CATEGORY_OK,
+    )
+    ok &= _check(
+        "nachgeprueft ohne Matt (-1) hebt nicht an",
+        categorize(_Scale("winprob"), 100, 1.0, missed_mate=True, mate_in=-1) == CATEGORY_OK,
+    )
+    ok &= _check(
+        "Mattgruppen 1..4, 5+ und unklar",
+        [mate_bucket(n) for n in (1, 2, 3, 4, 5, 12, None, -1)]
+        == ["1", "2", "3", "4", "5+", "5+", "?", "?"],
     )
     ok &= _check(
         "verpasstes Matt macht aus einem Patzer keinen Fehler",
@@ -558,11 +576,21 @@ def test_analysis() -> bool:
         with EngineAnalyzer(settings) as analyzer:
             print(f"Engine gestartet: {analyzer.engine_id()}\n")
             report = analyzer.analyse_game(SAMPLE_PGN, chess.BLACK, "300+2")
+            # Grundreihe: Ta8 matt. Und ein Matt in 2 ohne Matt in 1 - Kb6,
+            # dann Th8 matt; Th8+ sofort laesst Ka7 entkommen.
+            mate_one = analyzer.mate_distance(
+                chess.Board("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1"), chess.WHITE)
+            mate_two = analyzer.mate_distance(
+                chess.Board("k7/8/2K5/8/8/8/8/7R w - - 0 1"), chess.WHITE)
+            no_mate = analyzer.mate_distance(chess.Board(), chess.WHITE)
     except Exception as exc:  # noqa: BLE001
         _check("Stockfish gestartet", False, str(exc))
         return False
 
     ok = True
+    ok &= _check("Mattlaenge: Matt in 1 erkannt", mate_one == 1, str(mate_one))
+    ok &= _check("Mattlaenge: Matt in 2, nicht in 1", mate_two == 2, str(mate_two))
+    ok &= _check("Mattlaenge: Grundstellung hat keins", no_mate is None, str(no_mate))
     ok &= _check("Zuege gefunden", report.move_count == 7, str(report.move_count))
     ok &= _check(
         "eigene Zuege bewertet", len(report.moves) == 3, f"{len(report.moves)} Zuege"

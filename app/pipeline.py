@@ -586,6 +586,7 @@ def analyse_pending(
                         category=move.category,
                         error_type=_trim(move.error_type, 20),
                         missed_motif=_trim(move.missed_motif, 20),
+                        mate_in=move.mate_in,
                         best_move_san=_trim(move.best_move_san, 16),
                         refutation_san=_trim(move.refutation_san, 16),
                         clock_seconds=move.clock_seconds,
@@ -669,7 +670,9 @@ def recategorize(session: Session, settings: Settings) -> dict[str, int]:
             missed_mate = (
                 move.missed_motif == MISSED_MATE or move.error_type == ERROR_MISSED_MATE
             )
-            category = categorize(settings, move.cp_loss, move.win_loss, missed_mate)
+            category = categorize(
+                settings, move.cp_loss, move.win_loss, missed_mate, move.mate_in
+            )
             if category != move.category:
                 move.category = category
                 session.add(move)
@@ -702,6 +705,92 @@ def recategorize(session: Session, settings: Settings) -> dict[str, int]:
             settings.error_scale, changed_moves, changed_games,
         )
     return {"games": len(games), "changed_moves": changed_moves, "changed_games": changed_games}
+
+
+# --------------------------------------------------------------------------
+# Nachholschritt: Laenge verpasster Matts im Altbestand
+# --------------------------------------------------------------------------
+MATE_BACKFILL_PER_RUN = 200
+
+
+def backfill_mate_distance(
+    session: Session, analyzer: EngineAnalyzer, limit: int = MATE_BACKFILL_PER_RUN
+) -> int:
+    """Traegt fuer bereits analysierte Zuege mit verpasstem Matt die Laenge nach.
+
+    Bewertet NUR die Stellung vor dem jeweiligen Zug neu - ein paar Dutzend
+    Stellungen statt aller Partien. Danach stimmen Aufschluesselung und
+    Untergrenze auch fuer den Altbestand. Gibt die Zahl der Zuege zurueck.
+    """
+    pending = list(
+        session.exec(
+            select(ChessMove)
+            .where(ChessMove.mate_in.is_(None))  # type: ignore[union-attr]
+            .where(
+                (ChessMove.missed_motif == MISSED_MATE)
+                | (ChessMove.error_type == ERROR_MISSED_MATE)
+            )
+            .limit(limit)
+        ).all()
+    )
+    if not pending:
+        return 0
+
+    games = {
+        game.id: game
+        for game in session.exec(
+            select(ChessGame).where(
+                ChessGame.id.in_({m.game_id for m in pending})  # type: ignore[union-attr]
+            )
+        ).all()
+    }
+    done = 0
+    for move in pending:
+        game = games.get(move.game_id)
+        board = _board_before_ply(game.pgn if game else "", move.ply)
+        if board is None:
+            move.mate_in = -1  # nicht nachspielbar - nicht jedes Mal neu versuchen
+        else:
+            color = chess.WHITE if move.color == "white" else chess.BLACK
+            found = analyzer.mate_distance(board, color)
+            # -1 = auch der tiefere Blick findet kein Matt mehr: der schnelle
+            # Durchlauf hatte sich geirrt. Zaehlt dann nicht als Matt in N.
+            move.mate_in = found if found else -1
+        session.add(move)
+        done += 1
+    session.commit()
+    log.info("Mattlaenge nachgetragen fuer %d Zuege", done)
+    return done
+
+
+def _mate_backfill_pending(session: Session) -> bool:
+    return (
+        session.exec(
+            select(ChessMove.id)
+            .where(ChessMove.mate_in.is_(None))  # type: ignore[union-attr]
+            .where(
+                (ChessMove.missed_motif == MISSED_MATE)
+                | (ChessMove.error_type == ERROR_MISSED_MATE)
+            )
+            .limit(1)
+        ).first()
+        is not None
+    )
+
+
+def _board_before_ply(pgn_text: str, ply: int) -> Optional[chess.Board]:
+    try:
+        game = chess.pgn.read_game(io.StringIO(pgn_text or ""))
+    except Exception:  # noqa: BLE001
+        return None
+    if game is None:
+        return None
+    board = game.board()
+    for index, node in enumerate(game.mainline(), start=1):
+        if index == ply:
+            return board
+        board.push(node.move)
+    return None
 
 
 def reset_analysis(
@@ -813,6 +902,17 @@ def run_once(
         _set_status(
             analyzed=analysis_result["analyzed"], failed=analysis_result["failed"]
         )
+
+        # Nachholschritt fuer den Altbestand. Engine nur starten, wenn es
+        # ueberhaupt etwas nachzutragen gibt - im Normalbetrieb ist das nichts.
+        try:
+            if _mate_backfill_pending(session):
+                _set_status(phase="Mattlaengen nachtragen")
+                with EngineAnalyzer(settings) as analyzer:
+                    if backfill_mate_distance(session, analyzer):
+                        recategorize(session, settings)
+        except Exception as exc:  # noqa: BLE001 - darf den Lauf nicht kippen
+            log.error("Nachtragen der Mattlaengen fehlgeschlagen: %s", exc)
 
         message = (
             f"{fetch_result['added']} neue Partien, "

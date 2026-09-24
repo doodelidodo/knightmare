@@ -321,6 +321,10 @@ const I18N = {
     missStale: (n) => `${n} games were analysed before this section existed, so they carry no motifs yet. Hit \u201cRe-analyse\u201d at the bottom of the page \u2014 nothing is re-fetched, only re-evaluated.`,
     missCounts: (b, m) => `${b} in blunders, ${m} in mistakes`,
     couldHave: (san) => `${san} was there`,
+    mateIn: (n) => ` (mate in ${n})`,
+    mateLabel: "Mate in",
+    mateBucket: (b) => (b === "?" ? "unclear" : b),
+    mateNote: "Mates up to 3 moves are found reliably. Longer ones only in part at the current engine time \u2014 treat 4 and 5+ as a lower bound.",
     missed: {
       mate: "Missed a mate", fork: "Missed a fork",
       discovered: "Missed a discovered attack", skewer: "Missed a skewer",
@@ -428,6 +432,10 @@ const I18N = {
     missStale: (n) => `${n} Partien wurden analysiert, bevor es diesen Abschnitt gab, und tragen daher noch kein Motiv. Unten auf der Seite \u201eNeu analysieren\u201c dr\u00fccken \u2014 es wird nichts neu geholt, nur neu gerechnet.`,
     missCounts: (b, m) => `${b} bei Patzern, ${m} bei Fehlern`,
     couldHave: (san) => `${san} stand da`,
+    mateIn: (n) => ` (Matt in ${n})`,
+    mateLabel: "Matt in",
+    mateBucket: (b) => (b === "?" ? "unklar" : b),
+    mateNote: "Matts bis 3 Züge werden zuverlässig gefunden. Längere bei der aktuellen Rechenzeit nur teilweise \u2014 4 und 5+ sind eine Untergrenze.",
     missed: {
       mate: "Matt verpasst", fork: "Gabel verpasst",
       discovered: "Abzugsangriff verpasst", skewer: "Spie\u00df verpasst",
@@ -603,7 +611,8 @@ async function loadErrors(type, opts) {
   const o = opts || {};
   const sort = o.sort || "cp_loss";
   const append = !!o.append;
-  list = { items: append ? list.items : [], total: append ? list.total : 0, sort, loading: true };
+  const mate = o.mate || null;
+  list = { items: append ? list.items : [], total: append ? list.total : 0, sort, mate, loading: true };
   render();
   try {
     const parts = [
@@ -613,9 +622,10 @@ async function loadErrors(type, opts) {
     if (RANGES[range]) parts.push("days=" + RANGES[range]);
     if (timeClass !== "all") parts.push("time_class=" + timeClass);
     if (platform !== "all") parts.push("platform=" + platform);
+    if (mate) parts.push("mate_in=" + encodeURIComponent(mate));
     const res = await api("errors?" + parts.join("&"));
     list = {
-      sort, loading: false, total: res.total || 0,
+      sort, mate, loading: false, total: res.total || 0,
       items: append ? list.items.concat(res.moves || []) : (res.moves || []),
     };
   } catch (err) {
@@ -628,10 +638,11 @@ async function loadMissed(motif, opts) {
   const o = opts || {};
   const sort = o.sort || "cp_loss";
   const append = !!o.append;
+  const mate = o.mate || null;
   missList = {
     items: append ? missList.items : [],
     total: append ? missList.total : 0,
-    sort, loading: true,
+    sort, mate, loading: true,
   };
   render();
   try {
@@ -642,9 +653,10 @@ async function loadMissed(motif, opts) {
     if (RANGES[range]) parts.push("days=" + RANGES[range]);
     if (timeClass !== "all") parts.push("time_class=" + timeClass);
     if (platform !== "all") parts.push("platform=" + platform);
+    if (mate) parts.push("mate_in=" + encodeURIComponent(mate));
     const res = await api("missed/moves?" + parts.join("&"));
     missList = {
-      sort, loading: false, total: res.total || 0,
+      sort, mate, loading: false, total: res.total || 0,
       items: append ? missList.items.concat(res.moves || []) : (res.moves || []),
     };
   } catch (err) {
@@ -779,6 +791,20 @@ function renderErrors() {
   }).join("");
 }
 
+// Filter nach Mattlaenge. Nur dort, wo es um verpasste Matts geht - fuer
+// Anfaenger der wichtigste Schnitt: erst alle Matt-in-1 durchgehen.
+function mateChips(breakdown, current, attr, forValue) {
+  const L = t();
+  const entries = Object.entries(breakdown || {});
+  if (!entries.length) return "";
+  const chip = (value, label) =>
+    `<button class="chip ${(current || "") === value ? "on" : ""}" ${attr}="${esc(value)}" data-mfor2="${esc(forValue)}">${esc(label)}</button>`;
+  return `<div class="chips" style="margin:6px 0 10px"><span class="label">${esc(L.mateLabel)}</span>` +
+    chip("", L.all) +
+    entries.map(([bucket, count]) => chip(bucket, `${L.mateBucket(bucket)} (${count})`)).join("") +
+    `</div><p class="muted" style="margin:0 0 10px">${esc(L.mateNote)}</p>`;
+}
+
 function errorDetail(row) {
   const L = t();
   const head = list.total
@@ -792,6 +818,7 @@ function errorDetail(row) {
     let line = `<strong>${num_}</strong> <span class="tag ${esc(m.category)}">${esc(L[m.category] || m.category)}</span> — ${esc(L.lost(m.cp_loss))}`;
     if (m.refutation_san) line += esc(L.punished(m.refutation_san));
     if (m.best_move_san) line += esc(L.better(m.best_move_san));
+    if (m.mate_in) line += esc(L.mateIn(m.mate_in));
     // Die zweite Achse hier mit anzeigen: "Stellungsfehler" sagt wenig, wenn
     // daneben steht, dass eine Gabel bereitlag.
     if (m.missed_motif) {
@@ -817,6 +844,7 @@ function errorDetail(row) {
 
   return `<div class="detail">
     <p class="advice">${esc(L.advice[row.error_type] || "")}</p>
+    ${row.error_type === "missed_mate" ? mateChips(row.mate_in, list.mate, "data-emate", row.error_type) : ""}
     <div class="toolbar"><span class="muted">${head}</span><span class="chips" style="margin:0">${sorts}</span></div>
     <div class="items">${items}</div>${more}</div>`;
 }
@@ -873,6 +901,7 @@ function missedDetail(row) {
     // Hier steht der beste Zug vorn: um den geht es, nicht um den gespielten.
     let line = `<strong>${num_}</strong> <span class="tag ${esc(m.category)}">${esc(L[m.category] || m.category)}</span>`;
     if (m.best_move_san) line += " — " + esc(L.couldHave(m.best_move_san));
+    if (m.mate_in) line += esc(L.mateIn(m.mate_in));
     line += " · " + esc(L.lost(m.cp_loss));
     let meta = esc(phaseName(m.phase));
     if (m.opponent) meta += esc(L.against(m.opponent)) + (m.opponent_rating ? ` (${m.opponent_rating})` : "");
@@ -893,6 +922,7 @@ function missedDetail(row) {
 
   return `<div class="detail">
     <p class="advice">${esc(L.madvice[row.motif] || "")}</p>
+    ${row.motif === "mate" ? mateChips(row.mate_in, missList.mate, "data-mmate", row.motif) : ""}
     <div class="toolbar"><span class="muted">${head}</span><span class="chips" style="margin:0">${sorts}</span></div>
     <div class="items">${items}</div>${more}</div>`;
 }
@@ -1046,7 +1076,7 @@ function renderFooter() {
 // Klicks
 // --------------------------------------------------------------------------
 document.addEventListener("click", (event) => {
-  const el = event.target.closest("[data-tc],[data-pf],[data-range],[data-color],[data-err],[data-sort],[data-more],[data-miss],[data-msort],[data-mmore]");
+  const el = event.target.closest("[data-tc],[data-pf],[data-range],[data-color],[data-err],[data-sort],[data-more],[data-miss],[data-msort],[data-mmore],[data-mmate],[data-emate]");
   if (!el) return;
 
   if (el.dataset.pf) {
@@ -1062,15 +1092,24 @@ document.addEventListener("click", (event) => {
   if (el.dataset.tc) { timeClass = el.dataset.tc; store.set("knightmare.timeClass", timeClass); loadAll(); return; }
   if (el.dataset.range) { range = el.dataset.range; store.set("knightmare.range", range); loadAll(); return; }
   if (el.dataset.color) { color = el.dataset.color; loadAll(); return; }
-  if (el.dataset.sort) { loadErrors(el.dataset.for, { sort: el.dataset.sort }); return; }
-  if (el.dataset.more) {
-    loadErrors(el.dataset.more, { sort: list.sort, append: true, offset: list.items.length });
+  // Leerer Wert = "Alle" - darum auf das Vorhandensein pruefen, nicht auf den Inhalt.
+  if ("emate" in el.dataset) {
+    loadErrors(el.dataset.mfor2, { sort: list.sort, mate: el.dataset.emate });
     return;
   }
-  if (el.dataset.msort) { loadMissed(el.dataset.mfor, { sort: el.dataset.msort }); return; }
+  if ("mmate" in el.dataset) {
+    loadMissed(el.dataset.mfor2, { sort: missList.sort, mate: el.dataset.mmate });
+    return;
+  }
+  if (el.dataset.sort) { loadErrors(el.dataset.for, { sort: el.dataset.sort, mate: list.mate }); return; }
+  if (el.dataset.more) {
+    loadErrors(el.dataset.more, { sort: list.sort, mate: list.mate, append: true, offset: list.items.length });
+    return;
+  }
+  if (el.dataset.msort) { loadMissed(el.dataset.mfor, { sort: el.dataset.msort, mate: missList.mate }); return; }
   if (el.dataset.mmore) {
     loadMissed(el.dataset.mmore, {
-      sort: missList.sort, append: true, offset: missList.items.length,
+      sort: missList.sort, mate: missList.mate, append: true, offset: missList.items.length,
     });
     return;
   }

@@ -18,7 +18,11 @@ from typing import Any, Iterable, Optional, Sequence
 from sqlmodel import Session, select
 
 from .analysis import (
+    ERROR_MISSED_MATE,
+    MATE_FLOOR_MAX_MOVES,
+    MISSED_MATE,
     MISSED_SINCE_VERSION,
+    mate_bucket,
     ERROR_LABELS,
     ERROR_UNCLASSIFIED,
     MISSED_LABELS,
@@ -269,6 +273,7 @@ def error_types(
                 "inaccuracies": sum(1 for item in items if item.category == "inaccuracy"),
                 "main_phase": phases_counter.most_common(1)[0][0] if phases_counter else None,
                 "avg_clock_seconds": _round(_mean(clocks), 0) if clocks else None,
+                "mate_in": _mate_breakdown(items) if name == ERROR_MISSED_MATE else None,
                 "examples": [
                     {
                         "move_number": item.move_number,
@@ -303,6 +308,39 @@ def error_types(
     }
 
 
+MATE_BUCKETS = tuple(str(n) for n in range(1, MATE_FLOOR_MAX_MOVES + 1)) + (
+    f"{MATE_FLOOR_MAX_MOVES + 1}+",
+    "?",
+)
+
+
+def _mate_breakdown(items: list[ChessMove]) -> dict[str, int]:
+    """Wie viele der verpassten Matts waren Matt in 1, 2, 3, 4, 5+ oder unklar."""
+    counter = Counter(mate_bucket(item.mate_in) for item in items)
+    return {bucket: counter.get(bucket, 0) for bucket in MATE_BUCKETS if counter.get(bucket)}
+
+
+def _mate_condition(bucket: Optional[str]):
+    """SQL-Bedingung fuer einen Eintrag aus MATE_BUCKETS, None = kein Filter."""
+    if not bucket:
+        return None
+    if bucket == "?":
+        return (ChessMove.mate_in.is_(None)) | (ChessMove.mate_in <= 0)  # type: ignore[union-attr,operator]
+    if bucket.endswith("+"):
+        return ChessMove.mate_in > MATE_FLOOR_MAX_MOVES  # type: ignore[operator]
+    try:
+        return ChessMove.mate_in == int(bucket)
+    except ValueError:
+        return None
+
+
+# Verpasste Motive werden nur bei Fehlern und Patzern erfasst. Nach einer
+# Umstufung kann ein solcher Zug aber zur Ungenauigkeit oder zu "ok" werden -
+# dann darf er weder mitgezaehlt noch aufgelistet werden, sonst widersprechen
+# sich Uebersicht und Liste.
+MOTIF_CATEGORIES = ("mistake", "blunder")
+
+
 def _move_row(move: ChessMove, game: Optional[ChessGame]) -> dict[str, Any]:
     return {
         "id": move.id,
@@ -317,6 +355,7 @@ def _move_row(move: ChessMove, game: Optional[ChessGame]) -> dict[str, Any]:
         "label": ERROR_LABELS.get(move.error_type or "", None),
         "missed_motif": move.missed_motif,
         "missed_label": MISSED_LABELS.get(move.missed_motif or "", None),
+        "mate_in": move.mate_in if (move.mate_in or 0) > 0 else None,
         "cp_loss": move.cp_loss,
         "win_loss": move.win_loss,
         "best_move_san": move.best_move_san,
@@ -345,6 +384,7 @@ def error_moves(
     sort: str = "cp_loss",
     limit: int = 50,
     offset: int = 0,
+    mate_in: Optional[str] = None,
 ) -> dict[str, Any]:
     """Alle Fehlerzuege einer Art - zum Durchgehen und Lernen, nicht als Stichprobe.
 
@@ -369,6 +409,9 @@ def error_moves(
         conditions.append(ChessMove.phase == phase)
     if category:
         conditions.append(ChessMove.category == category)
+    mate_filter = _mate_condition(mate_in)
+    if mate_filter is not None:
+        conditions.append(mate_filter)
 
     # Gesamtzahl ueber die IDs statt ueber COUNT(*): bei einigen tausend
     # Fehlerzuegen kostet das nichts und verhaelt sich unter jedem Dialekt
@@ -425,7 +468,9 @@ def missed_motifs(
     moves = load_moves(
         session, days=days, time_class=time_class, platform=platform, errors_only=True
     )
-    tagged = [move for move in moves if move.missed_motif]
+    # Nenner = Zuege, bei denen ueberhaupt nach Motiven gesucht wird.
+    eligible = [move for move in moves if move.category in MOTIF_CATEGORIES]
+    tagged = [move for move in eligible if move.missed_motif]
 
     # Partien, die vor dieser Auswertung durchgerechnet wurden, koennen gar
     # kein Motiv tragen. Ohne diese Zahl saehe eine leere Liste aus wie ein
@@ -442,7 +487,7 @@ def missed_motifs(
         return {
             "time_class": time_class or "all",
             "missed_total": 0,
-            "scanned": len(moves),
+            "scanned": len(eligible),
             "stale_games": stale,
             "types": [],
         }
@@ -466,6 +511,7 @@ def missed_motifs(
                 "mistakes": sum(1 for item in items if item.category == "mistake"),
                 "main_phase": phases_counter.most_common(1)[0][0] if phases_counter else None,
                 "avg_clock_seconds": _round(_mean(clocks), 0) if clocks else None,
+                "mate_in": _mate_breakdown(items) if name == MISSED_MATE else None,
             }
         )
 
@@ -475,7 +521,7 @@ def missed_motifs(
         # Bezugsgroesse mitliefern: "18 verpasste Motive" sagt wenig, "18 von
         # 402 Fehlern" sagt, wie oft ueberhaupt etwas zu holen war.
         "missed_total": len(tagged),
-        "scanned": len(moves),
+        "scanned": len(eligible),
         "stale_games": stale,
         "types": rows,
     }
@@ -491,9 +537,16 @@ def missed_moves(
     sort: str = "cp_loss",
     limit: int = 50,
     offset: int = 0,
+    mate_in: Optional[str] = None,
 ) -> dict[str, Any]:
     """Alle Stellen eines verpassten Motivs - zum Nachspielen, nicht als Stichprobe."""
-    conditions = [ChessMove.missed_motif.is_not(None)]  # type: ignore[union-attr]
+    conditions = [
+        ChessMove.missed_motif.is_not(None),  # type: ignore[union-attr]
+        ChessMove.category.in_(MOTIF_CATEGORIES),  # type: ignore[attr-defined]
+    ]
+    mate_filter = _mate_condition(mate_in)
+    if mate_filter is not None:
+        conditions.append(mate_filter)
     if motif:
         conditions.append(ChessMove.missed_motif == motif)
     if days:

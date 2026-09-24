@@ -335,6 +335,10 @@ def get_errors(
     sort: str = Query(default="cp_loss", pattern="^(cp_loss|recent)$"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    mate_in: Optional[str] = Query(
+        default=None, pattern=r"^([1-9]|[1-9]\+|\?)$",
+        description="Nur verpasste Matts dieser Laenge: 1, 2, 3, 4, 5+ oder ? (unklar)",
+    ),
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
     """Alle Fehlerzuege einer Art, zum Durchgehen - nicht nur eine Stichprobe."""
@@ -349,6 +353,7 @@ def get_errors(
         sort=sort,
         limit=limit,
         offset=offset,
+        mate_in=mate_in,
     )
 
 
@@ -378,6 +383,10 @@ def get_missed_moves(
     sort: str = Query(default="cp_loss", pattern="^(cp_loss|recent)$"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    mate_in: Optional[str] = Query(
+        default=None, pattern=r"^([1-9]|[1-9]\+|\?)$",
+        description="Nur verpasste Matts dieser Laenge: 1, 2, 3, 4, 5+ oder ? (unklar)",
+    ),
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
     """Jede einzelne Stelle - bewusst ohne Obergrenze im Sinne von Stichprobe."""
@@ -391,6 +400,7 @@ def get_missed_moves(
         sort=sort,
         limit=limit,
         offset=offset,
+        mate_in=mate_in,
     )
 
 

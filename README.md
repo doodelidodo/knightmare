@@ -163,10 +163,17 @@ sample of 587 "positional slips" graded by centipawns, 73 % cost less than ten
 points of win probability and a quarter happened in positions that were already
 decided. They were not mistakes worth a category — they were the scale.
 
-One deliberate exception: a **missed forced mate always counts as at least a
-mistake**, whatever the scale says. Missing mate at +900 costs almost no win
+One deliberate exception: a **missed forced mate up to mate in 4 always counts
+as at least a mistake**, whatever the scale says. Missing mate at +900 costs almost no win
 probability, but it is exactly the pattern you want to see. Without the
-exception, half of them vanished from the list.
+exception, half of them vanished from the list. Longer mates are graded like
+any other move — missing mate in 9 at +900 is not a training topic.
+
+Missed mates are broken down by length — **mate in 1, 2, 3, 4 and 5+** — and the
+list can be filtered by it, so a beginner can start with every mate in one they
+walked past. Each of those positions gets a second, deeper engine look (one
+second instead of 0.15), so the length is the shortest mate, not a detour.
+Mates up to three moves are found reliably; four and longer are a lower bound.
 
 The win-probability curve is the one Lichess uses (`k = 0.00368208`), and so are
 the default thresholds: 10, 20 and 30 points. Set `CHESS_ERROR_SCALE=centipawn`
