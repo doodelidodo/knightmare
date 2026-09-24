@@ -270,6 +270,7 @@ const I18N = {
     errEmpty: "No analysed mistakes yet in this selection.",
     errCounts: (b, m, i) => `${b} blunders, ${m} mistakes, ${i} inaccuracies`,
     errShare: (c, s) => `${c}× · ${s} of all mistakes`,
+    missShare: (n, pct) => `${n}× · ${pct} of the tactics you missed`,
     avgCp: (v) => `avg ${v} cp`, mostlyIn: (p) => `mostly in the ${p}`,
     avgClock: (t) => `avg clock left ${t}`,
     shown: (n, t) => `${n} of ${t} shown`, none: "Nothing found.",
@@ -381,6 +382,7 @@ const I18N = {
     errEmpty: "Noch keine analysierten Fehler in dieser Auswahl.",
     errCounts: (b, m, i) => `${b} Patzer, ${m} Fehler, ${i} Ungenauigkeiten`,
     errShare: (c, s) => `${c}× · ${s} aller Fehler`,
+    missShare: (n, pct) => `${n}× · ${pct} der verpassten Motive`,
     avgCp: (v) => `Ø ${v} cp`, mostlyIn: (p) => `meist im ${p}`,
     avgClock: (t) => `Ø Restzeit ${t}`,
     shown: (n, t) => `${n} von ${t} angezeigt`, none: "Nichts gefunden.",
@@ -875,7 +877,7 @@ function renderMissed() {
     return `<div class="row">
       <button class="row-btn" data-miss="${esc(row.motif)}" aria-expanded="${open}">
         <span class="row-top"><strong>${esc(label)}</strong>
-          <span class="muted">${esc(L.errShare(row.count, num(row.share_percent, 0, "%")))}</span></span>
+          <span class="muted">${esc(L.missShare(row.count, num(row.share_percent, 0, "%")))}</span></span>
         ${bar(row.count, max, "warn")}
         <span class="row-bot">
           <span>${esc(L.missCounts(row.blunders, row.mistakes))}</span>
