@@ -401,7 +401,7 @@ const I18N = {
     white: "White", black: "Black",
     notAnalysed: " · not analysed yet", failed: (e) => ` · analysis failed: ${e}`,
     gameStats: (a, b, m) => ` · avg ${a} cp · ${b} blunders, ${m} mistakes`,
-    openOn: "open on Chess.com",
+    openOn: (p) => `open on ${p}`,
     reTitle: "Re-analyse", reIntro: "Only needed when older games are missing newer fields. Changed thresholds apply on the next start by themselves. Nothing is re-fetched — only re-evaluated.",
     reBtn: "Re-analyse", reConfirm: "Sure? Click again",
     statusLine: (u, e, t, i, done, total, pending) =>
@@ -513,7 +513,7 @@ const I18N = {
     white: "Weiss", black: "Schwarz",
     notAnalysed: " · noch nicht analysiert", failed: (e) => ` · Analyse fehlgeschlagen: ${e}`,
     gameStats: (a, b, m) => ` · Ø ${a} cp · ${b} Patzer, ${m} Fehler`,
-    openOn: "auf Chess.com öffnen",
+    openOn: (p) => `auf ${p} öffnen`,
     reTitle: "Neu analysieren", reIntro: "Nur nötig, wenn älteren Partien neuere Felder fehlen. Geänderte Schwellen greifen beim nächsten Start von selbst. Es wird nichts neu geholt, nur neu bewertet.",
     reBtn: "Neu analysieren", reConfirm: "Wirklich? Nochmal klicken",
     statusLine: (u, e, t, i, done, total, pending) =>
@@ -1141,7 +1141,7 @@ function renderGames() {
     if (game.analyzed) meta += esc(L.gameStats(num(game.acpl, 0), game.blunders, game.mistakes));
     else if (game.analysis_error) meta += esc(L.failed(game.analysis_error));
     else meta += esc(L.notAnalysed);
-    const link = game.url ? ` · <a href="${esc(game.url)}" target="_blank" rel="noreferrer">${esc(L.openOn)}</a>` : "";
+    const link = game.url ? ` · <a href="${esc(game.url)}" target="_blank" rel="noreferrer">${esc(L.openOn(L[game.platform] || game.platform))}</a>` : "";
     return `<div class="item">
       <p>${tag} <strong>${esc(game.opponent)}</strong>${game.opponent_rating ? ` (${game.opponent_rating})` : ""} · ${esc(game.color === "white" ? L.white : L.black)} · ${esc(L[game.time_class] || game.time_class)}${showPlatform() ? " · " + esc(L[game.platform] || game.platform) : ""} · ${esc(date(game.played_at))}</p>
       <p>${meta}${link}</p></div>`;
