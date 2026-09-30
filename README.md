@@ -5,7 +5,7 @@
 <h1 align="center">Knightmare</h1>
 
 <p align="center">
-  <em>Find the patterns behind your chess mistakes.</em><br>
+  <em>Find the patterns behind your chess mistakes — then train them.</em><br>
   Chess.com and Lichess · self-hosted · one container · English and German
 </p>
 
@@ -69,6 +69,32 @@ something to train. And deliberately nothing beyond the list above — zwischenz
 deflection over several moves, zugzwang and anything positional cannot be
 decided from one reply, and a wrong label is worse than none. You would train
 the wrong thing.
+
+## Then train it: your own mistakes as puzzles
+
+Knowing *what* you get wrong is half of it. The **Training** tab turns your
+mistakes into daily puzzles: the position from your own game, your move on the
+clock, *what would have been better?*
+
+- **Ten a day**, blunders and short mates first, at most two from the same
+  game, and never the same position twice on one day (the same opening mistake
+  in two games is one puzzle, not two).
+- **Only real puzzles.** Every candidate is re-checked by Stockfish with two
+  principal variations. It becomes a puzzle only if the best move is clearly
+  better than your move *and* clearly better than the second-best move —
+  otherwise there is no answer to find, just "anything but what you played".
+  Solutions extend over several moves as long as each move is forced, like on
+  Lichess.
+- **Equal moves count.** Another move that wins just as much (or mates just as
+  fast) solves it too. Wrong moves are refuted on the board.
+- **Spaced repetition.** Solved at first try: back in 3 days, then 7, 14, 30,
+  then learned. Missed or revealed: back tomorrow. Only the first attempt of
+  the day counts.
+- Hint (motif or mistake type), show the solution, the move you played with
+  the winning chance before and after, and a link to the game.
+
+Puzzles are prepared after each run from the mistakes found, about a second of
+engine time per candidate, in a separate low-resource Stockfish process.
 
 On top of that: which openings cost you points, which phase you fall apart in,
 and how your mistakes correlate with the clock — the last one is read from the
@@ -149,6 +175,10 @@ least one of the two platforms.
 | `CHESS_ERROR_SCALE` | `winprob` | How a move is graded: `winprob` = win probability lost, `centipawn` = fixed evaluation loss. See below. |
 | `CHESS_INACCURACY_WIN` / `CHESS_MISTAKE_WIN` / `CHESS_BLUNDER_WIN` | `10` / `20` / `30` | Thresholds in win-probability points (`winprob` scale). |
 | `CHESS_INACCURACY_CP` / `CHESS_MISTAKE_CP` / `CHESS_BLUNDER_CP` | `50` / `100` / `300` | Thresholds in centipawns (`centipawn` scale). |
+| `CHESS_TACTICS` | `1` | Daily puzzles from your mistakes (`0` = off). |
+| `CHESS_TACTICS_PER_DAY` | `10` | Puzzles per day. |
+| `CHESS_TACTICS_SECONDS` | `0.4` | Engine time per position when preparing and checking puzzles. |
+| `CHESS_TACTICS_MIN_CP` | `-300` | Skip positions that were already lost before the mistake. |
 | `DATABASE_URL` | SQLite in `/app/data` | Postgres works too. |
 
 Changed the scale or a threshold? Just restart. Every move already stores both
@@ -192,6 +222,8 @@ GET  /api/missed/moves?motif=fork&sort=recent
 GET  /api/openings?color=black&min_games=3
 GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze
+GET  /api/tactics/today?day=2026-10-01       # today's puzzles (solutions stay on the server)
+POST /api/tactics/move   /api/tactics/reveal
 ```
 
 Every endpoint takes `time_class`, `platform` and `days`, so you can look at
@@ -208,7 +240,9 @@ comments, and — the interesting part — classifies every motif correctly
 against purpose-built positions: the seven mistake types, and the six missed
 tactics — plus three positions where the answer must be *nothing*, which are
 the ones that keep the detection honest. Among them the case that started it:
-a forced mate on the board, stalemate played instead. Exit code 0 means everything is fine. The same
+a forced mate on the board, stalemate played instead. It also prepares a
+real puzzle with Stockfish and walks it through the daily selection and the
+move check, in a throwaway SQLite file. Exit code 0 means everything is fine. The same
 test runs on every push in CI.
 
 ## Honest limitations

@@ -8,7 +8,7 @@ diese Modelle nicht und fasst sie auch nicht an.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 
 def utc_now() -> datetime:
@@ -17,6 +17,7 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 from typing import Optional
 
+from sqlalchemy import Column, Text
 from sqlmodel import Field, SQLModel
 
 
@@ -150,3 +151,69 @@ class ChessSyncState(SQLModel, table=True):
     last_archive: Optional[str] = Field(default=None, max_length=200)
     games_fetched_total: int = Field(default=0)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
+class ChessTactic(SQLModel, table=True):
+    """Eine Taktikaufgabe aus einem eigenen Fehler (oder der Grund, warum der
+    Fehler keine taugliche Aufgabe ist - dann wird er nicht jedes Mal neu
+    gerechnet).
+
+    Schluessel ist "<Partie-uuid>#<Halbzug>", NICHT die ID aus chess_moves:
+    eine Nachanalyse loescht und schreibt die Zuege neu, die IDs wandern,
+    Partie und Halbzug bleiben. Spaltennamen wie im frueheren Trainer, damit
+    Lernstaende sich 1:1 uebernehmen lassen (siehe tactics.import_legacy).
+    """
+
+    __tablename__ = "chess_tactic"
+
+    key: str = Field(primary_key=True, max_length=90)
+    status: str = Field(index=True, max_length=12)  # ready | unsuitable
+    reason: Optional[str] = Field(default=None, max_length=120)
+    priority: Optional[float] = Field(default=None)
+    # Herkunft
+    game_uuid: Optional[str] = Field(default=None, index=True, max_length=64)
+    ply: Optional[int] = Field(default=None)
+    url: Optional[str] = Field(default=None, max_length=300)
+    played_at: Optional[datetime] = Field(default=None)
+    platform: Optional[str] = Field(default=None, max_length=12)
+    time_class: Optional[str] = Field(default=None, max_length=20)
+    color: Optional[str] = Field(default=None, max_length=5)
+    opponent: Optional[str] = Field(default=None, max_length=60)
+    # Aufgabe
+    fen: Optional[str] = Field(default=None, max_length=100)
+    last_move: Optional[str] = Field(default=None, max_length=6)  # Gegnerzug davor (uci)
+    played_uci: Optional[str] = Field(default=None, max_length=6)
+    played_san: Optional[str] = Field(default=None, max_length=16)
+    # uci, Leerzeichen; beginnt und endet mit eigenem Zug
+    solution: Optional[str] = Field(default=None, sa_column=Column(Text))
+    solution_san: Optional[str] = Field(default=None, sa_column=Column(Text))
+    punish_san: Optional[str] = Field(default=None, max_length=40)
+    win_best: Optional[float] = Field(default=None)    # Gewinnchance mit Loesung (%)
+    win_played: Optional[float] = Field(default=None)  # ... mit dem Partiezug
+    gap: Optional[float] = Field(default=None)         # Abstand zum zweitbesten Zug
+    category: Optional[str] = Field(default=None, max_length=12)
+    error_type: Optional[str] = Field(default=None, max_length=20)
+    missed_motif: Optional[str] = Field(default=None, max_length=20)
+    mate_in: Optional[int] = Field(default=None)
+    # Wiederholung (Leitner): 0 neu, 1-5 Stufen, 6 gelernt
+    box: int = Field(default=0, index=True)
+    due: Optional[date] = Field(default=None, index=True)
+    attempts: int = Field(default=0)
+    solved: int = Field(default=0)
+    last_seen: Optional[date] = Field(default=None)
+    last_result: Optional[str] = Field(default=None, max_length=10)
+    prepared_at: Optional[datetime] = Field(default=None)
+    updated_at: Optional[datetime] = Field(default=None)
+
+
+class ChessTacticDay(SQLModel, table=True):
+    """Die Auswahl eines Tages, beim ersten Aufruf festgeschrieben - neu laden
+    liefert dieselben Aufgaben. result: None offen, "solved", "failed"."""
+
+    __tablename__ = "chess_tactic_day"
+
+    day: date = Field(primary_key=True)
+    pos: int = Field(primary_key=True)
+    key: str = Field(max_length=90)
+    result: Optional[str] = Field(default=None, max_length=10)
+    updated_at: Optional[datetime] = Field(default=None)

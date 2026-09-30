@@ -154,6 +154,12 @@ class Settings:
     mistake_win: float
     blunder_win: float
 
+    # Taktikaufgaben aus den eigenen Fehlern
+    tactics_enabled: bool = True
+    tactics_per_day: int = 10
+    tactics_engine_seconds: float = 0.4
+    tactics_min_cp: int = -300
+
     @property
     def configured(self) -> bool:
         return bool(self.chesscom_username or self.lichess_username)
@@ -217,4 +223,10 @@ def load_settings() -> Settings:
         inaccuracy_win=max(0.5, _env_float("CHESS_INACCURACY_WIN", 10.0)),
         mistake_win=max(0.5, _env_float("CHESS_MISTAKE_WIN", 20.0)),
         blunder_win=max(0.5, _env_float("CHESS_BLUNDER_WIN", 30.0)),
+        tactics_enabled=_env_bool("CHESS_TACTICS", True),
+        tactics_per_day=max(1, min(50, _env_int("CHESS_TACTICS_PER_DAY", 10))),
+        tactics_engine_seconds=max(0.05, _env_float("CHESS_TACTICS_SECONDS", 0.4)),
+        # Aussichtslose Stellungen sind keine gute Aufgabe - "was waere besser
+        # gewesen" hat keine Antwort, wenn ohnehin alles verliert.
+        tactics_min_cp=_env_int("CHESS_TACTICS_MIN_CP", -300),
     )

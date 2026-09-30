@@ -9,6 +9,8 @@ Geprueft wird:
   2. Die Abbildung eines Chess.com-API-Eintrags auf das Datenmodell.
   3. Die Einordnung der Fehlerarten an konstruierten Stellungen.
   4. Stockfish laesst sich starten und analysiert eine ganze Partie korrekt.
+  5. Taktikaufgaben: Wiederholung, Tagesauswahl, Zugpruefung, Vorbereitung
+     mit Stockfish (in einer eigenen SQLite-Datei, nicht der echten DB).
 
 Rueckgabecode 0 = alles gut, 1 = mindestens ein Test fehlgeschlagen.
 """
@@ -661,6 +663,207 @@ def test_analysis() -> bool:
     return bool(ok)
 
 
+# --------------------------------------------------------------------------
+# 7) Taktikaufgaben
+# --------------------------------------------------------------------------
+SCHOLAR_PGN = """[Event "Test"]
+[White "ich"]
+[Black "gegner"]
+[Result "0-1"]
+
+1. e4 e5 2. Bc4 Nc6 3. Qh5 Nf6 4. d3 Nxh5 0-1
+"""
+
+
+def _temp_db():
+    """Eigene SQLite-Datei - der Selbsttest fasst die echte Datenbank nicht an."""
+    import tempfile
+
+    from sqlmodel import SQLModel, create_engine
+
+    from . import models  # noqa: F401 - Tabellen in die Metadata
+
+    path = tempfile.mkdtemp()
+    engine = create_engine(f"sqlite:///{path}/selftest.db", connect_args={"check_same_thread": False})
+    SQLModel.metadata.create_all(engine)
+    return engine
+
+
+def test_tactics() -> bool:
+    from datetime import date, datetime, timedelta
+    from types import SimpleNamespace
+
+    import chess.engine
+    from sqlalchemy import select, text
+
+    from . import tactics as tx
+
+    ok = True
+    d = date(2026, 9, 28)
+    ok &= _check("Leitner: neu + gelöst -> Stufe 2 in 3 Tagen", tx.schedule(0, True, d) == (2, d + timedelta(days=3)))
+    ok &= _check("Leitner: Stufe 3 + gelöst -> 4 in 14 Tagen", tx.schedule(3, True, d) == (4, d + timedelta(days=14)))
+    ok &= _check("Leitner: Stufe 5 + gelöst -> gelernt", tx.schedule(5, True, d) == (tx.LEARNED, None))
+    ok &= _check("Leitner: falsch -> Stufe 1, morgen", tx.schedule(4, False, d) == (1, d + timedelta(days=1)))
+    even = chess.engine.PovScore(chess.engine.Cp(0), chess.WHITE)
+    ok &= _check("Gewinnchance: 0 cp = 50 %", abs(tx.win_for(even, chess.WHITE) - 50) < 0.01)
+    ok &= _check("Gewinnchance: gleiche Kurve wie die Analyse",
+                 abs(tx.win_for(chess.engine.PovScore(chess.engine.Cp(150), chess.WHITE), chess.WHITE) - win_percent(150)) < 0.01)
+    mate = chess.engine.PovScore(chess.engine.Mate(2), chess.WHITE)
+    ok &= _check("Matt aus beiden Sichten", tx.win_for(mate, chess.BLACK) == 0.0 and tx.mate_for(mate, chess.WHITE) == 2)
+    ok &= _check("Priorität: kurzes Matt vor Stellungsfehler",
+                 tx.priority("blunder", 1, "mate", "missed_mate", None, d) > tx.priority("mistake", None, None, "positional", None, d))
+    row = SimpleNamespace(url="https://lichess.org/abcd1234", platform="lichess", ply=31)
+    ok &= _check("Lichess-Link zeigt die Stellung vor dem Zug", tx.game_link(row) == "https://lichess.org/abcd1234#30")
+    ok &= _check("Stellungsschlüssel ohne Zugzähler",
+                 tx.position_key("8/8/8/8/8/8/K7/k7 w - - 3 40") == tx.position_key("8/8/8/8/8/8/K7/k7 w - - 0 1"))
+
+    # Zugpruefung ohne Engine: zwei Matts in 1 - beide zaehlen.
+    no_engine = tx.Engine(None, 0.1)
+    two = SimpleNamespace(fen="6k1/5ppp/8/8/8/8/5PPP/R2Q2K1 w - - 0 1", solution="a1a8")
+    s = tx.TacticSettings()
+    ok &= _check("Lösungszug gelöst", tx.check_move(no_engine, two, ["a1a8"], s)["result"] == "solved")
+    ok &= _check("anderes Matt zählt auch", tx.check_move(no_engine, two, ["d1d8"], s)["result"] == "solved")
+    ok &= _check("ohne Engine: anderer Zug falsch", tx.check_move(no_engine, two, ["h2h3"], s)["result"] == "wrong")
+    for bad, code in ((["a1a9"], "unknown_move"), (["a1b3"], "illegal_move"), (["a1a8", "g8h7"], "expected_own_move")):
+        try:
+            tx.check_move(no_engine, two, bad, s)
+            ok &= _check(f"{code} abgelehnt", False)
+        except tx.MoveError as exc:
+            ok &= _check(f"{code} abgelehnt", exc.code == code, exc.code)
+
+    # Tagesauswahl: hoechstens zwei neue je Partie, Wiederholungen dabei,
+    # festgeschrieben.
+    T, D = tx.TACTICS, tx.DAYS
+    eng = _temp_db()
+
+    def fen_n(i: int) -> str:
+        # Die Auswahl vergleicht nur den Stellungsschluessel - lauter
+        # verschiedene genuegen, gueltig muessen sie hier nicht sein.
+        return f"stellung-{i} w - - 0 1"
+
+    base = {"status": "ready", "attempts": 0, "solved": 0}
+    with eng.begin() as conn:
+        n = 0
+        for i in range(6):
+            conn.execute(T.insert().values(key=f"g1#{i}", priority=10 - i, game_uuid="g1", box=0, fen=fen_n(n), **base)); n += 1
+        for i in range(6):
+            conn.execute(T.insert().values(key=f"g{i + 2}#1", priority=1, game_uuid=f"g{i + 2}", box=0, fen=fen_n(n), **base)); n += 1
+        for i in range(3):
+            conn.execute(T.insert().values(key=f"r{i}#1", priority=0, game_uuid=f"r{i}", box=2, fen=fen_n(n),
+                                           due=d - timedelta(days=i), **{**base, "attempts": 1, "solved": 1})); n += 1
+        conn.execute(T.insert().values(key="later#1", game_uuid="later", box=3, due=d + timedelta(days=2), fen=fen_n(n), **base)); n += 1
+        conn.execute(T.insert().values(key="bad#1", status="unsuitable", game_uuid="bad", box=0, attempts=0, solved=0))
+        keys = [r.key for r in tx.build_day(conn, d, tx.TacticSettings(per_day=10))]
+        again = [r.key for r in tx.build_day(conn, d, tx.TacticSettings(per_day=10))]
+    ok &= _check("zehn Aufgaben", len(keys) == 10, str(len(keys)))
+    ok &= _check("höchstens zwei aus derselben Partie", sum(k.startswith("g1#") for k in keys) == 2)
+    ok &= _check("fällige Wiederholungen dabei, spätere nicht",
+                 {"r0#1", "r1#1", "r2#1"} <= set(keys) and "later#1" not in keys)
+    ok &= _check("Wiederholung und neu abwechselnd, älteste zuerst",
+                 keys[0].startswith("r2#") and not keys[1].startswith("r"))
+    ok &= _check("unbrauchbare nie, Auswahl bleibt fest", "bad#1" not in keys and keys == again)
+    with eng.begin() as conn:
+        ok &= _check("erstes Ergebnis des Tages zählt", tx.record(conn, d, keys[0], False) is True)
+        ok &= _check("zweites nicht", tx.record(conn, d, keys[0], True) is False)
+        r0 = conn.execute(select(T).where(T.c.key == keys[0])).first()
+        st = tx.stats(conn, d)
+    ok &= _check("falsch -> zurück auf Stufe 1", r0.box == 1 and r0.due == d + timedelta(days=1) and r0.attempts == 2)
+    # Neue bleiben "neu", bis sie beantwortet sind; r2 ist nach dem Fehlversuch erst morgen wieder faellig.
+    ok &= _check("Statistik zählt Vorrat",
+                 (st["new"], st["learning"], st["due"], st["unsuitable"]) == (12, 4, 2, 1), str(st))
+
+    # Gleiche Stellung aus mehreren Partien: am selben Tag nur einmal.
+    fen_a = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
+    fen_b = "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"
+    fen_c = "rnbqkb1r/pppppppp/5n2/8/3P4/8/PPP1PPPP/RNBQKBNR w KQkq - 1 2"
+    eng2 = _temp_db()
+    with eng2.begin() as conn:
+        for i in range(4):
+            conn.execute(T.insert().values(key=f"a{i}#5", priority=5, game_uuid=f"a{i}", box=0,
+                                           fen=fen_a.replace(" 2 3", f" {i} {i + 3}"), **base))
+        for i in range(2):
+            conn.execute(T.insert().values(key=f"b{i}#5", priority=5, game_uuid=f"b{i}", box=1, due=d, fen=fen_b, **base))
+        conn.execute(T.insert().values(key="bnew#5", priority=9, game_uuid="bnew", box=0, fen=fen_b, **base))
+        conn.execute(T.insert().values(key="clearn#5", priority=0, game_uuid="clearn", box=3,
+                                       due=d + timedelta(days=5), fen=fen_c, **base))
+        conn.execute(T.insert().values(key="cnew#5", priority=9, game_uuid="cnew", box=0, fen=fen_c, **base))
+        for i in range(5):
+            conn.execute(T.insert().values(key=f"x{i}#5", priority=1, game_uuid=f"x{i}", box=0, fen=fen_n(i + 1), **base))
+        keys = [r.key for r in tx.build_day(conn, d, tx.TacticSettings(per_day=10))]
+    ok &= _check("gleiche Stellung aus vier Partien: nur einmal am Tag", sum(k.startswith("a") for k in keys) == 1, str(keys))
+    ok &= _check("doppelte Wiederholung und Zwilling: nur einmal", sum(k.startswith("b") for k in keys) == 1)
+    ok &= _check("Stellung schon in Wiederholung -> nicht nochmal neu", "cnew#5" not in keys)
+    ok &= _check("Rest füllt auf", len(keys) == len(set(keys)) == 7, str(len(keys)))
+
+    # Uebernahme aus dem frueheren Trainer (gleiche Spalten, gleicher Schluessel).
+    eng3 = _temp_db()
+    with eng3.begin() as conn:
+        conn.execute(text("CREATE TABLE trainer_tactic (key VARCHAR(90) PRIMARY KEY, status VARCHAR(12), fen VARCHAR(100), "
+                          "solution TEXT, box INTEGER, due DATE, attempts INTEGER, solved INTEGER, extra_col INTEGER)"))
+        conn.execute(text("INSERT INTO trainer_tactic VALUES ('lichess:x#7', 'ready', :f, 'a1a8', 3, '2026-10-05', 4, 3, 1)"),
+                     {"f": two.fen})
+        conn.execute(text("CREATE TABLE trainer_tactic_day (day DATE, pos INTEGER, key VARCHAR(90), result VARCHAR(10), updated_at TIMESTAMP)"))
+        conn.execute(text("INSERT INTO trainer_tactic_day VALUES ('2026-09-29', 0, 'lichess:x#7', 'solved', NULL)"))
+    first = tx.import_legacy(eng3)
+    second = tx.import_legacy(eng3)
+    with eng3.connect() as conn:
+        moved = conn.execute(select(T).where(T.c.key == "lichess:x#7")).first()
+        days = conn.execute(select(D)).all()
+    ok &= _check("Trainer-Aufgaben übernommen, samt Lernstand",
+                 first == 1 and moved is not None and moved.box == 3 and moved.attempts == 4 and str(moved.due) == "2026-10-05")
+    ok &= _check("Tagesauswahl übernommen, zweiter Start ändert nichts", len(days) == 1 and second == 0)
+    ok &= _check("ohne Trainer-Tabellen passiert nichts", tx.import_legacy(eng) == 0)
+
+    # Mit Stockfish: echte Vorbereitung. Schaefermatt verpasst -> Qxf7#.
+    settings = load_settings()
+    sf = tx.Engine(settings.engine_path, 0.2)
+    if not sf.available:
+        print("  (Stockfish nicht gefunden - Vorbereitung übersprungen)")
+        return bool(ok)
+    try:
+        cand = {"key": "lichess:test0001#7", "ply": 7, "color": "white", "pgn": SCHOLAR_PGN, "category": "blunder",
+                "mate_in": 1, "game_uuid": "lichess:test0001"}
+        row = tx.prepare(sf, cand, tx.TacticSettings())
+        ok &= _check("Aufgabe vorbereitet", row["status"] == "ready", row.get("reason") or "")
+        ok &= _check("Lösung Qxf7#", row.get("solution") == "h5f7" and row.get("solution_san") == "4. Qxf7#",
+                     str(row.get("solution_san")))
+        ok &= _check("Partiezug und Gegnerzug davor", row.get("played_san") == "d3" and row.get("last_move") == "g8f6")
+        ok &= _check("Partiezug kostet die Dame", (row.get("win_played") or 100) < 20, str(row.get("win_played")))
+        same = tx.prepare(sf, {**cand, "pgn": SCHOLAR_PGN.replace("4. d3 Nxh5", "4. Qxf7#")}, tx.TacticSettings())
+        ok &= _check("bester Zug gespielt -> keine Aufgabe", same["status"] == "unsuitable" and same["reason"] == "played_best",
+                     str(same.get("reason")))
+        # Ganzer Weg: Partie + Zug in der Datenbank -> Vorrat -> Tagesauswahl -> loesen.
+        with eng.begin() as conn:
+            conn.execute(T.delete())
+            conn.execute(D.delete())
+            game_id = conn.execute(tx.GAMES.insert().values(
+                platform="lichess", uuid="lichess:test0001", url="https://lichess.org/test0001",
+                played_at=datetime(2026, 9, 20, 18, 0), time_class="rapid", time_control="600+0", rated=True,
+                color="white", result="loss", opponent="gegner", pgn=SCHOLAR_PGN, inaccuracies=0, mistakes=0,
+                blunders=1, created_at=datetime(2026, 9, 20, 18, 0),
+            )).inserted_primary_key[0]
+            conn.execute(tx.MOVES.insert().values(
+                game_id=game_id, ply=7, move_number=4, san="d3", phase="opening", cp_before=1000, cp_after=-900,
+                cp_loss=1900, win_loss=90.0, category="blunder", error_type="missed_mate", missed_motif="mate",
+                mate_in=1, best_move_san="Qxf7#", played_at=datetime(2026, 9, 20, 18, 0), time_class="rapid",
+                color="white", platform="lichess",
+            ))
+        pool = tx.ensure_pool(eng, sf, tx.TacticSettings(), d, 5, 5)
+        ok &= _check("Vorrat aus der Datenbank", pool["ready"] == 1 and pool["exhausted"], str(pool))
+        with eng.begin() as conn:
+            day = tx.build_day(conn, d, tx.TacticSettings())
+            trow = conn.execute(select(T).where(T.c.key == "lichess:test0001#7")).first()
+        ok &= _check("in der Tagesauswahl", [r.key for r in day] == ["lichess:test0001#7"])
+        res = tx.check_move(sf, trow, ["h5f7"], tx.TacticSettings())
+        ok &= _check("Qxf7# löst die Aufgabe", res["result"] == "solved")
+        res = tx.check_move(sf, trow, ["d2d3"], tx.TacticSettings())
+        ok &= _check("Partiezug wird widerlegt", res["result"] == "wrong" and res.get("punish_san") == "Nxh5",
+                     str(res.get("punish_san")))
+    finally:
+        sf.close()
+    return bool(ok)
+
+
 def main() -> int:
     print("=" * 66)
     print("Chess-Analyzer Selbsttest")
@@ -684,9 +887,12 @@ def main() -> int:
     print("\n6) Stockfish-Analyse einer ganzen Partie")
     analysis_ok = test_analysis()
 
+    print("\n7) Taktikaufgaben aus eigenen Fehlern")
+    tactics_ok = test_tactics()
+
     print("\n" + "=" * 66)
     if (helpers_ok and mapping_ok and lichess_ok and classification_ok
-            and missed_ok and analysis_ok):
+            and missed_ok and analysis_ok and tactics_ok):
         print("Alles in Ordnung.")
         return 0
     print("Mindestens ein Test ist fehlgeschlagen (siehe oben).")

@@ -42,6 +42,7 @@ from .config import (
 from .db import new_session
 from .lichess import LichessClient, LichessError
 from .models import ChessGame, ChessMove, ChessSyncState, utc_now
+from .tactics import get_trainer
 
 log = logging.getLogger(__name__)
 
@@ -914,6 +915,17 @@ def run_once(
         except Exception as exc:  # noqa: BLE001 - darf den Lauf nicht kippen
             log.error("Nachtragen der Mattlaengen fehlgeschlagen: %s", exc)
 
+        # Aus neuen Fehlern Aufgaben machen, solange die Engine ohnehin warm
+        # ist. Eigener Prozess mit wenig Hash, laeuft nach der Analyse.
+        tactics_result = None
+        try:
+            trainer = get_trainer()
+            if trainer.enabled and trainer.engine.available:
+                _set_status(phase="Aufgaben vorbereiten")
+                tactics_result = trainer.fill()
+        except Exception as exc:  # noqa: BLE001 - darf den Lauf nicht kippen
+            log.error("Vorbereiten der Aufgaben fehlgeschlagen: %s", exc)
+
         message = (
             f"{fetch_result['added']} neue Partien, "
             f"{analysis_result['analyzed']} analysiert, "
@@ -926,7 +938,7 @@ def run_once(
         # sich, warum von einer Plattform nichts ankommt.
         for problem in fetch_result.get("problems") or []:
             message += f" · {problem}"
-        summary.update(fetch=fetch_result, analysis=analysis_result, message=message)
+        summary.update(fetch=fetch_result, analysis=analysis_result, tactics=tactics_result, message=message)
         _store_state(
             session, settings, "ok", message, fetch_result.get("last_archive"), fetch_result["added"]
         )

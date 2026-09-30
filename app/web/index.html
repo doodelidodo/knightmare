@@ -150,6 +150,79 @@
   footer a { margin-right: 14px; }
   .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
   code { background: var(--surface-soft); padding: 1px 5px; border-radius: 4px; font-size: 0.85em; }
+  /* --- Tabs -------------------------------------------------------------- */
+  .tabs { display: flex; gap: 6px; margin: 14px 0 6px; border-bottom: 1px solid var(--border); }
+  .tab { border: 0; background: none; color: var(--muted); padding: 9px 14px 10px; font-weight: 600;
+         border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab:hover { color: var(--text); }
+  .tab.on { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab .badge { font-weight: 500; font-size: 0.78rem; color: var(--muted); margin-left: 6px; }
+  [hidden] { display: none !important; }
+
+  /* --- Training ---------------------------------------------------------- */
+  .tac-top { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: baseline; }
+  .tac-dots { display: grid; grid-template-columns: repeat(10, minmax(0, 36px)); gap: 5px; margin: 14px 0 12px; }
+  .tac-dot { height: 30px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-soft);
+             font-size: 12px; font-weight: 600; color: var(--muted); padding: 0; display: grid; place-items: center; }
+  .tac-dot.solved { background: rgba(22, 121, 74, 0.14); color: var(--good); border-color: transparent; }
+  .tac-dot.failed { background: rgba(194, 65, 12, 0.14); color: var(--bad); border-color: transparent; }
+  .tac-dot.cur { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .tac-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+              font-size: 0.9rem; margin-bottom: 8px; }
+  .tag.accent { color: var(--accent); border-color: var(--accent); }
+  .tac-empty { text-align: center; color: var(--muted); padding: 28px 8px; }
+  .tac-empty .big { font-size: 28px; }
+  .tac-empty strong { color: var(--text); }
+  .board-wrap { max-width: 440px; margin: 0 auto; }
+  .board {
+    position: relative; display: grid; aspect-ratio: 1 / 1;
+    /* Feste Zeilen: manche Schriften haben hoehere Figurenzeichen als ein
+       Feld, ohne das wuerden sie die Reihen auseinanderdruecken. */
+    grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr));
+    border-radius: 10px; overflow: hidden; container-type: inline-size;
+    user-select: none; -webkit-user-select: none; touch-action: none; -webkit-touch-callout: none;
+  }
+  .sq { position: relative; display: grid; place-items: center; min-height: 0; overflow: hidden; }
+  .sq.l { background: #dee3e6; }
+  .sq.d { background: #8ca2ad; }
+  .sq.last::before, .sq.sel::before, .sq.good::before, .sq.bad::before { content: ""; position: absolute; inset: 0; }
+  .sq.last::before { background: rgba(255, 214, 10, 0.38); }
+  .sq.sel::before { background: rgba(79, 124, 255, 0.45); }
+  .sq.good::before { background: rgba(21, 160, 90, 0.55); }
+  .sq.bad::before { background: rgba(220, 70, 20, 0.55); }
+  .sq.dest::after { content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%;
+                    background: rgba(20, 35, 62, 0.3); z-index: 2; pointer-events: none; }
+  .sq.dest.occ::after { width: 94%; height: 94%; background: transparent;
+                        border: 0.9cqw solid rgba(20, 35, 62, 0.35); box-sizing: border-box; }
+  .sq.dragging .pc { opacity: 0.25; }
+  .coord { position: absolute; font-size: 2.3cqw; font-weight: 700; line-height: 1; pointer-events: none; z-index: 1; }
+  .coord.f { right: 4%; bottom: 4%; }
+  .coord.r { left: 4%; top: 4%; }
+  .sq.l .coord { color: #6f8591; }
+  .sq.d .coord { color: #eef1f3; }
+  .pc { position: relative; z-index: 1; font-size: 10.4cqw; line-height: 1; height: 1em; cursor: grab;
+        font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", "Noto Sans Symbols", "DejaVu Sans", "Arial Unicode MS", sans-serif; }
+  .pc.w { color: #ffffff; -webkit-text-stroke: 0.28cqw #1b1d22; paint-order: stroke fill;
+          text-shadow: 0 0.3cqw 0.4cqw rgba(0, 0, 0, 0.35); }
+  .pc.b { color: #1b1d22; text-shadow: 0 0 0.3cqw rgba(255, 255, 255, 0.35); }
+  .drag-ghost { position: fixed; z-index: 50; pointer-events: none; transform: translate(-50%, -55%); line-height: 1; }
+  .tac-msg { min-height: 42px; margin: 10px 0 0; font-size: 0.95rem; }
+  .tac-msg.good { color: var(--good); }
+  .tac-msg.bad { color: var(--bad); }
+  .tac-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tac-actions .grow { flex: 1; }
+  .explain { margin-top: 12px; padding: 10px 12px; border-radius: 11px; background: var(--surface-soft); font-size: 0.92rem; }
+  .explain p { margin: 4px 0; }
+  .san { font-weight: 700; }
+  .tac-stats { margin-top: 14px; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--heading);
+           color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 0.9rem; opacity: 0;
+           transition: opacity 0.2s; pointer-events: none; z-index: 60; max-width: calc(100% - 32px); }
+  .toast.show { opacity: 1; }
+  @media (max-width: 480px) {
+    .tac-dots { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
+    .tac-dot { height: 28px; font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -169,7 +242,14 @@
     </div>
   </header>
 
+  <nav class="tabs" id="tabs">
+    <button class="tab" type="button" data-view="analyse" id="tabAnalyse"></button>
+    <button class="tab" type="button" data-view="train" id="tabTrain"></button>
+  </nav>
+
   <div id="notes"></div>
+
+  <div id="viewAnalyse">
 
   <div class="chips" id="platformChips"></div>
   <div class="chips" id="classChips"></div>
@@ -236,8 +316,23 @@
     </div>
     <p class="muted" id="statusLine"></p>
   </div>
+  </div>
+
+  <div id="viewTrain" hidden>
+    <div class="card">
+      <div class="tac-top">
+        <h2 id="trTitle"></h2>
+        <span class="muted" id="tacHead"></span>
+      </div>
+      <p class="muted" id="trIntro"></p>
+      <div class="tac-dots" id="tacDots"></div>
+      <div id="tacBody"></div>
+      <p class="tac-stats muted" id="tacStats"></p>
+    </div>
+  </div>
 
   <footer id="footer"></footer>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
 <script>
@@ -707,6 +802,7 @@ function render() {
   renderOpenings();
   renderGames();
   renderFooter();
+  renderTabs();
 }
 
 function renderFilters() {
@@ -1075,6 +1171,704 @@ function renderFooter() {
 }
 
 // --------------------------------------------------------------------------
+// Training: Aufgaben aus den eigenen Fehlern. Eigener Textblock pro Sprache.
+// --------------------------------------------------------------------------
+I18N.en.tr = {
+  tabAnalyse: "Analysis", tabTrain: "Training",
+  title: "Train on your own mistakes",
+  intro: "Every day a few positions from your own games where a clearly better move was on the board. Solved ones come back after a few days, then weeks, until they stick.",
+  done: (d, n) => `${d}/${n} done`, streak: (n) => ` · streak ${n} ${n === 1 ? "day" : "days"}`,
+  taskTitle: (i, review) => `Task ${i}${review ? " (review)" : ""}`,
+  pool: (n, l, d) => `Pool: ${n} new · ${l} in review · ${d} learned`,
+  last30: (p) => `30 days: ${p} % solved at first try`,
+  loading: "Loading…",
+  preparing: "Preparing tasks from your games…",
+  preparingSub: "Stockfish re-checks every position. The first time takes about a minute.",
+  none: "No tasks right now. Either Knightmare has not found suitable mistakes yet, or everything is learned — new games are added automatically.",
+  noEngine: "Stockfish not found — tasks cannot be prepared.",
+  disabled: "Tasks are switched off (CHESS_TACTICS=0).",
+  failed: (e) => `Preparing tasks failed: ${e}`,
+  white: "White to move", black: "Black to move",
+  findBest: "Find the best move", findLine: (n) => `Find the best line (${n} moves)`,
+  tagNew: "New", tagReview: (b) => `Review · level ${b}/5`,
+  alreadySolved: "✓ Already solved today.", alreadyFailed: "✗ Not solved today — it comes back soon.",
+  hint: "Hint", reveal: "Show solution", next: "Next →", replay: "Play solution", retry: "Practise again",
+  practice: "Practice — no longer counts for today.",
+  correct: (s) => `✓ ${s} — correct, keep going!`,
+  correctReply: (s, r) => `✓ ${s} — your opponent answers ${r}. And now?`,
+  solved: (s) => `✓ ${s} — solved!`,
+  alt: (s, m) => `✓ ${s} — also strong! The main move was ${m}.`,
+  wrong: (s) => `✗ ${s} is not the solution.`, punish: (p) => ` It would allow ${p}.`,
+  tryAgain: " Try again — or show the solution.",
+  stillFailed: " It still counts as not solved today.",
+  howItGoes: "Here is how:", solution: (s) => `Solution: ${s}. `,
+  learned: "It now counts as learned.", comesBack: (d) => `Comes back on ${d}.`,
+  summary: (s, n) => `Done for today: ${s} of ${n} solved at first try.`,
+  again: (n) => `${n} ${n === 1 ? "task comes" : "tasks come"} back tomorrow. `,
+  tapNumber: "Tap a number to look at a task again.",
+  dayComplete: "All tasks done — see you tomorrow.",
+  inGame: (who, played, after, before) => `In the game${who} you played ${played} — winning chance afterwards ${after} instead of ${before}.`,
+  vs: (o) => ` against ${o}`, on: (d) => ` on ${d}`,
+  bestAfter: (p) => ` Best reply: ${p}.`, better: (s) => `Better: ${s}`, openGame: "Open game ↗",
+  hintWord: "Hint:", hintMate: (n) => `Hint: mate in ${n}.`, hintMotif: (m) => `Hint: ${m}.`,
+  motif: { mate: "a mate", fork: "a fork", discovered: "a discovered attack", skewer: "a skewer",
+           pin: "a pin", material: "there is material to win" },
+  errHint: {
+    missed_threat: "What is your opponent threatening right now?",
+    hanging_piece: "Look for undefended pieces — yours and theirs.",
+    fork: "Careful: a fork is in the air.",
+    allowed_mate: "Careful, mating danger!",
+    missed_mate: "There is a mate here.",
+    missed_win: "There is something to win here.",
+    bad_trade: "Check the exchanges carefully.",
+    positional: "Find the move that holds the position best.",
+  },
+  hintDefault: "Hint: check checks, captures and threats first.",
+  errors: { expected_own_move: "That is not your move.", sequence_mismatch: "The position is out of sync — reload the page.",
+            unknown_move: "Unknown move.", illegal_move: "Illegal move.", not_in_day: "This task is not part of today.",
+            not_found: "Task not found.", day_out_of_range: "Date out of range — reload the page." },
+};
+I18N.de.tr = {
+  tabAnalyse: "Analyse", tabTrain: "Training",
+  title: "Training aus deinen Fehlern",
+  intro: "Jeden Tag ein paar Stellungen aus deinen eigenen Partien, in denen ein klar besserer Zug auf dem Brett stand. Gelöste kommen nach ein paar Tagen wieder, dann nach Wochen — bis sie sitzen.",
+  done: (d, n) => `${d}/${n} erledigt`, streak: (n) => ` · Serie ${n} ${n === 1 ? "Tag" : "Tage"}`,
+  taskTitle: (i, review) => `Aufgabe ${i}${review ? " (Wiederholung)" : ""}`,
+  pool: (n, l, d) => `Vorrat: ${n} neu · ${l} in Wiederholung · ${d} gelernt`,
+  last30: (p) => `30 Tage: ${p} % auf Anhieb gelöst`,
+  loading: "Lädt …",
+  preparing: "Aufgaben werden aus deinen Partien vorbereitet …",
+  preparingSub: "Stockfish rechnet jede Stellung nach. Beim ersten Mal dauert das etwa eine Minute.",
+  none: "Gerade keine Aufgaben. Entweder hat Knightmare noch keine passenden Fehler gefunden, oder alles ist gelernt — neue Partien kommen automatisch dazu.",
+  noEngine: "Kein Stockfish gefunden — Aufgaben können nicht vorbereitet werden.",
+  disabled: "Aufgaben sind ausgeschaltet (CHESS_TACTICS=0).",
+  failed: (e) => `Vorbereitung fehlgeschlagen: ${e}`,
+  white: "Weiss am Zug", black: "Schwarz am Zug",
+  findBest: "Finde den besten Zug", findLine: (n) => `Finde die beste Folge (${n} Züge)`,
+  tagNew: "Neu", tagReview: (b) => `Wiederholung · Stufe ${b}/5`,
+  alreadySolved: "✓ Heute schon gelöst.", alreadyFailed: "✗ Heute nicht gelöst — sie kommt bald wieder.",
+  hint: "Tipp", reveal: "Lösung zeigen", next: "Weiter →", replay: "Lösung abspielen", retry: "Nochmal üben",
+  practice: "Üben — zählt nicht mehr für heute.",
+  correct: (s) => `✓ ${s} – richtig, weiter!`,
+  correctReply: (s, r) => `✓ ${s} – der Gegner antwortet ${r}. Und jetzt?`,
+  solved: (s) => `✓ ${s} – gelöst!`,
+  alt: (s, m) => `✓ ${s} – auch stark! Der Hauptzug war ${m}.`,
+  wrong: (s) => `✗ ${s} ist nicht die Lösung.`, punish: (p) => ` Darauf käme ${p}.`,
+  tryAgain: " Nochmal versuchen – oder Lösung zeigen.",
+  stillFailed: " Heute zählt sie trotzdem als nicht gelöst.",
+  howItGoes: "So geht's:", solution: (s) => `Lösung: ${s}. `,
+  learned: "Damit gilt sie als gelernt.", comesBack: (d) => `Kommt wieder am ${d}.`,
+  summary: (s, n) => `Für heute erledigt: ${s} von ${n} auf Anhieb gelöst.`,
+  again: (n) => `${n} ${n === 1 ? "Aufgabe kommt" : "Aufgaben kommen"} morgen wieder. `,
+  tapNumber: "Tippe auf eine Nummer, um eine Aufgabe nochmal anzusehen.",
+  dayComplete: "Alle Aufgaben erledigt — bis morgen.",
+  inGame: (who, played, after, before) => `In der Partie${who} hast du ${played} gespielt – Gewinnchance danach ${after} statt ${before}.`,
+  vs: (o) => ` gegen ${o}`, on: (d) => ` am ${d}`,
+  bestAfter: (p) => ` Danach am besten: ${p}.`, better: (s) => `Besser: ${s}`, openGame: "Partie öffnen ↗",
+  hintWord: "Tipp:", hintMate: (n) => `Tipp: Matt in ${n}.`, hintMotif: (m) => `Tipp: ${m}.`,
+  motif: { mate: "ein Matt", fork: "eine Gabel", discovered: "ein Abzugsangriff", skewer: "ein Spiess",
+           pin: "eine Fesselung", material: "hier ist Material zu holen" },
+  errHint: {
+    missed_threat: "Was droht der Gegner gerade?",
+    hanging_piece: "Achte auf ungedeckte Figuren – deine und seine.",
+    fork: "Achtung: eine Gabel liegt in der Luft.",
+    allowed_mate: "Achtung, Mattgefahr!",
+    missed_mate: "Hier gibt es ein Matt.",
+    missed_win: "Hier ist etwas zu holen.",
+    bad_trade: "Prüfe die Abtausche genau.",
+    positional: "Finde den Zug, der die Stellung am besten hält.",
+  },
+  hintDefault: "Tipp: Schau zuerst auf Schachs, Schläge und Drohungen.",
+  errors: { expected_own_move: "Das ist nicht dein Zug.", sequence_mismatch: "Stellung passt nicht mehr – Seite neu laden.",
+            unknown_move: "Unbekannter Zug.", illegal_move: "Zug nicht erlaubt.", not_in_day: "Diese Aufgabe gehört nicht zu heute.",
+            not_found: "Aufgabe nicht gefunden.", day_out_of_range: "Datum passt nicht – Seite neu laden." },
+};
+const tr = () => I18N[lang].tr;
+
+let view = location.hash === "#train" ? "train" : store.get("knightmare.view", "analyse");
+
+function renderTabs() {
+  const L = tr();
+  const items = tac.data ? tac.data.items : [];
+  const done = items.filter((i) => i.result).length;
+  document.getElementById("tabAnalyse").textContent = L.tabAnalyse;
+  document.getElementById("tabTrain").innerHTML = esc(L.tabTrain) +
+    (items.length ? `<span class="badge">${done}/${items.length}</span>` : "");
+  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
+  document.getElementById("viewAnalyse").hidden = view !== "analyse";
+  document.getElementById("viewTrain").hidden = view !== "train";
+  // Filter gehoeren zur Analyse - im Training nur Laerm.
+  ["platformChips", "classChips", "rangeChips"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = view !== "analyse";
+  });
+}
+
+function setView(v) {
+  view = v;
+  store.set("knightmare.view", v);
+  history.replaceState(null, "", v === "train" ? "#train" : location.pathname + location.search);
+  renderTabs();
+  if (v === "train") renderTraining();
+  else cancelDrag();
+}
+
+document.getElementById("tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-view]");
+  if (b) setView(b.dataset.view);
+});
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 3200);
+}
+
+async function apiJson(path, body) {
+  const res = await fetch("api/" + path, {
+    method: "POST", cache: "no-store",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let code = `HTTP ${res.status}`;
+    try { const j = await res.json(); if (typeof j.detail === "string") code = j.detail; } catch { /* egal */ }
+    throw new Error(tr().errors[code] || code);
+  }
+  return res.json();
+}
+
+// Der Tag des Browsers, nicht des Servers: um 00:30 sollen die neuen Aufgaben
+// kommen, auch wenn der Server in UTC noch gestern hat.
+function localDay() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// Der Server kennt die Loesung und prueft jeden Zug; hier wird nur gezeigt,
+// gezogen und nachgespielt.
+const GLYPH = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
+const FILES = "abcdefgh";
+const sqName = (i) => FILES[i % 8] + (Math.floor(i / 8) + 1);
+const sqIndex = (n) => FILES.indexOf(n[0]) + (Number(n[1]) - 1) * 8;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const $id = (id) => document.getElementById(id);
+
+const tac = { data: null, idx: -1, pos: null, poll: null, error: null };
+
+function fenBoard(fen) {
+  const arr = new Array(64).fill(null);
+  fen.split(" ")[0].split("/").forEach((row, r) => {
+    let f = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) f += Number(ch);
+      else { arr[(7 - r) * 8 + f] = ch; f++; }
+    }
+  });
+  return arr;
+}
+
+// Zug auf dem Anzeige-Brett ausfuehren. Keine Regelpruefung - das macht der
+// Server -, nur die drei Sonderfaelle, die sonst falsch aussaehen.
+function applyUci(arr, uci) {
+  const b = arr.slice();
+  const from = sqIndex(uci.slice(0, 2)), to = sqIndex(uci.slice(2, 4));
+  let p = b[from];
+  if (!p) return b;
+  const kind = p.toLowerCase();
+  if (kind === "k" && Math.abs(to - from) === 2) {
+    const base = from - (from % 8);
+    if (to > from) { b[base + 5] = b[base + 7]; b[base + 7] = null; }
+    else { b[base + 3] = b[base]; b[base] = null; }
+  }
+  if (kind === "p" && (to - from) % 8 !== 0 && !b[to]) b[to + (p === "P" ? -8 : 8)] = null;
+  if (uci.length === 5) p = p === "P" ? uci[4].toUpperCase() : uci[4];
+  b[to] = p;
+  b[from] = null;
+  return b;
+}
+const moveSquares = (uci) => uci ? [sqIndex(uci.slice(0, 2)), sqIndex(uci.slice(2, 4))] : null;
+
+async function loadTactics(keepIdx = false) {
+  clearTimeout(tac.poll);
+  let d;
+  try {
+    d = await api("tactics/today?day=" + localDay());
+    tac.error = null;
+  } catch (err) {
+    tac.error = err.message;
+    renderTabs();
+    if (view === "train") renderTraining();
+    return;
+  }
+  const prevKey = keepIdx && tac.pos ? tac.pos.item.key : null;
+  tac.data = d;
+  renderTabs();
+  if (!d.items.length) {
+    tac.idx = -1; tac.pos = null;
+    if (d.preparing) tac.poll = setTimeout(() => loadTactics(), 4000);
+    if (view === "train") renderTraining();
+    return;
+  }
+  let idx = prevKey ? d.items.findIndex((i) => i.key === prevKey) : -1;
+  if (idx < 0) idx = d.items.findIndex((i) => !i.result);
+  if (idx < 0) { tac.idx = -1; tac.pos = null; if (view === "train") renderTraining(); return; }
+  openItem(idx, view !== "train");
+}
+
+// Alles im Training neu zeichnen - nach Sprachwechsel oder Reiterwechsel.
+function renderTraining() {
+  const L = tr();
+  $id("trTitle").textContent = L.title;
+  $id("trIntro").textContent = L.intro;
+  renderTacHead();
+  if (tac.error) { $id("tacBody").innerHTML = `<div class="note err">${esc(tac.error)}</div>`; return; }
+  if (!tac.data) { $id("tacBody").innerHTML = `<div class="tac-empty">${esc(L.loading)}</div>`; return; }
+  if (!tac.data.items.length) { renderTacEmpty(); return; }
+  if (!tac.pos) { renderTacSummary(); return; }
+  openItem(tac.idx, false, true);
+}
+
+function renderTacHead() {
+  const L = tr(), d = tac.data, items = d ? d.items : [];
+  const done = items.filter((i) => i.result).length;
+  const st = d ? d.stats : null;
+  $id("tacHead").textContent = items.length ? L.done(done, items.length) + (st && st.streak ? L.streak(st.streak) : "") : "";
+  $id("tacDots").innerHTML = items.map((it, i) =>
+    `<button type="button" class="tac-dot ${it.result || ""} ${i === tac.idx ? "cur" : ""}" data-ti="${i}" title="${esc(L.taskTitle(i + 1, it.puzzle.review))}">${it.result === "solved" ? "✓" : it.result === "failed" ? "✗" : i + 1}</button>`
+  ).join("");
+  $id("tacDots").hidden = !items.length;
+  if (st) {
+    const parts = [L.pool(st.new, st.learning, st.learned)];
+    if (st.last30_done) parts.push(L.last30(Math.round((st.last30_solved / st.last30_done) * 100)));
+    $id("tacStats").textContent = parts.join(" · ");
+  } else {
+    $id("tacStats").textContent = "";
+  }
+  renderTabs();
+}
+
+function renderTacEmpty() {
+  const L = tr(), d = tac.data;
+  let html;
+  if (d.problem === "disabled") html = esc(L.disabled);
+  else if (d.problem === "no_engine") html = esc(L.noEngine);
+  else if (d.preparing) html = `${esc(L.preparing)}<br><span class="muted">${esc(L.preparingSub)}</span>`;
+  else if (d.problem === "failed") html = esc(L.failed(d.error || ""));
+  else html = esc(L.none);
+  $id("tacBody").innerHTML = `<div class="tac-empty">${html}</div>`;
+}
+
+// Stellung zu Beginn des aktuellen Schritts. Nach einem falschen Zug geht es
+// genau hierhin zurueck - nicht auf eine Kopie, die ein zweiter, gleichzeitig
+// laufender Zug schon veraendert haben koennte.
+function saveStep(P) {
+  P.step = { board: P.board.slice(), last: P.last ? P.last.slice() : null, legal: P.legal.slice(), moves: P.moves.slice() };
+}
+function restoreStep(P) {
+  const st = P.step;
+  P.board = st.board.slice();
+  P.last = st.last ? st.last.slice() : null;
+  P.legal = st.legal.slice();
+  P.moves = st.moves.slice();
+  P.sel = null;
+  P.marks = {};
+}
+
+function renderTacSummary() {
+  cancelDrag();
+  tac.idx = -1; tac.pos = null;
+  renderTacHead();
+  const L = tr(), items = tac.data.items;
+  const solved = items.filter((i) => i.result === "solved").length;
+  const again = items.filter((i) => i.result === "failed").length;
+  $id("tacBody").innerHTML = `<div class="tac-empty">
+    <div class="big">${solved === items.length ? "🏆" : "✓"}</div>
+    <p style="margin:6px 0 2px"><strong>${esc(L.summary(solved, items.length))}</strong></p>
+    <p class="muted" style="margin:0">${again ? esc(L.again(again)) : ""}${esc(L.tapNumber)}</p>
+  </div>`;
+}
+
+// keep: nur neu zeichnen (Sprachwechsel), Zustand der Aufgabe behalten.
+function openItem(i, quiet = false, keep = false) {
+  const item = tac.data.items[i];
+  if (!item) return;
+  const L = tr();
+  if (!keep || !tac.pos || tac.pos.item !== item) {
+    tac.idx = i;
+    cancelDrag();
+    const pz = item.puzzle;
+    tac.pos = {
+      item, board: fenBoard(pz.fen), legal: pz.legal, moves: [], last: moveSquares(pz.last_move),
+      sel: null, marks: {}, phase: item.result ? "done" : "solve", msg: "", msgCls: "", hint: false,
+      step: null,
+    };
+    saveStep(tac.pos);
+    if (item.result) {
+      tac.pos.msgKey = item.result === "solved" ? "alreadySolved" : "alreadyFailed";
+      tac.pos.msgCls = item.result === "solved" ? "good" : "bad";
+    }
+  }
+  if (quiet) { renderTacHead(); return; }
+  const P = tac.pos, pz = item.puzzle;
+  if (P.msgKey) P.msg = L[P.msgKey];
+  const task = pz.moves_to_find > 1 ? L.findLine(pz.moves_to_find) : L.findBest;
+  const tag = pz.review ? `<span class="tag">${esc(L.tagReview(pz.box))}</span>` : `<span class="tag accent">${esc(L.tagNew)}</span>`;
+  $id("tacBody").innerHTML = `
+    <div class="tac-meta"><span><b>${esc(pz.to_move === "white" ? L.white : L.black)}</b> · ${esc(task)}</span>${tag}</div>
+    <div class="board-wrap"><div class="board" id="board" aria-label="Chessboard"></div></div>
+    <div class="tac-msg" id="tacMsg"></div>
+    <div class="tac-actions" id="tacActions"></div>
+    <div id="tacExplain"></div>`;
+  renderTacHead();
+  renderBoard();
+  renderTacControls();
+}
+
+function renderBoard() {
+  const P = tac.pos, el = $id("board");
+  if (!P || !el) return;
+  const white = P.item.puzzle.orientation === "white";
+  const dests = new Set(P.sel == null ? [] :
+    P.legal.filter((u) => u.startsWith(sqName(P.sel))).map((u) => sqIndex(u.slice(2, 4))));
+  let html = "";
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const rank = white ? 7 - r : r, file = white ? c : 7 - c, i = rank * 8 + file;
+      const cls = ["sq", (rank + file) % 2 ? "l" : "d"];
+      if (P.last && P.last.includes(i)) cls.push("last");
+      if (P.sel === i) cls.push("sel");
+      if (dests.has(i)) cls.push("dest", P.board[i] ? "occ" : "");
+      if (P.marks[i]) cls.push(P.marks[i]);
+      const p = P.board[i];
+      const piece = p ? `<span class="pc ${p === p.toUpperCase() ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : "";
+      const coords = (c === 0 ? `<span class="coord r">${rank + 1}</span>` : "") + (r === 7 ? `<span class="coord f">${FILES[file]}</span>` : "");
+      html += `<div class="${cls.join(" ")}" data-i="${i}">${coords}${piece}</div>`;
+    }
+  }
+  el.innerHTML = html;
+}
+
+function hintText(pz) {
+  const L = tr(), h = pz.hint || {};
+  if (h.mate_in) return L.hintMate(h.mate_in);
+  if (h.missed_motif && L.motif[h.missed_motif]) return L.hintMotif(L.motif[h.missed_motif]);
+  return L.errHint[h.error_type] ? `${L.hintWord} ${L.errHint[h.error_type]}` : L.hintDefault;
+}
+
+function nextText(box, due) {
+  const L = tr();
+  if (box >= 6) return L.learned;
+  return due ? L.comesBack(date(due)) : "";
+}
+
+function explainHtml(item) {
+  const L = tr(), e = item.explain;
+  if (!e) return "";
+  const g = item.puzzle.game;
+  const pct = (v) => (v == null ? "?" : `${Math.round(v)} %`);
+  const who = (g.opponent ? L.vs(g.opponent) : "") + (g.played_at ? L.on(date(g.played_at)) : "");
+  const san = (s) => `<span class="san">${esc(s)}</span>`;
+  return `<div class="explain">
+    <p>${esc(L.inGame(who, "\u0000", pct(e.win_played), pct(e.win_best))).replace("\u0000", san(e.played_san))}${e.punish_san ? esc(L.bestAfter("\u0000")).replace("\u0000", san(e.punish_san)) : ""}</p>
+    <p>${esc(L.better("\u0000")).replace("\u0000", san(e.solution_san))}</p>
+    ${g.url ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(L.openGame)}</a></p>` : ""}
+  </div>`;
+}
+
+function renderTacControls() {
+  const P = tac.pos, L = tr();
+  if (!P || !$id("tacMsg")) return;
+  const msg = $id("tacMsg");
+  msg.textContent = P.msg;
+  msg.className = "tac-msg " + (P.msgCls || "");
+  const busy = P.phase === "busy" || P.phase === "replay";
+  let html = "";
+  if (P.phase === "solve" || P.phase === "busy") {
+    html = `<button type="button" class="btn" data-ta="hint" ${busy || P.hint ? "disabled" : ""}>${esc(L.hint)}</button>
+            <button type="button" class="btn" data-ta="reveal" ${busy ? "disabled" : ""}>${esc(L.reveal)}</button>`;
+    if (P.item.result) html += `<span class="grow"></span><button type="button" class="btn" data-ta="next" ${busy ? "disabled" : ""}>${esc(L.next)}</button>`;
+  } else {
+    html = `<button type="button" class="btn" data-ta="replay" ${busy ? "disabled" : ""}>${esc(L.replay)}</button>
+            <button type="button" class="btn" data-ta="retry" ${busy ? "disabled" : ""}>${esc(L.retry)}</button>
+            <span class="grow"></span>
+            <button type="button" class="btn primary" data-ta="next" ${busy ? "disabled" : ""}>${esc(L.next)}</button>`;
+  }
+  $id("tacActions").innerHTML = html;
+  $id("tacExplain").innerHTML = P.phase === "done" || P.phase === "replay" ? explainHtml(P.item) : "";
+}
+
+// Meldungen werden als Text gespeichert; ein Sprachwechsel mitten in einer
+// Aufgabe laesst die letzte Meldung stehen - die naechste kommt neu.
+function setMsg(text, cls = "") {
+  if (!tac.pos) return;
+  tac.pos.msg = text;
+  tac.pos.msgKey = null;
+  tac.pos.msgCls = cls;
+  renderTacControls();
+}
+
+function own(piece) {
+  if (!piece || !tac.pos) return false;
+  const white = tac.pos.item.puzzle.to_move === "white";
+  return white ? piece === piece.toUpperCase() : piece === piece.toLowerCase();
+}
+function isDest(from, to) {
+  const base = sqName(from) + sqName(to);
+  return tac.pos.legal.some((u) => u.startsWith(base));
+}
+
+async function tryMove(from, to) {
+  const P = tac.pos, L = tr();
+  // Nie zwei Zuege gleichzeitig: solange einer unterwegs ist oder die
+  // Widerlegung laeuft, wird nichts angenommen.
+  if (!P || P.phase !== "solve") return;
+  const base = sqName(from) + sqName(to);
+  const cands = P.legal.filter((u) => u.startsWith(base));
+  if (!cands.length) return;
+  // Umwandlung: Dame. Eine Unterverwandlung als Loesung ist selten, und wenn
+  // die Dame genauso gewinnt, zaehlt sie ohnehin.
+  const uci = cands.find((u) => u.length === 4 || u[4] === "q") || cands[0];
+  P.sel = null;
+  P.board = applyUci(P.board, uci);
+  P.last = [from, to];
+  P.phase = "busy";
+  renderBoard();
+  setMsg("");
+  let res;
+  try {
+    res = await apiJson("tactics/move", { day: tac.data.day, key: P.item.key, moves: [...P.moves, uci] });
+  } catch (err) {
+    restoreStep(P);
+    P.phase = "solve";
+    renderBoard(); setMsg(""); toast(err.message);
+    return;
+  }
+  if (tac.pos !== P) return;
+  if (res.result === "correct") {
+    P.moves.push(uci, res.reply);
+    setMsg(L.correct(res.san), "good");
+    await sleep(420);
+    if (tac.pos !== P) return;
+    P.board = applyUci(P.board, res.reply);
+    P.last = moveSquares(res.reply);
+    P.legal = res.legal;
+    P.phase = "solve";
+    saveStep(P);
+    renderBoard();
+    setMsg(tr().correctReply(res.san, res.reply_san), "good");
+  } else if (res.result === "solved") {
+    P.moves.push(uci);
+    P.marks = { [to]: "good" };
+    P.phase = "done";
+    renderBoard();
+    finishItem(res);
+  } else {
+    P.marks = { [to]: "bad" };
+    renderBoard();
+    if (res.counted && !P.item.result) { P.item.result = "failed"; renderTacHead(); }
+    const txt = L.wrong(res.san) + (res.punish_san ? L.punish(res.punish_san) : "");
+    setMsg(txt, "bad");
+    if (res.punish) {
+      await sleep(450);
+      if (tac.pos !== P) return;
+      P.board = applyUci(P.board, res.punish);
+      P.last = moveSquares(res.punish);
+      renderBoard();
+    }
+    await sleep(900);
+    if (tac.pos !== P) return;
+    restoreStep(P);
+    P.phase = "solve";
+    renderBoard();
+    setMsg(txt + tr().tryAgain, "bad");
+  }
+}
+
+function finishItem(res) {
+  const P = tac.pos, item = P.item, L = tr();
+  if (res.counted) item.result = "solved";
+  if (res.explain) item.explain = res.explain;
+  let txt = res.alternative ? L.alt(res.san, res.main_san) : L.solved(res.san);
+  if (res.counted) txt += " " + nextText(res.box, res.due);
+  else if (item.result === "failed") txt += L.stillFailed;
+  P.phase = "done";
+  setMsg(txt, "good");
+  renderTacHead();
+  afterResult(res);
+}
+
+function afterResult(res) {
+  if (res.day_complete) toast(tr().dayComplete);
+  api("tactics/today?day=" + localDay())
+    .then((d) => { if (tac.data && d.day === tac.data.day) { tac.data.stats = d.stats; renderTacHead(); } })
+    .catch(() => {});
+}
+
+async function playLine(P, line, firstDelay = 350) {
+  P.board = fenBoard(P.item.puzzle.fen);
+  P.last = moveSquares(P.item.puzzle.last_move);
+  P.marks = {};
+  P.sel = null;
+  renderBoard();
+  await sleep(firstDelay);
+  for (const u of line) {
+    if (tac.pos !== P) return;
+    P.board = applyUci(P.board, u);
+    P.last = moveSquares(u);
+    renderBoard();
+    await sleep(750);
+  }
+}
+
+async function reveal() {
+  const P = tac.pos;
+  P.phase = "busy";
+  renderTacControls();
+  let res;
+  try {
+    res = await apiJson("tactics/reveal", { day: tac.data.day, key: P.item.key });
+  } catch (err) { P.phase = "solve"; renderTacControls(); toast(err.message); return; }
+  if (!P.item.result) P.item.result = "failed";
+  P.item.explain = res.explain;
+  renderTacHead();
+  P.phase = "replay";
+  setMsg(tr().howItGoes);
+  await playLine(P, res.explain.solution);
+  if (tac.pos !== P) return;
+  P.phase = "done";
+  setMsg(tr().solution(res.explain.solution_san) + (res.counted ? nextText(res.box, res.due) : ""), "");
+  afterResult(res);
+}
+
+function nextOpen() {
+  const items = tac.data.items;
+  for (let k = 1; k <= items.length; k++) {
+    const j = (tac.idx + k) % items.length;
+    if (!items[j].result) return j;
+  }
+  return -1;
+}
+
+$id("tacDots").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ti]");
+  if (b && (!tac.pos || tac.pos.phase !== "busy")) openItem(Number(b.dataset.ti));
+});
+
+$id("tacBody").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-ta]");
+  if (!b || !tac.pos || b.disabled) return;
+  const P = tac.pos;
+  const a = b.dataset.ta;
+  if (a === "hint") { P.hint = true; setMsg(hintText(P.item.puzzle)); }
+  else if (a === "reveal") reveal();
+  else if (a === "next") { const j = nextOpen(); if (j < 0) renderTacSummary(); else openItem(j); }
+  else if (a === "retry") {
+    openItem(tac.idx);
+    tac.pos.phase = "solve";
+    setMsg(tr().practice);
+  }
+  else if (a === "replay" && P.item.explain) {
+    P.phase = "replay"; renderTacControls();
+    await playLine(P, P.item.explain.solution);
+    if (tac.pos === P) { P.phase = "done"; renderTacControls(); }
+  }
+});
+
+// Ziehen und Tippen. Tippen: Figur, dann Zielfeld. Ziehen: Figur festhalten
+// und auf das Zielfeld fallen lassen.
+// Der Zeiger wird am Brett-Element festgehalten (setPointerCapture). Das
+// Element bleibt beim Neuzeichnen bestehen - nur sein Inhalt wechselt. Ohne
+// das gingen Loslassen-Ereignisse verloren: in Safari, weil das beruehrte
+// Feld beim Neuzeichnen verschwindet, und am PC, wenn man ausserhalb eines
+// iframes loslaesst. Dann blieb die gezogene Figur als Geist stehen.
+let drag = null;
+function cancelDrag() {
+  if (drag) {
+    const b = $id("board");
+    if (b && drag.pointerId != null && b.hasPointerCapture && b.hasPointerCapture(drag.pointerId)) {
+      try { b.releasePointerCapture(drag.pointerId); } catch { /* egal */ }
+    }
+  }
+  drag = null;
+  document.querySelectorAll(".drag-ghost").forEach((g) => g.remove());
+  document.querySelectorAll("#board .sq.dragging").forEach((q) => q.classList.remove("dragging"));
+}
+function sqFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const s = el && el.closest ? el.closest(".sq") : null;
+  return s && s.closest("#board") ? Number(s.dataset.i) : null;
+}
+$id("tacBody").addEventListener("pointerdown", (e) => {
+  const boardEl = e.target.closest("#board");
+  if (!boardEl) return;
+  cancelDrag(); // was auch immer vorher haengen blieb
+  if (e.button != null && e.button > 0) return; // nur linke Maustaste / Finger
+  const s = e.target.closest(".sq");
+  const P = tac.pos;
+  if (!s || !P || P.phase !== "solve") return;
+  const i = Number(s.dataset.i);
+  if (P.sel != null && P.sel !== i && isDest(P.sel, i)) { e.preventDefault(); tryMove(P.sel, i); return; }
+  if (!own(P.board[i])) { if (P.sel != null) { P.sel = null; renderBoard(); } return; }
+  e.preventDefault();
+  try { boardEl.setPointerCapture(e.pointerId); } catch { /* egal */ }
+  const wasSel = P.sel === i;
+  P.sel = i;
+  renderBoard();
+  const size = boardEl.clientWidth / 8;
+  const src = boardEl.querySelector(`.sq[data-i="${i}"] .pc`);
+  const ghost = src.cloneNode(true);
+  ghost.classList.add("drag-ghost");
+  ghost.style.fontSize = `${size * 0.9}px`;
+  ghost.style.display = "none";
+  document.body.appendChild(ghost);
+  drag = { from: i, ghost, moved: false, x0: e.clientX, y0: e.clientY, wasSel, pointerId: e.pointerId };
+});
+$id("tacBody").addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
+  if (!drag.moved) {
+    drag.moved = true;
+    drag.ghost.style.display = "";
+    const sq = document.querySelector(`#board .sq[data-i="${drag.from}"]`);
+    if (sq) sq.classList.add("dragging");
+  }
+  drag.ghost.style.left = `${e.clientX}px`;
+  drag.ghost.style.top = `${e.clientY}px`;
+});
+function endDrag(e, cancel) {
+  if (!drag || (e && e.pointerId !== drag.pointerId)) return;
+  const d = drag;
+  const to = !cancel && d.moved && e ? sqFromPoint(e.clientX, e.clientY) : null;
+  cancelDrag();
+  const P = tac.pos;
+  if (!P) return;
+  if (d.moved) {
+    if (to != null && to !== d.from && isDest(d.from, to)) { tryMove(d.from, to); return; }
+    renderBoard();
+  } else if (d.wasSel) {
+    P.sel = null; // zweiter Tipp auf dieselbe Figur hebt die Auswahl auf
+    renderBoard();
+  }
+}
+$id("tacBody").addEventListener("pointerup", (e) => endDrag(e, false));
+$id("tacBody").addEventListener("pointercancel", (e) => endDrag(e, true));
+$id("tacBody").addEventListener("lostpointercapture", (e) => { if (drag && e.pointerId === drag.pointerId) endDrag(e, true); });
+// Sicherheitsnetz: Fenster verliert den Fokus mitten im Ziehen.
+window.addEventListener("blur", () => { if (drag) { cancelDrag(); if (tac.pos && tac.pos.phase === "solve") renderBoard(); } });
+
+// Handy aus der Tasche: nach laengerer Pause oder an einem neuen Tag frische
+// Aufgaben holen - aber nie mitten in einen Zug hinein.
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); if (drag) cancelDrag(); return; }
+  const newDay = tac.data && tac.data.day !== localDay();
+  if ((newDay || Date.now() - hiddenAt > 10 * 60 * 1000) && (!tac.pos || tac.pos.phase !== "busy")) loadTactics(!newDay);
+});
+
+// --------------------------------------------------------------------------
 // Klicks
 // --------------------------------------------------------------------------
 document.addEventListener("click", (event) => {
@@ -1130,8 +1924,12 @@ document.getElementById("langBtn").addEventListener("click", () => {
   lang = lang === "de" ? "en" : "de";
   store.set("knightmare.lang", lang);
   render();
+  if (view === "train") renderTraining();
 });
-document.getElementById("refreshBtn").addEventListener("click", loadAll);
+document.getElementById("refreshBtn").addEventListener("click", () => {
+  loadAll();
+  if (!tac.pos || tac.pos.phase !== "busy") loadTactics(true);
+});
 document.getElementById("syncBtn").addEventListener("click", async () => {
   await post("sync");
   loadStatus();
@@ -1152,7 +1950,10 @@ setInterval(() => {
   if (data.status && data.status.run && data.status.run.running) loadStatus();
 }, 4000);
 
+renderTabs();
+if (view === "train") renderTraining();
 loadAll();
+loadTactics();
 </script>
 </body>
 </html>

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 import threading
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
@@ -22,11 +22,15 @@ from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException,
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
+from sqlalchemy import select as sa_select
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import __version__, stats
+from . import __version__, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import load_settings
+from .db import engine as db_engine
 from .db import get_session, init_db, new_session
 from .models import ChessGame, ChessSyncState, utc_now
 from .pipeline import current_status, recategorize, reset_analysis, run_once
@@ -100,6 +104,15 @@ async def lifespan(_app: FastAPI):
         log.info("Einstufung geprueft: %s", result)
     except Exception as exc:  # noqa: BLE001
         log.error("Umstufung beim Start fehlgeschlagen: %s", exc)
+    # Aufgaben: Lernstaende aus dem frueheren Trainer einmalig uebernehmen,
+    # Engine im Hintergrund vorwaermen.
+    try:
+        tactics.import_legacy(db_engine)
+    except Exception as exc:  # noqa: BLE001
+        log.error("Uebernahme der Trainer-Aufgaben fehlgeschlagen: %s", exc)
+    trainer = tactics.get_trainer()
+    if trainer.enabled and trainer.engine.available:
+        threading.Thread(target=trainer.engine.warm, name="tactics-warm", daemon=True).start()
     global _scheduler_thread
     if settings.auto_sync and settings.configured:
         _scheduler_thread = threading.Thread(
@@ -117,6 +130,7 @@ async def lifespan(_app: FastAPI):
         )
     yield
     _stop_scheduler.set()
+    tactics.get_trainer().engine.close()
 
 
 app = FastAPI(
@@ -500,6 +514,152 @@ def get_rating(
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
     return stats.rating_history(session, time_class=time_class, limit=limit)
+
+
+# --------------------------------------------------------------------------
+# Taktikaufgaben
+# --------------------------------------------------------------------------
+def _tactic_day(value: Optional[date]) -> date:
+    """Der Tag kommt vom Browser - dort ist es 00:30, auf dem Server
+    vielleicht noch gestern. Mehr als einen Tag Abstand gibt es nicht."""
+    today = date.today()
+    if value is None:
+        return today
+    if abs((value - today).days) > 1:
+        raise HTTPException(status_code=400, detail="day_out_of_range")
+    return value
+
+
+def _tactics_payload(day: date, build: bool) -> dict[str, object]:
+    trainer = tactics.get_trainer()
+    T = tactics.TACTICS
+    if build:
+        try:
+            with db_engine.begin() as conn:
+                tactics.build_day(conn, day, trainer.settings)
+        except IntegrityError:
+            # Handy und PC gleichzeitig am Morgen: der andere war schneller,
+            # seine Auswahl gilt.
+            pass
+    with db_engine.begin() as conn:
+        rows = tactics.day_rows(conn, day)
+        keys = [r.key for r in rows]
+        by_key = {r.key: r for r in conn.execute(sa_select(T).where(T.c.key.in_(keys)))} if keys else {}
+        items = []
+        for r in rows:
+            row = by_key.get(r.key)
+            if row is None or row.status != "ready":
+                continue
+            item = {"pos": r.pos, "key": r.key, "result": r.result, "puzzle": tactics.puzzle_payload(row)}
+            if r.result:
+                item["explain"] = tactics.explanation(row)
+            items.append(item)
+        st = tactics.stats(conn, day)
+    return {"day": day.isoformat(), "items": items, "stats": st}
+
+
+def _tactics_status() -> dict[str, object]:
+    trainer = tactics.get_trainer()
+    problem = None
+    if not trainer.enabled:
+        problem = "disabled"
+    elif not trainer.engine.available:
+        problem = "no_engine"
+    elif trainer.status["last_error"]:
+        problem = "failed"
+    return {
+        "enabled": trainer.enabled,
+        "engine": trainer.engine.available,
+        "preparing": trainer.status["preparing"],
+        "per_day": trainer.settings.per_day,
+        "problem": problem,
+        "error": trainer.status["last_error"],
+    }
+
+
+@api.get("/tactics/today")
+def tactics_today(day: Optional[date] = Query(default=None)) -> dict[str, object]:
+    """Die Aufgaben des Tages. Beim ersten Aufruf wird die Auswahl
+    festgeschrieben; reicht der Vorrat nicht, startet die Vorbereitung und
+    die Seite fragt nach (preparing)."""
+    trainer = tactics.get_trainer()
+    d = _tactic_day(day)
+    data = _tactics_payload(d, False)
+    if not data["items"] and trainer.enabled:
+        if trainer.pool_ready(d) or trainer.status["exhausted"] or not trainer.engine.available:
+            data = _tactics_payload(d, True)
+        if (not data["items"] and trainer.engine.available
+                and not trainer.status["preparing"] and not trainer.status["exhausted"]):
+            trainer.fill_in_background(d)
+    return {**data, **_tactics_status()}
+
+
+class TacticMoveBody(BaseModel):
+    day: date
+    key: str = Field(max_length=90)
+    moves: list[str] = Field(min_length=1, max_length=20)
+
+
+class TacticRevealBody(BaseModel):
+    day: date
+    key: str = Field(max_length=90)
+
+
+def _tactic_for_day(conn, day: date, key: str):
+    D, T = tactics.DAYS, tactics.TACTICS
+    if conn.execute(sa_select(D).where(D.c.day == day, D.c.key == key)).first() is None:
+        raise HTTPException(status_code=404, detail="not_in_day")
+    row = conn.execute(sa_select(T).where(T.c.key == key)).first()
+    if row is None or row.status != "ready":
+        raise HTTPException(status_code=404, detail="not_found")
+    return row
+
+
+def _day_complete(conn, day: date) -> bool:
+    rows = tactics.day_rows(conn, day)
+    return bool(rows) and all(r.result is not None for r in rows)
+
+
+def _finish(day: date, key: str, solved: bool) -> dict[str, object]:
+    T = tactics.TACTICS
+    with db_engine.begin() as conn:
+        counted = tactics.record(conn, day, key, solved)
+        complete = _day_complete(conn, day)
+        row = conn.execute(sa_select(T).where(T.c.key == key)).first()
+        return {"counted": counted, "day_complete": complete, "explain": tactics.explanation(row),
+                "box": row.box, "due": row.due.isoformat() if row.due else None}
+
+
+@api.post("/tactics/move")
+def tactics_move(body: TacticMoveBody) -> dict[str, object]:
+    """Prueft einen Zug. Zustandslos: der Browser schickt die ganze Folge
+    seit der Ausgangsstellung. Die Loesung geht erst nach dem Loesen oder
+    Aufdecken an den Browser."""
+    trainer = tactics.get_trainer()
+    day = _tactic_day(body.day)
+    with db_engine.connect() as conn:
+        row = _tactic_for_day(conn, day, body.key)
+    try:
+        res = tactics.check_move(trainer.engine, row, body.moves, trainer.settings)
+    except tactics.MoveError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+    if res["result"] == "solved":
+        res.update(_finish(day, body.key, True))
+    elif res["result"] == "wrong":
+        # Der erste Fehlversuch zaehlt fuer die Wiederholung; nochmal
+        # probieren darf man trotzdem.
+        with db_engine.begin() as conn:
+            res["counted"] = tactics.record(conn, day, body.key, False)
+            res["day_complete"] = _day_complete(conn, day)
+    return res
+
+
+@api.post("/tactics/reveal")
+def tactics_reveal(body: TacticRevealBody) -> dict[str, object]:
+    day = _tactic_day(body.day)
+    with db_engine.connect() as conn:
+        _tactic_for_day(conn, day, body.key)
+    return _finish(day, body.key, False)
 
 
 app.include_router(api)
