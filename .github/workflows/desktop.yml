@@ -1,0 +1,136 @@
+name: Desktop
+
+# Baut die Apps fuer macOS (Apple Silicon) und Windows.
+# - Jeder Push auf "desktop" und jeder Start von Hand: Artefakte zum Testen
+#   (unter dem Lauf herunterladen).
+# - Ein Tag v*: zusaetzlich als Release veroeffentlicht. Die Dateinamen haben
+#   keine Versionsnummer, damit .../releases/latest/download/<name> immer
+#   auf die neueste Fassung zeigt (so verlinkt die Website).
+
+on:
+  push:
+    branches: [desktop]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: macos-arm64
+          - os: windows-latest
+            target: windows
+    env:
+      KNIGHTMARE_DATA_DIR: ${{ github.workspace }}/ci-data
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            desktop/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r desktop/requirements.txt
+
+      - name: Fetch Stockfish
+        run: python desktop/fetch_stockfish.py --target ${{ matrix.target }}
+
+      - name: Build app (macOS)
+        if: runner.os == 'macOS'
+        run: python desktop/build.py --dmg
+
+      - name: Build app (Windows)
+        if: runner.os == 'Windows'
+        run: python desktop/build.py
+
+      # Derselbe Selbsttest wie im Container, aber im fertigen Bundle mit der
+      # mitgelieferten Engine. Rot heisst: kein Release.
+      - name: Self-test inside the app (macOS)
+        if: runner.os == 'macOS'
+        run: dist/Knightmare.app/Contents/MacOS/Knightmare --selftest
+
+      - name: Start and answer (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          dist/Knightmare.app/Contents/MacOS/Knightmare --headless --no-browser &
+          pid=$!
+          for i in $(seq 1 60); do
+            if [ -f "$KNIGHTMARE_DATA_DIR/port" ]; then break; fi; sleep 1
+          done
+          port=$(cat "$KNIGHTMARE_DATA_DIR/port")
+          curl -fsS "http://127.0.0.1:$port/api/health"
+          curl -fsS "http://127.0.0.1:$port/api/status" | python -c "import json,sys; d=json.load(sys.stdin); assert d['setup_available'], d; print('engine:', d['engine_path'])"
+          curl -fsS -o /dev/null "http://127.0.0.1:$port/"
+          kill $pid
+
+      # Die Fenster-Exe hat keine Konsole: Ausgabe landet im Protokoll.
+      - name: Self-test inside the app (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\Knightmare\Knightmare.exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content "$env:KNIGHTMARE_DATA_DIR\knightmare.log"
+          if ($p.ExitCode -ne 0) { throw "Selbsttest fehlgeschlagen: $($p.ExitCode)" }
+
+      - name: Start and answer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\Knightmare\Knightmare.exe -ArgumentList "--headless","--no-browser" -PassThru
+          $portFile = "$env:KNIGHTMARE_DATA_DIR\port"
+          for ($i = 0; $i -lt 60 -and -not (Test-Path $portFile); $i++) { Start-Sleep 1 }
+          $port = Get-Content $portFile
+          $s = Invoke-RestMethod "http://127.0.0.1:$port/api/status"
+          if (-not $s.setup_available) { throw "setup_available fehlt" }
+          "engine: $($s.engine_path)"
+          Invoke-WebRequest "http://127.0.0.1:$port/" -UseBasicParsing | Out-Null
+          Stop-Process -Id $p.Id
+
+      - name: Build installer (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          $version = (Select-String -Path app\__init__.py -Pattern '__version__ = "(.*)"').Matches[0].Groups[1].Value
+          & $iscc "/DAppVersion=$version" desktop\installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC $LASTEXITCODE" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: knightmare-${{ matrix.target }}
+          path: |
+            dist/Knightmare-macOS.dmg
+            dist/Knightmare-Windows-Setup.exe
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/Knightmare-macOS.dmg
+            out/Knightmare-Windows-Setup.exe
+          generate_release_notes: true

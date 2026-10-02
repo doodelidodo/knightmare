@@ -6,7 +6,7 @@
 
 <p align="center">
   <em>Find the patterns behind your chess mistakes — then train them.</em><br>
-  Chess.com and Lichess · self-hosted · one container · English and German
+  Chess.com and Lichess · runs on your own computer · Mac, Windows or Docker · English and German
 </p>
 
 ---
@@ -101,6 +101,31 @@ and how your mistakes correlate with the clock — the last one is read from the
 `[%clk]` comments both platforms write into the PGN.
 
 ## Quick start
+
+### Desktop app (Mac and Windows)
+
+| | Download |
+| --- | --- |
+| **macOS** (Apple Silicon, macOS 11+) | [Knightmare-macOS.dmg](https://github.com/doodelidodo/knightmare/releases/latest/download/Knightmare-macOS.dmg) |
+| **Windows** (10/11, 64-bit) | [Knightmare-Windows-Setup.exe](https://github.com/doodelidodo/knightmare/releases/latest/download/Knightmare-Windows-Setup.exe) |
+
+Install, start, and your browser opens. Enter your Chess.com and/or Lichess
+username — that's the whole setup. Stockfish is included; your games and the
+analysis stay on your computer. A small window shows that Knightmare is
+running; closing it stops it.
+
+The apps are not signed with a paid developer certificate, so the system
+warns on the first start:
+
+- **macOS:** drag Knightmare into *Applications*, open it once (it will be
+  blocked), then *System Settings → Privacy & Security → Open Anyway*.
+- **Windows:** *More info → Run anyway* in the SmartScreen dialog.
+
+Your data lives in `~/Library/Application Support/Knightmare` (macOS) or
+`%LOCALAPPDATA%\Knightmare` (Windows) and survives updates and uninstalls.
+Intel Macs and Linux: use Docker below.
+
+### Docker
 
 ```bash
 docker run -d --name knightmare -p 8000:8000 \
@@ -266,9 +291,25 @@ and the [Lichess API](https://lichess.org/api), and contains none of their
 designs, piece sets, sounds or move classification glyphs. Both names are
 trademarks of their respective owners.
 
+## Building the desktop app yourself
+
+```bash
+pip install -r requirements.txt -r desktop/requirements.txt
+python desktop/fetch_stockfish.py      # official Stockfish binaries
+python desktop/build.py                # add --dmg on macOS
+```
+
+Or run it straight from source with `python -m app.desktop`. The CI workflow
+`.github/workflows/desktop.yml` builds both apps on every `v*` tag, runs the
+self-test inside the finished bundle and attaches them to the release.
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Do what you like with it.
+
+The desktop apps bundle the unmodified official [Stockfish](https://stockfishchess.org)
+binaries, which are licensed under the GPLv3. Their licence text and a link to
+the source come with the app (`stockfish/Copying.txt`, `stockfish/SOURCE.txt`).
 
 ## Support
 

@@ -12,6 +12,7 @@ jemand sie hinter einem Praefix wie `/chess/` einhaengt.
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from contextlib import asynccontextmanager
 from datetime import date, datetime
@@ -29,7 +30,13 @@ from sqlmodel import Session, select
 
 from . import __version__, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
-from .config import load_settings
+from .config import (
+    SETUP_KEYS,
+    USERNAME_PATTERN,
+    load_settings,
+    settings_file,
+    write_settings_file,
+)
 from .db import engine as db_engine
 from .db import get_session, init_db, new_session
 from .models import ChessGame, ChessSyncState, utc_now
@@ -92,6 +99,23 @@ def _scheduler_loop() -> None:
             return
 
 
+def _start_scheduler() -> bool:
+    """Startet den Zeitplan, falls er noch nicht laeuft."""
+    global _scheduler_thread
+    if _scheduler_thread is not None and _scheduler_thread.is_alive():
+        return False
+    _scheduler_thread = threading.Thread(
+        target=_scheduler_loop, name="knightmare-scheduler", daemon=True
+    )
+    _scheduler_thread.start()
+    log.info(
+        "Scheduler gestartet (alle %.1f h, erster Lauf in %.0f s)",
+        settings.sync_interval_hours,
+        settings.startup_delay_seconds,
+    )
+    return True
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     init_db()
@@ -113,17 +137,8 @@ async def lifespan(_app: FastAPI):
     trainer = tactics.get_trainer()
     if trainer.enabled and trainer.engine.available:
         threading.Thread(target=trainer.engine.warm, name="tactics-warm", daemon=True).start()
-    global _scheduler_thread
     if settings.auto_sync and settings.configured:
-        _scheduler_thread = threading.Thread(
-            target=_scheduler_loop, name="knightmare-scheduler", daemon=True
-        )
-        _scheduler_thread.start()
-        log.info(
-            "Scheduler gestartet (alle %.1f h, erster Lauf in %.0f s)",
-            settings.sync_interval_hours,
-            settings.startup_delay_seconds,
-        )
+        _start_scheduler()
     elif not settings.configured:
         log.warning(
             "CHESSCOM_USERNAME ist nicht gesetzt - es werden keine Partien geholt."
@@ -231,6 +246,7 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
         "time_classes": stats.available_time_classes(session),
         "platforms": stats.available_platforms(session),
         "configured_platforms": list(settings.platforms),
+        "setup_available": settings_file() is not None,
         "run": current_status(),
         "last_sync": {
             "at": state.last_sync_at.isoformat() if state and state.last_sync_at else None,
@@ -238,6 +254,94 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
             "message": state.last_sync_message if state else "",
         },
     }
+
+
+# --------------------------------------------------------------------------
+# Einrichtung im Browser (nur Desktop-Fassung)
+# --------------------------------------------------------------------------
+class SetupBody(BaseModel):
+    chesscom_username: str = Field(default="", max_length=40)
+    lichess_username: str = Field(default="", max_length=40)
+
+
+def _account_exists(platform: str, username: str) -> Optional[bool]:
+    """True/False, wenn die Plattform es sagt; None, wenn sie nicht antwortet.
+
+    Ein Tippfehler im Namen fiele sonst erst Minuten spaeter als leere
+    Auswertung auf. Ist man offline, wird trotzdem gespeichert.
+    """
+    import httpx
+
+    url = (
+        f"https://lichess.org/api/user/{username}"
+        if platform == "lichess"
+        else f"https://api.chess.com/pub/player/{username.lower()}"
+    )
+    try:
+        response = httpx.get(
+            url, headers={"User-Agent": settings.user_agent}, timeout=8.0
+        )
+    except httpx.HTTPError:
+        return None
+    if response.status_code == 404:
+        return False
+    if response.status_code == 200:
+        # Lichess antwortet bei gesperrten Konten mit 200 und "disabled".
+        try:
+            return not response.json().get("disabled", False)
+        except ValueError:
+            return True
+    return None
+
+
+@api.get("/setup")
+def get_setup() -> dict[str, object]:
+    return {
+        "available": settings_file() is not None,
+        "chesscom_username": settings.chesscom_username,
+        "lichess_username": settings.lichess_username,
+    }
+
+
+@api.post("/setup")
+def post_setup(body: SetupBody, background: BackgroundTasks) -> dict[str, object]:
+    global settings
+    path = settings_file()
+    if path is None:
+        raise HTTPException(status_code=404, detail="setup_unavailable")
+
+    names = {
+        "chesscom": body.chesscom_username.strip(),
+        "lichess": body.lichess_username.strip(),
+    }
+    if not any(names.values()):
+        raise HTTPException(status_code=400, detail="none_given")
+    for platform, name in names.items():
+        if name and not USERNAME_PATTERN.match(name):
+            raise HTTPException(status_code=400, detail=f"{platform}_invalid")
+    unchecked = []
+    for platform, name in names.items():
+        if not name:
+            continue
+        exists = _account_exists(platform, name)
+        if exists is False:
+            raise HTTPException(status_code=400, detail=f"{platform}_unknown")
+        if exists is None:
+            unchecked.append(platform)
+
+    values = dict(zip(SETUP_KEYS, (names["chesscom"], names["lichess"])))
+    write_settings_file(path, values)
+    os.environ.update(values)
+    settings = load_settings()
+    log.info("Einrichtung gespeichert: %s", ", ".join(settings.platforms))
+
+    if settings.auto_sync:
+        started = _start_scheduler()
+        # Laeuft der Zeitplan schon (Namen geaendert), sofort einmal holen
+        # statt bis zum naechsten Takt zu warten.
+        if not started and not current_status().get("running"):
+            background.add_task(run_once, settings, True, None, False)
+    return {"saved": True, "platforms": list(settings.platforms), "unchecked": unchecked}
 
 
 @api.post("/sync")

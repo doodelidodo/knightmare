@@ -136,6 +136,16 @@
   .note.err { background: rgba(194, 65, 12, 0.12); color: var(--bad); }
   .note.ok { background: rgba(22, 121, 74, 0.12); color: var(--good); }
   .note.info { background: rgba(91, 110, 245, 0.12); color: var(--accent); }
+  .setup { margin-bottom: 18px; }
+  .setup h2 { margin: 0 0 6px; }
+  .setup p { margin: 0 0 14px; color: var(--muted); }
+  .setup form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end; }
+  .setup label { display: grid; gap: 5px; font-size: 0.86rem; color: var(--muted); }
+  .setup input { font: inherit; color: var(--text); background: var(--surface-soft);
+                 border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; }
+  .setup input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .setup .setup-msg { grid-column: 1 / -1; margin: 0; font-size: 0.88rem; }
+  .setup .setup-msg.err { color: var(--bad); }
 
   .week { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
           gap: 12px; margin: 10px 0; }
@@ -248,6 +258,7 @@
   </nav>
 
   <div id="notes"></div>
+  <div id="setup"></div>
 
   <div id="viewAnalyse">
 
@@ -786,7 +797,7 @@ function render() {
   // Hinweise
   const notes = [];
   if (data.error) notes.push(`<div class="note err">${data.error}</div>`);
-  if (data.status && data.status.configured === false)
+  if (data.status && data.status.configured === false && !data.status.setup_available)
     notes.push(`<div class="note err">${L.notConfigured}</div>`);
   if (run && run.running)
     notes.push(`<div class="note info">${esc(L.runNote(run.phase, run.fetched || 0, run.analyzed || 0))}</div>`);
@@ -803,6 +814,7 @@ function render() {
   renderGames();
   renderFooter();
   renderTabs();
+  renderSetup();
 }
 
 function renderFilters() {
@@ -1167,6 +1179,7 @@ function renderFooter() {
     `<a href="https://github.com/doodelidodo/knightmare" target="_blank" rel="noreferrer">GitHub</a>` +
     `<a href="https://ko-fi.com/abetterdodo" target="_blank" rel="noreferrer">Ko-fi</a>` +
     `<a href="api/docs" target="_blank">API</a>` +
+    (s.setup_available ? `<a href="#" id="setupLink">${esc(L.su.change)}</a>` : "") +
     `<span>Knightmare ${esc(s.version || "")} · MIT</span>`;
 }
 
@@ -1943,6 +1956,116 @@ document.getElementById("reBtn").addEventListener("click", async () => {
   confirmRe = false;
   await post("reanalyze" + (timeClass !== "all" ? "?time_class=" + timeClass : ""));
   loadStatus();
+});
+
+// --------------------------------------------------------------------------
+// Einrichtung im Browser (nur in der Desktop-Fassung, siehe app/desktop.py)
+// --------------------------------------------------------------------------
+I18N.en.su = {
+  title: "Welcome to Knightmare",
+  intro: "Enter your username on Chess.com, Lichess or both. Your games are fetched and analysed on this computer – nothing leaves it except the requests to the two sites.",
+  edit: "Usernames", change: "Usernames",
+  chesscom: "Chess.com username", lichess: "Lichess username",
+  save: "Start", saveEdit: "Save", cancel: "Cancel", checking: "Checking…",
+  saved: "Saved. The first games are on their way – analysis takes about 10 seconds per game.",
+  offline: "Saved, but the site could not be reached to check the name.",
+  errors: {
+    none_given: "Enter at least one username.",
+    chesscom_invalid: "That is not a valid Chess.com username.",
+    lichess_invalid: "That is not a valid Lichess username.",
+    chesscom_unknown: "Chess.com does not know this username.",
+    lichess_unknown: "Lichess does not know this username.",
+  },
+};
+I18N.de.su = {
+  title: "Willkommen bei Knightmare",
+  intro: "Trag deinen Benutzernamen bei Chess.com, Lichess oder beiden ein. Die Partien werden auf diesem Rechner geholt und ausgewertet – hinaus geht nur die Abfrage bei den beiden Seiten.",
+  edit: "Benutzernamen", change: "Benutzernamen",
+  chesscom: "Benutzername Chess.com", lichess: "Benutzername Lichess",
+  save: "Los geht's", saveEdit: "Speichern", cancel: "Abbrechen", checking: "Prüfe…",
+  saved: "Gespeichert. Die ersten Partien kommen – die Analyse braucht etwa 10 Sekunden pro Partie.",
+  offline: "Gespeichert, aber die Seite war nicht erreichbar, um den Namen zu prüfen.",
+  errors: {
+    none_given: "Mindestens einen Benutzernamen eintragen.",
+    chesscom_invalid: "Das ist kein gültiger Chess.com-Name.",
+    lichess_invalid: "Das ist kein gültiger Lichess-Name.",
+    chesscom_unknown: "Chess.com kennt diesen Namen nicht.",
+    lichess_unknown: "Lichess kennt diesen Namen nicht.",
+  },
+};
+
+let setupOpen = false;
+let setupShown = "";
+
+// Das Formular wird nur neu gebaut, wenn sich etwas Sichtbares aendert -
+// sonst wuerde jedes render() die Eingabe loeschen.
+function renderSetup() {
+  const s = data.status || {};
+  const host = document.getElementById("setup");
+  const want = s.setup_available && (setupOpen || s.configured === false);
+  const mode = want ? (s.configured === false ? "first" : "edit") + ":" + lang : "";
+  if (mode === setupShown) return;
+  setupShown = mode;
+  if (!want) { host.innerHTML = ""; return; }
+  const L = t().su, first = s.configured === false;
+  host.innerHTML = `
+    <div class="card setup">
+      <h2>${esc(first ? L.title : L.edit)}</h2>
+      ${first ? `<p>${esc(L.intro)}</p>` : ""}
+      <form id="setupForm" autocomplete="off">
+        <label>${esc(L.chesscom)}<input name="chesscom_username" maxlength="30" spellcheck="false"
+          value="${esc(s.chesscom_username || "")}"></label>
+        <label>${esc(L.lichess)}<input name="lichess_username" maxlength="30" spellcheck="false"
+          value="${esc(s.lichess_username || "")}"></label>
+        <div>
+          <button class="btn primary" type="submit">${esc(first ? L.save : L.saveEdit)}</button>
+          ${first ? "" : `<button class="btn" type="button" id="setupCancel">${esc(L.cancel)}</button>`}
+        </div>
+        <p class="setup-msg" id="setupMsg"></p>
+      </form>
+    </div>`;
+  if (first) host.querySelector("input").focus();
+}
+
+document.getElementById("setup").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const L = t().su, form = e.target, msg = document.getElementById("setupMsg");
+  const btn = form.querySelector("button[type=submit]");
+  const body = Object.fromEntries(new FormData(form));
+  btn.disabled = true;
+  msg.className = "setup-msg";
+  msg.textContent = L.checking;
+  try {
+    const res = await fetch("api/setup", {
+      method: "POST", cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const out = await res.json();
+    if (!res.ok) {
+      msg.className = "setup-msg err";
+      msg.textContent = L.errors[out.detail] || out.detail || "HTTP " + res.status;
+      btn.disabled = false;
+      return;
+    }
+    setupOpen = false;
+    toast(out.unchecked && out.unchecked.length ? L.offline : L.saved);
+    loadAll();
+  } catch (err) {
+    msg.className = "setup-msg err";
+    msg.textContent = err.message;
+    btn.disabled = false;
+  }
+});
+document.getElementById("setup").addEventListener("click", (e) => {
+  if (e.target.id === "setupCancel") { setupOpen = false; renderSetup(); }
+});
+document.getElementById("footer").addEventListener("click", (e) => {
+  if (e.target.id !== "setupLink") return;
+  e.preventDefault();
+  setupOpen = true;
+  renderSetup();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
 // Waehrend ein Durchgang laeuft, den Status nachziehen.

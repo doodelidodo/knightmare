@@ -8,8 +8,13 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import shutil
+import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +98,71 @@ def _env_tuple(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
         return default
     parts = tuple(part.strip().lower() for part in raw.split(",") if part.strip())
     return parts or default
+
+
+def engine_popen_args() -> dict[str, object]:
+    """Zusatzargumente fuer den Start von Stockfish.
+
+    Unter Windows bekommt ein Konsolenprogramm, das aus einer Fenster-App
+    gestartet wird, ein eigenes schwarzes Konsolenfenster - in der Desktop-
+    Fassung stuende es die ganze Analyse lang offen. CREATE_NO_WINDOW
+    verhindert das. Anderswo gibt es nichts zu tun.
+    """
+    if sys.platform == "win32":
+        return {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)}
+    return {}
+
+
+# --------------------------------------------------------------------------
+# Einstellungsdatei der Desktop-Fassung
+# --------------------------------------------------------------------------
+# Im Container kommt alles aus Umgebungsvariablen. Die Desktop-Fassung hat
+# keine - dort traegt man die Benutzernamen im Browser ein, und sie landen in
+# einer kleinen Datei im Datenordner. Der Starter liest sie vor dem Import der
+# App in os.environ ein; danach gilt fuer den Rest des Codes nur noch das
+# Uebliche. Ohne KNIGHTMARE_SETTINGS_FILE ist die Einrichtung im Browser aus -
+# ein Container im Netz soll sich nicht von jedem umkonfigurieren lassen.
+SETTINGS_FILE_ENV = "KNIGHTMARE_SETTINGS_FILE"
+SETUP_KEYS = ("CHESSCOM_USERNAME", "LICHESS_USERNAME")
+USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]{2,30}$")
+
+
+def settings_file() -> Optional[Path]:
+    raw = _env_str(SETTINGS_FILE_ENV)
+    return Path(raw) if raw else None
+
+
+def read_settings_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return values
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip()
+    return values
+
+
+def write_settings_file(path: Path, updates: dict[str, str]) -> None:
+    """Schreibt die Werte, behaelt alles andere, was schon in der Datei stand."""
+    values = read_settings_file(path)
+    values.update(updates)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["# Knightmare - written by the app. Edit while it is closed."]
+    lines += [f"{key}={value}" for key, value in values.items()]
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    tmp.replace(path)
+
+
+def apply_settings_file(path: Path) -> None:
+    """Uebernimmt die Datei in os.environ. Die Datei hat Vorrang."""
+    for key, value in read_settings_file(path).items():
+        os.environ[key] = value
 
 
 def detect_engine_path() -> str:

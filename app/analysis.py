@@ -28,6 +28,8 @@ import chess
 import chess.engine
 import chess.pgn
 
+from .config import engine_popen_args
+
 log = logging.getLogger(__name__)
 
 EVAL_CLAMP = 1000
@@ -677,7 +679,7 @@ class EngineAnalyzer:
         if self._engine is None:
             try:
                 self._engine = chess.engine.SimpleEngine.popen_uci(
-                    self.settings.engine_path
+                    self.settings.engine_path, **engine_popen_args()
                 )
             except FileNotFoundError as exc:
                 raise AnalysisError(

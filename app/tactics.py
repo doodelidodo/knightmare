@@ -44,6 +44,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Connection, Engine as DbEngine
 
+from .config import engine_popen_args
 from .models import ChessGame, ChessMove, ChessTactic, ChessTacticDay, utc_now
 
 log = logging.getLogger(__name__)
@@ -83,7 +84,7 @@ def settings_from(app_settings) -> TacticSettings:
 def engine_available(path: Optional[str]) -> bool:
     if not path:
         return False
-    return os.path.exists(path) or shutil.which(path) is not None
+    return os.path.isfile(path) or shutil.which(path) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +112,7 @@ class Engine:
         if self._engine is None:
             if not self.path:
                 raise RuntimeError("no engine")
-            self._engine = chess.engine.SimpleEngine.popen_uci(self.path)
+            self._engine = chess.engine.SimpleEngine.popen_uci(self.path, **engine_popen_args())
             try:
                 self._engine.configure({"Threads": 1, "Hash": 64})
             except chess.engine.EngineError:
