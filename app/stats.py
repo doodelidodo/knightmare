@@ -11,6 +11,7 @@ Bullet-Fehlern, und beides zusammen zu mitteln verwischt genau das.
 
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Iterable, Optional, Sequence
@@ -43,6 +44,47 @@ CLOCK_BUCKETS: tuple[tuple[str, float], ...] = (
 )
 
 ERROR_CATEGORIES = ("blunder", "mistake", "inaccuracy")
+
+
+# --------------------------------------------------------------------------
+# Eroeffnungsnamen zusammenfuehren
+# --------------------------------------------------------------------------
+# Chess.com liefert den Namen nur als URL-Stueck: aus "Caro-Kann Defense"
+# wird "Caro Kann Defense", aus "Bishop's Opening" "Bishops Opening". Ohne
+# Zusammenfuehrung zerfaellt dieselbe Eroeffnung in zwei Zeilen mit
+# unterschiedlicher Plattform-Mischung - am 6.10. sah Caro-Kann deshalb wie
+# ein Problem aus (39 % gegen 61 %), zusammen waren es unauffaellige 50 %.
+# Gruppiert wird darum ueber einen Schluessel nur aus Buchstaben und Ziffern;
+# angezeigt wird die Schreibweise mit Satzzeichen (die von Lichess).
+_NON_ALNUM = re.compile(r"[^a-z0-9]")
+
+
+def opening_display(game: ChessGame) -> str:
+    return game.opening_family or game.opening_name or game.eco or "unbekannt"
+
+
+def opening_key(name: str) -> str:
+    return _NON_ALNUM.sub("", (name or "").lower()) or "unbekannt"
+
+
+def group_openings(games: Iterable[ChessGame]) -> dict[str, tuple[str, list[ChessGame]]]:
+    """Schluessel -> (Anzeigename, Partien). Anzeigename: die Schreibweise mit
+    den meisten Satzzeichen, bei Gleichstand die haeufigste."""
+    items: dict[str, list[ChessGame]] = defaultdict(list)
+    spellings: dict[str, Counter[str]] = defaultdict(Counter)
+    for game in games:
+        name = opening_display(game)
+        key = opening_key(name)
+        items[key].append(game)
+        spellings[key][name] += 1
+    result: dict[str, tuple[str, list[ChessGame]]] = {}
+    for key, games_of_key in items.items():
+        label = max(
+            spellings[key].items(),
+            key=lambda pair: (sum(1 for c in pair[0] if not c.isalnum() and c != " "), pair[1]),
+        )[0]
+        result[key] = (label, games_of_key)
+    return result
 
 
 def _round(value: Optional[float], digits: int = 1) -> Optional[float]:
@@ -608,13 +650,8 @@ def openings(
     games = load_games(
         session, days=days, time_class=time_class, platform=platform, color=color
     )
-    grouped: dict[str, list[ChessGame]] = defaultdict(list)
-    for game in games:
-        key = game.opening_family or game.opening_name or game.eco or "unbekannt"
-        grouped[key].append(game)
-
     rows: list[dict[str, Any]] = []
-    for name, items in grouped.items():
+    for name, items in group_openings(games).values():
         if len(items) < min_games:
             continue
         analyzed = _analyzed(items)
@@ -809,12 +846,10 @@ def weekly_report(
     previous = summarise(last_week)
 
     # Auffaelligste Eroeffnung der Woche: mindestens zwei Partien, schlechtestes Ergebnis.
-    grouped: dict[str, list[ChessGame]] = defaultdict(list)
-    for game in this_week:
-        key = game.opening_family or game.opening_name or game.eco or "unbekannt"
-        grouped[key].append(game)
     worst_opening = None
-    candidates = [(name, items) for name, items in grouped.items() if len(items) >= 2]
+    candidates = [
+        (name, items) for name, items in group_openings(this_week).values() if len(items) >= 2
+    ]
     if candidates:
 
         def _rank(pair: tuple[str, list[ChessGame]]) -> tuple[float, int]:
