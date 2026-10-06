@@ -155,6 +155,15 @@
   .delta.up { color: var(--good); font-size: 0.8rem; font-weight: 600; }
   .delta.down { color: var(--bad); font-size: 0.8rem; font-weight: 600; }
 
+  .focus { border-color: var(--accent); }
+  .focus .row h3 { margin: 0; font-size: 0.98rem; color: var(--heading); }
+  .focus .num-big { font-size: 1.5rem; font-weight: 700; color: var(--heading); line-height: 1.1; }
+  .focus .row p { margin: 6px 0 0; font-size: 0.9rem; }
+  .focus .row p.muted { font-size: 0.84rem; }
+  .focus .tag.unsure { color: var(--warn); border-color: var(--warn); }
+  .focus details { margin-top: 8px; font-size: 0.86rem; }
+  .focus summary { cursor: pointer; color: var(--accent); }
+  .focus details .items { margin-top: 8px; max-height: none; }
   footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border);
            color: var(--muted); font-size: 0.82rem; }
   footer a { margin-right: 14px; }
@@ -268,6 +277,13 @@
 
   <div class="grid" id="kpis"></div>
 
+  <div class="card focus">
+    <h2 id="focusTitle"></h2>
+    <p class="muted" id="focusIntro"></p>
+    <div class="rows" id="focusRows"></div>
+    <p class="muted" id="focusFoot"></p>
+  </div>
+
   <div class="card">
     <h2 id="errTitle"></h2>
     <p class="muted" id="errIntro"></p>
@@ -371,6 +387,37 @@ const I18N = {
     kScore: "Score", kScoreSub: (w, d, l) => `${w} wins, ${d} draws, ${l} losses.`,
     kAcpl: "Avg. loss per move", kAcplSub: (a) => `In centipawns — lower is better. Chess.com accuracy: ${a}.`,
     kBlunders: "Blunders per game", kBlundersSub: (m, i) => `Plus ${m} mistakes and ${i} inaccuracies.`,
+    fTitle: "Where to focus",
+    fIntro: "Compared with your own games only, never with other players. Each point has to hold in both the older and the newer half of your games.",
+    fNotEnough: (g, l, hg, hl) => `Needs at least ${g} analysed games and ${l} losses in this selection — currently ${hg} and ${hl}.`,
+    fNothing: "Nothing stands out clearly in this selection.",
+    fUnsure: "not certain yet", fUnsureTip: "Holds overall, but not in both halves of your games.",
+    fHead: {
+      conversion: "Convert won positions",
+      threats: "See your opponent's reply",
+      pressure: "Mind the clock",
+    },
+    fBody: {
+      conversion: (c, b, s, r, w) => `In <strong>${c} of your ${b} losses</strong> you were clearly winning at some point (75%+ win chance) — ${s} of all losses. You reached such a position in ${r} games and won ${w} of them.`,
+      threats: (c, b, s) => `<strong>${s} of your lost games</strong> tipped on a move where you overlooked what your opponent could do next (${c} of ${b}).`,
+      pressure: (c, b, s) => `<strong>${s} of the decisive mistakes</strong> came with less than 30 seconds left (${c} of ${b}).`,
+    },
+    fAdvice: {
+      conversion: "When you are clearly ahead, slow down instead of speeding up: before every move look at the opponent's checks, captures and threats, then simplify. The win is already there — don't give it back.",
+      threats: "Before every move, two questions: what does my opponent's last move threaten, and what can they do after my move? Checks, captures, threats — in that order.",
+      pressure: "Spend less time early so you still have time when it matters. In rapid, keep at least a third of your clock for the last 20 moves.",
+      opening: "Review a few of these games up to move 15 and compare with the main line. If you stand fine after the opening, the problem lies in the middlegame that follows.",
+    },
+    fOpeningHead: (o, c) => `${o} ${c.toLowerCase()}`,
+    fOpeningBody: (g, s, e) => `${s} from ${g} games — your usual level on the same platform would be ${e}.`,
+    fOpeningExitOk: (w) => `After the opening you stand at ${w}% on average — so the points are lost later, not in the opening itself.`,
+    fOpeningExitBad: (w) => `After the opening you stand at only ${w}% on average — the opening itself costs you.`,
+    fNoSingle: "no single mistake",
+    fTrend: (a, b) => `Older half of your games ${a} → newer half ${b}.`,
+    fExamples: (n) => `Show the ${n} most recent examples`,
+    fSwing: (a, b) => `win chance ${a}% → ${b}%`,
+    fStrength: (o, c, s, e, g) => `Strength: ${o} ${c.toLowerCase()} — ${s} from ${g} games, against your usual ${e}.`,
+    fPositional: (p) => `${p} of what your mistakes cost is positional — no single rule fixes that, so it is not listed as a point.`,
     errTitle: "What actually goes wrong",
     errIntro: "Every mistake grouped by what it was, derived from the move your opponent could have punished you with. Click to see every single one.",
     errEmpty: "No analysed mistakes yet in this selection.",
@@ -483,6 +530,37 @@ const I18N = {
     kScore: "Punkteausbeute", kScoreSub: (w, d, l) => `${w} Siege, ${d} Remis, ${l} Niederlagen.`,
     kAcpl: "Ø Verlust pro Zug", kAcplSub: (a) => `In Centipawn — je tiefer, desto genauer. Chess.com-Genauigkeit: ${a}.`,
     kBlunders: "Patzer pro Partie", kBlundersSub: (m, i) => `Dazu ${m} Fehler und ${i} Ungenauigkeiten.`,
+    fTitle: "Woran arbeiten",
+    fIntro: "Verglichen nur mit deinen eigenen Partien, nie mit anderen Spielern. Jeder Punkt muss in der älteren und in der neueren Hälfte deiner Partien gelten.",
+    fNotEnough: (g, l, hg, hl) => `Braucht mindestens ${g} analysierte Partien und ${l} Niederlagen in dieser Auswahl – im Moment ${hg} und ${hl}.`,
+    fNothing: "In dieser Auswahl sticht nichts deutlich heraus.",
+    fUnsure: "noch unsicher", fUnsureTip: "Gilt insgesamt, aber nicht in beiden Hälften deiner Partien.",
+    fHead: {
+      conversion: "Gewonnene Stellungen verwerten",
+      threats: "Den Gegenzug sehen",
+      pressure: "Auf die Uhr achten",
+    },
+    fBody: {
+      conversion: (c, b, s, r, w) => `In <strong>${c} von ${b} Niederlagen</strong> standest du irgendwann klar auf Gewinn (ab 75 % Gewinnchance) – ${s} aller Niederlagen. Erreicht hast du so eine Stellung in ${r} Partien, gewonnen davon ${w}.`,
+      threats: (c, b, s) => `<strong>${s} deiner verlorenen Partien</strong> kippten bei einem Zug, bei dem du übersehen hast, was der Gegner als Nächstes tun kann (${c} von ${b}).`,
+      pressure: (c, b, s) => `<strong>${s} der entscheidenden Fehler</strong> fielen mit weniger als 30 Sekunden auf der Uhr (${c} von ${b}).`,
+    },
+    fAdvice: {
+      conversion: "Wenn du klar vorne stehst: langsamer werden statt schneller. Vor jedem Zug Schachs, Schlagzüge und Drohungen des Gegners ansehen, dann vereinfachen. Der Sieg ist schon da – nicht zurückgeben.",
+      threats: "Vor jedem Zug zwei Fragen: Was droht der letzte Zug des Gegners, und was kann er nach meinem Zug tun? Schachs, Schlagzüge, Drohungen – in dieser Reihenfolge.",
+      pressure: "Früh weniger Zeit verbrauchen, damit sie da ist, wenn es zählt. Im Rapid mindestens ein Drittel der Uhr für die letzten 20 Züge aufheben.",
+      opening: "Ein paar dieser Partien bis Zug 15 nachspielen und mit der Hauptvariante vergleichen. Stehst du nach der Eröffnung ordentlich, liegt das Problem im Mittelspiel danach.",
+    },
+    fOpeningHead: (o, c) => `${o} ${c.replace(/^Mit /, "mit ")}`,
+    fOpeningBody: (g, s, e) => `${s} aus ${g} Partien – dein üblicher Schnitt auf derselben Plattform wäre ${e}.`,
+    fOpeningExitOk: (w) => `Nach der Eröffnung stehst du im Schnitt bei ${w} % – die Punkte gehen also später verloren, nicht in der Eröffnung selbst.`,
+    fOpeningExitBad: (w) => `Nach der Eröffnung stehst du im Schnitt nur bei ${w} % – die Eröffnung selbst kostet dich.`,
+    fNoSingle: "kein einzelner Fehler",
+    fTrend: (a, b) => `Ältere Hälfte deiner Partien ${a} → neuere Hälfte ${b}.`,
+    fExamples: (n) => `Die ${n} neuesten Beispiele zeigen`,
+    fSwing: (a, b) => `Gewinnchance ${a} % → ${b} %`,
+    fStrength: (o, c, s, e, g) => `Stärke: ${o} ${c.replace(/^Mit /, "mit ")} – ${s} aus ${g} Partien, gegenüber üblichen ${e}.`,
+    fPositional: (p) => `${p} dessen, was deine Fehler kosten, sind Stellungsfehler – dafür gibt es keine einzelne Regel, darum kein eigener Punkt.`,
     errTitle: "Woran es liegt",
     errIntro: "Alle Fehler nach Art sortiert, abgeleitet aus dem Zug, mit dem der Gegner dich hätte bestrafen können. Anklicken zeigt jede einzelne Stelle.",
     errEmpty: "Noch keine analysierten Fehler in dieser Auswahl.",
@@ -689,7 +767,7 @@ async function loadAll() {
     if (timeClass !== "all") gameParts.push("time_class=" + timeClass);
     if (platform !== "all") gameParts.push("platform=" + platform);
 
-    const [status, overview, weekly, errors, missed, phases, pressure, openings, games] =
+    const [status, overview, weekly, errors, missed, phases, pressure, openings, games, focus] =
       await Promise.all([
         api("status"),
         api("overview" + query()),
@@ -700,8 +778,9 @@ async function loadAll() {
         api("time-pressure" + query()),
         api("openings?" + openParts.join("&")),
         api("games?" + gameParts.join("&")),
+        api("focus" + query()),
       ]);
-    data = { status, overview, weekly, errors, missed, phases, pressure, openings, games };
+    data = { status, overview, weekly, errors, missed, phases, pressure, openings, games, focus };
     data.error = null;
   } catch (err) {
     data.error = t().noData(err.message);
@@ -805,6 +884,7 @@ function render() {
 
   renderFilters();
   renderKpis();
+  renderFocus();
   renderErrors();
   renderMissed();
   renderWeek();
@@ -870,6 +950,77 @@ function renderKpis() {
       L.kBlundersSub(num(o.mistakes_per_game, 2), num(o.inaccuracies_per_game, 2))],
   ].map(([n, h, p]) =>
     `<div class="kpi"><div class="num">${esc(n)}</div><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`).join("");
+}
+
+// --------------------------------------------------------------------------
+// Fokus: woran sich das Training lohnt (Herleitung in app/focus.py)
+// --------------------------------------------------------------------------
+function focusBreakdown(L, list) {
+  return (list || []).slice(0, 4).map((b) =>
+    `${esc(b.key === "no_single_error" ? L.fNoSingle : (L.errors[b.key] || b.key))} ${b.count}`).join(" · ");
+}
+function focusExamples(L, list) {
+  if (!list || !list.length) return "";
+  const rows = list.map((e) => {
+    const label = L.errors[e.error_type] || "";
+    const link = e.game_url
+      ? ` · <a href="${esc(e.game_url)}" target="_blank" rel="noreferrer">${esc(L.openGame(e.move_number))}</a>` : "";
+    const better = e.best_move_san ? esc(L.better(e.best_move_san)) : "";
+    return `<div class="item"><p><strong>${e.move_number}. ${esc(e.san)}</strong>${label ? " — " + esc(label) : ""}${better}</p>
+      <p>${esc(L.fSwing(e.win_before, e.win_after))} · ${esc(date(e.played_at))}${e.opponent ? esc(L.against(e.opponent)) : ""}${link}</p></div>`;
+  }).join("");
+  return `<details><summary>${esc(L.fExamples(list.length))}</summary><div class="items">${rows}</div></details>`;
+}
+function focusTrend(L, it) {
+  if (it.older == null || it.newer == null) return "";
+  return L.fTrend(num(it.older, 0, "%"), num(it.newer, 0, "%"));
+}
+function renderFocus() {
+  const L = t(), f = data.focus || {};
+  document.getElementById("focusTitle").textContent = L.fTitle;
+  document.getElementById("focusIntro").textContent = L.fIntro;
+  const rowsEl = document.getElementById("focusRows");
+  const foot = [];
+  if (!data.focus) { rowsEl.innerHTML = ""; document.getElementById("focusFoot").textContent = ""; return; }
+  if (!f.enough) {
+    rowsEl.innerHTML = `<p class="muted">${esc(L.fNotEnough(f.min_games, f.min_losses, f.games || 0, f.losses || 0))}</p>`;
+    document.getElementById("focusFoot").textContent = "";
+    return;
+  }
+  const items = f.items || [];
+  rowsEl.innerHTML = items.length ? items.map((it, i) => {
+    let head = "", big = "", body = "", sub = "", advice = "", trend = "";
+    if (it.key === "opening") {
+      const col = it.color === "white" ? L.asWhite : L.asBlack;
+      head = L.fOpeningHead(esc(it.opening), esc(col));
+      big = num(it.score, 0, "%");
+      body = L.fOpeningBody(it.games, num(it.score, 0, "%"), num(it.expected, 0, "%"));
+      if (it.exit_win != null) sub = it.exit_win >= 50 ? L.fOpeningExitOk(it.exit_win) : L.fOpeningExitBad(it.exit_win);
+      advice = L.fAdvice.opening;
+    } else {
+      head = L.fHead[it.key];
+      big = num(it.share, 0, "%");
+      body = L.fBody[it.key](it.count, it.base, num(it.share, 0, "%"), it.reached, it.converted);
+      sub = focusBreakdown(L, it.breakdown);
+      advice = L.fAdvice[it.key];
+      trend = focusTrend(L, it);
+    }
+    const unsure = it.stable ? "" : ` <span class="tag unsure" title="${esc(L.fUnsureTip)}">${esc(L.fUnsure)}</span>`;
+    return `<div class="row">
+      <div class="row-top"><h3>${i + 1}. ${head}${unsure}</h3><span class="num-big">${big}</span></div>
+      <p>${body}</p>
+      ${sub ? `<p class="muted">${sub}</p>` : ""}
+      <p>${esc(advice)}</p>
+      ${trend ? `<p class="muted">${esc(trend)}</p>` : ""}
+      ${focusExamples(L, it.examples)}
+    </div>`;
+  }).join("") : `<p class="muted">${esc(L.fNothing)}</p>`;
+  if (f.strength) {
+    const s = f.strength, col = s.color === "white" ? L.asWhite : L.asBlack;
+    foot.push(L.fStrength(s.opening, col, num(s.score, 0, "%"), num(s.expected, 0, "%"), s.games));
+  }
+  if (f.positional_share != null) foot.push(L.fPositional(num(f.positional_share, 0, "%")));
+  document.getElementById("focusFoot").textContent = foot.join(" ");
 }
 
 function renderErrors() {

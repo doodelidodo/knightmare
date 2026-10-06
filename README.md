@@ -96,6 +96,31 @@ clock, *what would have been better?*
 Puzzles are prepared after each run from the mistakes found, about a second of
 engine time per candidate, in a separate low-resource Stockfish process.
 
+## And where to start: the focus card
+
+A dozen statistics still leave you guessing which one matters. The card at the
+top of the analysis tab picks **at most three points**, ranked by how many
+games they actually cost you:
+
+- **Convert won positions** — in how many of your losses you were clearly
+  winning at some point (75%+ win chance), and what gave it away.
+- **See your opponent's reply** — for every loss, the move where it tipped (your
+  biggest drop from a position you were still in). If that was a missed threat,
+  a hung piece, a fork or an allowed mate, it counts here.
+- **Mind the clock** — only shown when a real share of those moves came with
+  under 30 seconds left.
+- **One opening** — only with 20+ games, a clear gap (|z| ≥ 2.5), and compared
+  with your score *on the same platform*, so an opening you mostly play on your
+  weaker site doesn't light up for that reason alone.
+
+Every point has to hold in the older *and* the newer half of your games, or it
+is marked "not certain yet". It compares you with yourself only — there is no
+"for your rating" here, because there is no honest reference data for that.
+
+The points come from a measurement, not from intuition: `tools/focus_probe.py`
+prints all candidate angles for your own database, and only the ones that were
+clear and stable on real games made it into the card.
+
 On top of that: which openings cost you points, which phase you fall apart in,
 and how your mistakes correlate with the clock — the last one is read from the
 `[%clk]` comments both platforms write into the PGN.
@@ -245,6 +270,7 @@ GET  /api/errors?error_type=hanging_piece&sort=cp_loss&limit=50
 GET  /api/missed                             # tactics that were there and weren't played
 GET  /api/missed/moves?motif=fork&sort=recent
 GET  /api/openings?color=black&min_games=3
+GET  /api/focus                              # where to focus: at most three points
 GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze
 GET  /api/tactics/today?day=2026-10-01       # today's puzzles (solutions stay on the server)
@@ -267,7 +293,8 @@ tactics — plus three positions where the answer must be *nothing*, which are
 the ones that keep the detection honest. Among them the case that started it:
 a forced mate on the board, stalemate played instead. It also prepares a
 real puzzle with Stockfish and walks it through the daily selection and the
-move check, in a throwaway SQLite file. Exit code 0 means everything is fine. The same
+move check, in a throwaway SQLite file, and builds the focus card from a set
+of constructed games. Exit code 0 means everything is fine. The same
 test runs on every push in CI.
 
 ## Honest limitations

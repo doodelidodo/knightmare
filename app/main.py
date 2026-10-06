@@ -28,7 +28,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import __version__, stats, tactics
+from . import __version__, focus, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import (
     SETUP_KEYS,
@@ -540,6 +540,21 @@ def get_openings(
         platform=_clean_platform(platform),
         min_games=min_games,
         limit=limit,
+    )
+
+
+@api.get("/focus")
+def get_focus(
+    days: Optional[int] = DaysParam,
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    return focus.focus(
+        session,
+        days=days,
+        time_class=_clean_time_class(time_class),
+        platform=_clean_platform(platform),
     )
 
 

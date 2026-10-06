@@ -864,6 +864,97 @@ def test_tactics() -> bool:
     return bool(ok)
 
 
+def test_focus() -> bool:
+    """Fokus-Karte und Zusammenfuehrung der Eroeffnungsnamen - ohne Engine,
+    mit gebauten Partien. Zahlen absichtlich so gewaehlt, dass jeder Punkt
+    eindeutig ueber oder unter seiner Schwelle liegt."""
+    from datetime import datetime, timedelta
+
+    from . import focus as fx
+    from .models import ChessGame, ChessMove
+    from .stats import group_openings
+
+    ok = True
+
+    # --- Eroeffnungsnamen: Chess.com-URL-Schreibweise und Lichess zusammen
+    def g(name: str, i: int = 0) -> ChessGame:
+        return ChessGame(id=i, uuid=f"t:{name}:{i}", played_at=datetime(2026, 1, 1), opening_family=name)
+    groups = group_openings([g("Caro-Kann Defense", 1), g("Caro Kann Defense", 2),
+                             g("Bishops Opening", 3), g("Bishop's Opening", 4), g("Vienna Game", 5)])
+    labels = sorted(label for label, _ in groups.values())
+    ok &= _check("Caro-Kann aus beiden Schreibweisen eine Gruppe",
+                 len(groups) == 3 and "Caro-Kann Defense" in labels, str(labels))
+    ok &= _check("Anzeige nimmt die Schreibweise mit Apostroph", "Bishop's Opening" in labels, str(labels))
+
+    # --- Fokus aus gebauten Partien
+    start = datetime(2026, 1, 1)
+    games: list[ChessGame] = []
+    moves: dict[int, list[ChessMove]] = {}
+
+    def add(i: int, result: str, plan: list[tuple[int, int, Optional[str], Optional[float]]],
+            platform: str = "lichess", color: str = "white", opening: str = "Vienna Game") -> None:
+        game = ChessGame(id=i, uuid=f"f:{i}", platform=platform, played_at=start + timedelta(hours=i),
+                         color=color, result=result, opening_family=opening, analyzed_at=start)
+        games.append(game)
+        rows = []
+        for n, (before, after, etype, clock) in enumerate(plan, start=1):
+            loss = max(0.0, win_percent(before) - win_percent(after))
+            rows.append(ChessMove(game_id=i, ply=2 * n - 1, move_number=n, san="e4", phase="middlegame",
+                                  cp_before=before, cp_after=after, cp_loss=max(0, before - after),
+                                  win_loss=round(loss, 2), category="blunder" if loss >= 30 else "ok",
+                                  error_type=etype if loss >= 30 else None, clock_seconds=clock,
+                                  played_at=game.played_at, platform=platform))
+        moves[i] = rows
+
+    # Abwechselnd ueber den Zeitraum verteilt, damit beide Haelften gleich aussehen:
+    # 20 Siege, 10 Niederlagen aus Gewinnstellung (Figur eingestellt),
+    # 10 Niederlagen aus Ausgleich (Drohung uebersehen), alle mit viel Zeit.
+    i = 0
+    for k in range(10):
+        add(i, "win", [(30, 20, None, 300.0), (400, 600, None, 300.0)]); i += 1
+        add(i, "win", [(30, 20, None, 300.0), (400, 600, None, 300.0)]); i += 1
+        add(i, "loss", [(30, 400, None, 300.0), (400, -500, "hanging_piece", 300.0)]); i += 1
+        add(i, "loss", [(30, 20, None, 300.0), (20, -500, "missed_threat", 300.0)]); i += 1
+
+    result = fx.build(games, moves)
+    keys = [item["key"] for item in result["items"]]
+    by_key = {item["key"]: item for item in result["items"]}
+    ok &= _check("genug Daten erkannt", result["enough"], f"{result['games']} Partien")
+    ok &= _check("Gegnerzug uebersehen: alle 20 Kipp-Zuege",
+                 by_key.get("threats", {}).get("count") == 20 and by_key["threats"]["share"] == 100.0,
+                 str(by_key.get("threats", {}).get("share")))
+    ok &= _check("Gewinnstellung: 10 von 20 Niederlagen",
+                 by_key.get("conversion", {}).get("count") == 10 and by_key["conversion"]["share"] == 50.0,
+                 str(by_key.get("conversion", {}).get("share")))
+    ok &= _check("beide stabil ueber die Haelften",
+                 all(by_key[k]["stable"] for k in ("threats", "conversion") if k in by_key))
+    ok &= _check("Zeitdruck erscheint nicht, wenn er nicht ausschlaegt", "pressure" not in keys, str(keys))
+    ok &= _check("Beispiele: hoechstens fuenf, neueste zuerst",
+                 len(by_key["threats"]["examples"]) == 5
+                 and by_key["threats"]["examples"][0]["played_at"] >= by_key["threats"]["examples"][-1]["played_at"])
+
+    few = fx.build(games[:12], moves)
+    ok &= _check("zu wenige Partien: keine Empfehlung", not few["enough"] and not few["items"])
+
+    # Eroeffnung gegen den Schnitt DERSELBEN Plattform: Chess.com 30 Partien mit
+    # 50 % bei Plattformschnitt 50 % ist unauffaellig, auch wenn der
+    # Gesamtschnitt (mit schwacher Lichess-Bilanz) niedriger liegt.
+    base_games: list[ChessGame] = []
+    for k in range(30):
+        base_games.append(ChessGame(id=1000 + k, uuid=f"c:{k}", platform="chesscom", color="black",
+                                    played_at=start, result="win" if k % 2 else "loss",
+                                    opening_family="Caro Kann Defense"))
+    for k in range(30):
+        base_games.append(ChessGame(id=2000 + k, uuid=f"l:{k}", platform="lichess", color="white",
+                                    played_at=start, result="loss" if k % 3 else "win",
+                                    opening_family="Queen's Pawn Game"))
+    base = fx._platform_baselines(base_games)
+    _, expected, z = fx._opening_z(base_games[:30], base)
+    ok &= _check("Eroeffnung: Erwartung aus der eigenen Plattform", abs(expected - 0.5) < 1e-9 and abs(z) < 0.01,
+                 f"Erwartung {expected:.2f}, z {z:.2f}")
+    return bool(ok)
+
+
 def main() -> int:
     print("=" * 66)
     print("Chess-Analyzer Selbsttest")
@@ -890,9 +981,12 @@ def main() -> int:
     print("\n7) Taktikaufgaben aus eigenen Fehlern")
     tactics_ok = test_tactics()
 
+    print("\n8) Fokus: woran sich das Training lohnt")
+    focus_ok = test_focus()
+
     print("\n" + "=" * 66)
     if (helpers_ok and mapping_ok and lichess_ok and classification_ok
-            and missed_ok and analysis_ok and tactics_ok):
+            and missed_ok and analysis_ok and tactics_ok and focus_ok):
         print("Alles in Ordnung.")
         return 0
     print("Mindestens ein Test ist fehlgeschlagen (siehe oben).")
