@@ -857,7 +857,10 @@ def test_tactics() -> bool:
         res = tx.check_move(sf, trow, ["h5f7"], tx.TacticSettings())
         ok &= _check("Qxf7# löst die Aufgabe", res["result"] == "solved")
         res = tx.check_move(sf, trow, ["d2d3"], tx.TacticSettings())
-        ok &= _check("Partiezug wird widerlegt", res["result"] == "wrong" and res.get("punish_san") == "Nxh5",
+        # Welche Widerlegung kommt, haengt von Engine-Version und Rechenzeit ab:
+        # Stockfish 16 (apt in der CI) nennt mal Nxh5, mal Bb4+ - beide gewinnen
+        # die Dame. Geprueft wird darum nur, dass eine Widerlegung gezeigt wird.
+        ok &= _check("Partiezug wird widerlegt", res["result"] == "wrong" and bool(res.get("punish_san")),
                      str(res.get("punish_san")))
     finally:
         sf.close()
