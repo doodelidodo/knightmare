@@ -40,7 +40,13 @@ from .config import (
 from .db import engine as db_engine
 from .db import get_session, init_db, new_session
 from .models import ChessGame, ChessSyncState, utc_now
-from .pipeline import current_status, recategorize, reset_analysis, run_once
+from .pipeline import (
+    current_status,
+    merge_duplicate_games,
+    recategorize,
+    reset_analysis,
+    run_once,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -122,6 +128,15 @@ async def lifespan(_app: FastAPI):
     # Massstab und Schwellen wirken sofort, ohne Neuberechnung: die Werte pro
     # Zug liegen vor, nur die Einstufung wird nachgezogen. Sekunden, kein
     # Engine-Lauf. Ein Fehler hier darf den Start nicht verhindern.
+    # Doppelte Partien (alte Chess.com-Schluessel ohne Praefix) zusammenfuehren,
+    # bevor irgendetwas gezaehlt wird.
+    try:
+        with new_session() as session:
+            merged = merge_duplicate_games(session)
+        if any(merged.values()):
+            log.info("Doppelte Partien bereinigt: %s", merged)
+    except Exception as exc:  # noqa: BLE001
+        log.error("Bereinigung doppelter Partien fehlgeschlagen: %s", exc)
     try:
         with new_session() as session:
             result = recategorize(session, settings)

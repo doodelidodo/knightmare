@@ -16,7 +16,8 @@ from typing import Any, Optional
 
 import chess
 import chess.pgn
-from sqlalchemy import delete
+from sqlalchemy import delete, func
+from sqlalchemy import update as sa_update
 from sqlmodel import Session, select
 
 from .analysis import (
@@ -345,11 +346,117 @@ def _archives_to_fetch(archives: list[str], settings: Settings, has_games: bool)
 # --------------------------------------------------------------------------
 # Schritt 1: abholen
 # --------------------------------------------------------------------------
-def _is_known(session: Session, uuid: str) -> bool:
+def _is_known(session: Session, uuid: str, url: Optional[str] = None) -> bool:
+    """Schon da? Nach Schluessel - und nach URL, denn der Schluessel hat sich
+    einmal geaendert (Chess.com-Partien aus der Zeit vor dem Plattform-Praefix
+    tragen ihn ohne "chesscom:"). Nur nach Schluessel geprueft, kam am 6.10.
+    jede solche Partie ein zweites Mal herein - 74 Stueck."""
+    if session.exec(select(ChessGame.id).where(ChessGame.uuid == uuid)).first() is not None:
+        return True
+    if url:
+        return session.exec(select(ChessGame.id).where(ChessGame.url == url)).first() is not None
+    return False
+
+
+# --------------------------------------------------------------------------
+# Doppelte Partien zusammenfuehren
+# --------------------------------------------------------------------------
+CHESSCOM_PREFIX = "chesscom:"
+
+
+def _keep_rank(game: ChessGame) -> tuple:
+    """Welche von zwei Kopien bleibt: die weiter analysierte; bei Gleichstand
+    die mit dem heutigen Schluesselformat."""
     return (
-        session.exec(select(ChessGame.id).where(ChessGame.uuid == uuid)).first()
-        is not None
+        game.analysis_error is None,
+        game.analyzed_at is not None,
+        game.analysis_version or 0,
+        game.uuid.startswith(CHESSCOM_PREFIX) or game.platform != "chesscom",
     )
+
+
+def _rename_tactics(session: Session, old_uuid: str, new_uuid: str) -> int:
+    """Aufgaben samt Lernstand von einem Partie-Schluessel auf einen anderen.
+    Gibt es die Aufgabe unter dem neuen Schluessel schon, bleibt die mit mehr
+    Versuchen (der echte Lernstand), die andere faellt weg."""
+    if old_uuid == new_uuid:
+        return 0
+    from .models import ChessTactic, ChessTacticDay
+
+    moved = 0
+    rows = list(session.exec(select(ChessTactic).where(ChessTactic.key.startswith(old_uuid + "#", autoescape=True))).all())
+    for row in rows:
+        # Schluessel vorher festhalten: das ORM-Update schreibt ihn im Objekt
+        # sofort um, danach faende die Tagesauswahl ihn nicht mehr.
+        old_key = row.key
+        new_key = new_uuid + old_key[len(old_uuid):]
+        twin = session.get(ChessTactic, new_key)
+        if twin is not None:
+            if (row.attempts, row.box) > (twin.attempts, twin.box):
+                session.delete(twin)
+                session.flush()
+            else:
+                session.delete(row)
+                session.flush()
+                session.execute(
+                    sa_update(ChessTacticDay).where(ChessTacticDay.key == old_key).values(key=new_key)
+                )
+                continue
+        session.execute(
+            sa_update(ChessTacticDay).where(ChessTacticDay.key == old_key).values(key=new_key)
+        )
+        session.execute(
+            sa_update(ChessTactic).where(ChessTactic.key == old_key)
+            .values(key=new_key, game_uuid=new_uuid)
+        )
+        moved += 1
+    return moved
+
+
+def merge_duplicate_games(session: Session) -> dict[str, int]:
+    """Bereinigt doppelte Partien. Idempotent, laeuft bei jedem Start.
+
+    1. Gleiche URL = gleiche Partie: die besser analysierte Kopie bleibt, die
+       andere faellt samt Zuegen weg; Aufgaben ziehen auf die bleibende um.
+    2. Chess.com-Schluessel ohne Praefix bekommen ihn, damit der Import sie
+       wiedererkennt.
+    """
+    removed = 0
+    renamed = 0
+    tactics_moved = 0
+
+    dup_urls = list(session.exec(
+        select(ChessGame.url).where(ChessGame.url != "")
+        .group_by(ChessGame.url).having(func.count() > 1)  # type: ignore[arg-type]
+    ).all())
+    for url in dup_urls:
+        copies = list(session.exec(select(ChessGame).where(ChessGame.url == url)).all())
+        copies.sort(key=_keep_rank, reverse=True)
+        keep, drops = copies[0], copies[1:]
+        for drop in drops:
+            tactics_moved += _rename_tactics(session, drop.uuid, keep.uuid)
+            session.exec(delete(ChessMove).where(ChessMove.game_id == drop.id))  # type: ignore[call-overload]
+            session.delete(drop)
+            removed += 1
+        session.flush()
+
+    legacy = list(session.exec(
+        select(ChessGame).where(
+            ChessGame.platform == "chesscom",
+            ChessGame.uuid.not_like(CHESSCOM_PREFIX + "%"),  # type: ignore[union-attr]
+        )
+    ).all())
+    for game in legacy:
+        new_uuid = (CHESSCOM_PREFIX + game.uuid)[:64]
+        if session.exec(select(ChessGame.id).where(ChessGame.uuid == new_uuid)).first() is not None:
+            continue  # duerfte nach Schritt 1 nicht vorkommen - lieber stehen lassen als raten
+        tactics_moved += _rename_tactics(session, game.uuid, new_uuid)
+        game.uuid = new_uuid
+        session.add(game)
+        renamed += 1
+
+    session.commit()
+    return {"removed": removed, "renamed": renamed, "tactics_moved": tactics_moved}
 
 
 def sync_chesscom(
@@ -390,7 +497,7 @@ def sync_chesscom(
                     continue
 
                 game = map_chesscom_game(payload, username.lower())
-                if game is None or not game.uuid or _is_known(session, game.uuid):
+                if game is None or not game.uuid or _is_known(session, game.uuid, game.url):
                     skipped += 1
                     continue
 
@@ -456,7 +563,7 @@ def sync_lichess(
             if settings.time_classes and game.time_class not in settings.time_classes:
                 skipped += 1
                 continue
-            if _is_known(session, game.uuid):
+            if _is_known(session, game.uuid, game.url):
                 skipped += 1
                 continue
 

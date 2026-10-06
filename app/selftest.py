@@ -958,6 +958,63 @@ def test_focus() -> bool:
     return bool(ok)
 
 
+def test_duplicates() -> bool:
+    """Doppelte Partien: alter Chess.com-Schluessel ohne Praefix neben dem
+    neuen. Am 6.10. auf tando 74 Stueck - jede zaehlte in jeder Auswertung
+    doppelt."""
+    from datetime import date, datetime
+
+    from sqlmodel import Session, select
+
+    from .models import ChessGame, ChessMove, ChessTactic, ChessTacticDay
+    from .pipeline import _is_known, merge_duplicate_games
+
+    eng = _temp_db()
+    ok = True
+    url = "https://www.chess.com/game/daily/1032231630"
+    with Session(eng) as s:
+        old = ChessGame(platform="chesscom", uuid="3d7874b0", url=url, played_at=datetime(2026, 9, 20),
+                        analyzed_at=datetime(2026, 9, 21), analysis_version=3)
+        new = ChessGame(platform="chesscom", uuid="chesscom:3d7874b0", url=url, played_at=datetime(2026, 9, 20),
+                        analyzed_at=datetime(2026, 9, 23), analysis_version=4)
+        solo = ChessGame(platform="chesscom", uuid="aaaa1111", url="https://www.chess.com/game/live/1",
+                         played_at=datetime(2026, 9, 1), analyzed_at=datetime(2026, 9, 2), analysis_version=4)
+        s.add_all([old, new, solo]); s.commit()
+        for g in (old, new):
+            s.add(ChessMove(game_id=g.id, ply=7, played_at=g.played_at))
+        # Lernstand haengt am alten Schluessel, eine leere Kopie am neuen.
+        s.add(ChessTactic(key="3d7874b0#7", status="ready", game_uuid="3d7874b0", attempts=3, box=3))
+        s.add(ChessTactic(key="chesscom:3d7874b0#7", status="ready", game_uuid="chesscom:3d7874b0"))
+        s.add(ChessTactic(key="aaaa1111#9", status="ready", game_uuid="aaaa1111", attempts=1, box=2))
+        s.add(ChessTacticDay(day=date(2026, 10, 1), pos=0, key="3d7874b0#7"))
+        s.commit()
+        new_id = new.id
+
+        first = merge_duplicate_games(s)
+        second = merge_duplicate_games(s)
+        games = list(s.exec(select(ChessGame)).all())
+        uuids = sorted(g.uuid for g in games)
+        moves = list(s.exec(select(ChessMove)).all())
+        tactics = {t.key: t for t in s.exec(select(ChessTactic)).all()}
+        day = s.exec(select(ChessTacticDay)).first()
+        ok &= _check("eine Kopie entfernt, ein alter Schluessel umbenannt",
+                     first["removed"] == 1 and first["renamed"] == 1, str(first))
+        ok &= _check("zweiter Lauf aendert nichts", not any(second.values()), str(second))
+        ok &= _check("die weiter analysierte Kopie bleibt", [g.id for g in games if g.url == url] == [new_id])
+        ok &= _check("alle Schluessel mit Praefix", uuids == ["chesscom:3d7874b0", "chesscom:aaaa1111"], str(uuids))
+        ok &= _check("Zuege der entfernten Kopie weg", len(moves) == 1 and moves[0].game_id == new_id)
+        ok &= _check("Lernstand bleibt erhalten (3 Versuche)",
+                     tactics.get("chesscom:3d7874b0#7") is not None
+                     and tactics["chesscom:3d7874b0#7"].attempts == 3 and "3d7874b0#7" not in tactics,
+                     str(sorted(tactics)))
+        ok &= _check("Aufgabe ohne Zwilling zieht mit um", "chesscom:aaaa1111#9" in tactics)
+        ok &= _check("Tagesauswahl zeigt auf den neuen Schluessel", day is not None and day.key == "chesscom:3d7874b0#7",
+                     str(day.key if day else None))
+        ok &= _check("Import erkennt die Partie an der URL",
+                     _is_known(s, "chesscom:anders", url) and not _is_known(s, "chesscom:anders", "https://x"))
+    return bool(ok)
+
+
 def main() -> int:
     print("=" * 66)
     print("Chess-Analyzer Selbsttest")
@@ -987,9 +1044,12 @@ def main() -> int:
     print("\n8) Fokus: woran sich das Training lohnt")
     focus_ok = test_focus()
 
+    print("\n9) Doppelte Partien zusammenfuehren")
+    dup_ok = test_duplicates()
+
     print("\n" + "=" * 66)
     if (helpers_ok and mapping_ok and lichess_ok and classification_ok
-            and missed_ok and analysis_ok and tactics_ok and focus_ok):
+            and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok):
         print("Alles in Ordnung.")
         return 0
     print("Mindestens ein Test ist fehlgeschlagen (siehe oben).")
