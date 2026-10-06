@@ -1040,3 +1040,65 @@ def rating_history(
             for game in games
         ],
     }
+
+
+# --------------------------------------------------------------------------
+# Stellung zu einem Zug - fuer das kleine Brett unter einem Fehler
+# --------------------------------------------------------------------------
+def move_board(session: Session, move_id: int) -> dict[str, Any]:
+    """Stellung vor dem eigenen Zug, dazu dein Zug, der beste Zug und die
+    Widerlegung als UCI - fuer die Pfeile. Nicht gespeichert, sondern aus dem
+    PGN nachgespielt: das dauert Millisekunden und kann nie veralten."""
+    import io
+
+    import chess
+    import chess.pgn
+
+    move = session.get(ChessMove, move_id)
+    if move is None:
+        return {"found": False}
+    game = session.get(ChessGame, move.game_id)
+    if game is None or not game.pgn:
+        return {"found": False}
+    parsed = chess.pgn.read_game(io.StringIO(game.pgn))
+    if parsed is None:
+        return {"found": False}
+
+    board = parsed.board()
+    played = None
+    for index, node in enumerate(parsed.mainline(), start=1):
+        if index == move.ply:
+            played = node.move
+            break
+        board.push(node.move)
+    if played is None:
+        return {"found": False}
+
+    def parse(position: chess.Board, san: Optional[str]) -> Optional[chess.Move]:
+        if not san:
+            return None
+        try:
+            return position.parse_san(san)
+        except ValueError:
+            return None
+
+    last = board.peek() if board.move_stack else None
+    best = parse(board, move.best_move_san)
+    after = board.copy(stack=False)
+    after.push(played)
+    refutation = parse(after, move.refutation_san)
+    return {
+        "found": True,
+        "fen": board.fen(),
+        "orientation": move.color,
+        # Stimmt das Nachgespielte mit dem Gespeicherten ueberein? Sonst lieber
+        # kein Brett als ein falsches.
+        "consistent": board.san(played) == move.san,
+        "last": last.uci() if last else None,
+        "played": played.uci(),
+        "played_san": move.san,
+        "best": best.uci() if best and best != played else None,
+        "best_san": move.best_move_san if best and best != played else None,
+        "refutation": refutation.uci() if refutation else None,
+        "refutation_san": move.refutation_san if refutation else None,
+    }

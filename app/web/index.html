@@ -164,6 +164,32 @@
   .focus details { margin-top: 8px; font-size: 0.86rem; }
   .focus summary { cursor: pointer; color: var(--accent); }
   .focus details .items { margin-top: 8px; max-height: none; }
+  .linkbtn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit;
+             text-decoration: underline; cursor: pointer; }
+  .mb { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; margin-top: 10px; }
+  .mini { width: min(100%, 340px); height: auto; border-radius: 6px; display: block; flex: none; }
+  .mini .l { fill: #dee3e6; } .mini .d { fill: #8ca2ad; }
+  .mini .last { fill-opacity: 1; }
+  .mini rect.l.last { fill: #e9e4a8; } .mini rect.d.last { fill: #b4b47a; }
+  .mini text.pw, .mini text.pb { font-size: 80px; text-anchor: middle; dominant-baseline: central; }
+  .mini .pw { fill: #ffffff; stroke: #1b1d22; stroke-width: 2.6; paint-order: stroke fill; }
+  .mini .pb { fill: #1b1d22; }
+  .mini .co { font-size: 20px; font-weight: 700; text-anchor: end; }
+  .mini .co.st { text-anchor: start; }
+  .mini .co.on-l { fill: #6f8591; } .mini .co.on-d { fill: #eef1f3; }
+  .mini .ar { opacity: 0.88; }
+  .mini .ar line { stroke-width: 17; stroke-linecap: round; }
+  .mini .ar polygon { stroke: none; }
+  .mini .ar.played line { stroke: #e5484d; } .mini .ar.played polygon { fill: #e5484d; }
+  .mini .ar.best line { stroke: #2fa66a; } .mini .ar.best polygon { fill: #2fa66a; }
+  .mini .ar.reply line { stroke: #f08c2e; stroke-dasharray: 16 10; stroke-linecap: butt; }
+  .mini .ar.reply polygon { fill: #f08c2e; }
+  .mb-key { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.86rem; }
+  .mb-key .k { display: inline-block; width: 22px; height: 5px; border-radius: 3px; margin-right: 8px;
+               vertical-align: middle; }
+  .mb-key .k.played { background: #e5484d; } .mb-key .k.best { background: #2fa66a; }
+  .mb-key .k.reply { background: repeating-linear-gradient(90deg, #f08c2e 0 7px, transparent 7px 11px); }
+  .item .mb-key, .item .mb-key strong { color: var(--text); }
   footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border);
            color: var(--muted); font-size: 0.82rem; }
   footer a { margin-right: 14px; }
@@ -418,6 +444,9 @@ const I18N = {
     fSwing: (a, b) => `win chance ${a}% → ${b}%`,
     fStrength: (o, c, s, e, g) => `Strength: ${o} ${c.toLowerCase()} — ${s} from ${g} games, against your usual ${e}.`,
     fPositional: (p) => `${p} of what your mistakes cost is positional — no single rule fixes that, so it is not listed as a point.`,
+    boardShow: "Show board", boardHide: "Hide board",
+    boardYou: "Your move", boardBest: "Better", boardReply: "Their answer",
+    boardError: "This position could not be rebuilt from the game record.",
     errTitle: "What actually goes wrong",
     errIntro: "Every mistake grouped by what it was, derived from the move your opponent could have punished you with. Click to see every single one.",
     errEmpty: "No analysed mistakes yet in this selection.",
@@ -561,6 +590,9 @@ const I18N = {
     fSwing: (a, b) => `Gewinnchance ${a} % → ${b} %`,
     fStrength: (o, c, s, e, g) => `Stärke: ${o} ${c.replace(/^Mit /, "mit ")} – ${s} aus ${g} Partien, gegenüber üblichen ${e}.`,
     fPositional: (p) => `${p} dessen, was deine Fehler kosten, sind Stellungsfehler – dafür gibt es keine einzelne Regel, darum kein eigener Punkt.`,
+    boardShow: "Brett zeigen", boardHide: "Brett ausblenden",
+    boardYou: "Dein Zug", boardBest: "Besser", boardReply: "Seine Antwort",
+    boardError: "Diese Stellung liess sich aus der Partie nicht nachbauen.",
     errTitle: "Woran es liegt",
     errIntro: "Alle Fehler nach Art sortiert, abgeleitet aus dem Zug, mit dem der Gegner dich hätte bestrafen können. Anklicken zeigt jede einzelne Stelle.",
     errEmpty: "Noch keine analysierten Fehler in dieser Auswahl.",
@@ -959,7 +991,13 @@ function focusBreakdown(L, list) {
   return (list || []).slice(0, 4).map((b) =>
     `${esc(b.key === "no_single_error" ? L.fNoSingle : (L.errors[b.key] || b.key))} ${b.count}`).join(" · ");
 }
-function focusExamples(L, list) {
+const focusOpen = new Set();
+document.addEventListener("toggle", (e) => {
+  const d = e.target;
+  if (!d || !d.dataset || !d.dataset.fx) return;
+  if (d.open) focusOpen.add(d.dataset.fx); else focusOpen.delete(d.dataset.fx);
+}, true);
+function focusExamples(L, list, key) {
   if (!list || !list.length) return "";
   const rows = list.map((e) => {
     const label = L.errors[e.error_type] || "";
@@ -967,9 +1005,9 @@ function focusExamples(L, list) {
       ? ` · <a href="${esc(e.game_url)}" target="_blank" rel="noreferrer">${esc(L.openGame(e.move_number))}</a>` : "";
     const better = e.best_move_san ? esc(L.better(e.best_move_san)) : "";
     return `<div class="item"><p><strong>${e.move_number}. ${esc(e.san)}</strong>${label ? " — " + esc(label) : ""}${better}</p>
-      <p>${esc(L.fSwing(e.win_before, e.win_after))} · ${esc(date(e.played_at))}${e.opponent ? esc(L.against(e.opponent)) : ""}${link}</p></div>`;
+      <p>${esc(L.fSwing(e.win_before, e.win_after))} · ${esc(date(e.played_at))}${e.opponent ? esc(L.against(e.opponent)) : ""}${link}${boardButton(e.move_id)}</p>${boardSlot(e.move_id)}</div>`;
   }).join("");
-  return `<details><summary>${esc(L.fExamples(list.length))}</summary><div class="items">${rows}</div></details>`;
+  return `<details data-fx="${esc(key)}"${focusOpen.has(key) ? " open" : ""}><summary>${esc(L.fExamples(list.length))}</summary><div class="items">${rows}</div></details>`;
 }
 function focusTrend(L, it) {
   if (it.older == null || it.newer == null) return "";
@@ -1012,7 +1050,7 @@ function renderFocus() {
       ${sub ? `<p class="muted">${sub}</p>` : ""}
       <p>${esc(advice)}</p>
       ${trend ? `<p class="muted">${esc(trend)}</p>` : ""}
-      ${focusExamples(L, it.examples)}
+      ${focusExamples(L, it.examples, it.key)}
     </div>`;
   }).join("") : `<p class="muted">${esc(L.fNothing)}</p>`;
   if (f.strength) {
@@ -1022,6 +1060,115 @@ function renderFocus() {
   if (f.positional_share != null) foot.push(L.fPositional(num(f.positional_share, 0, "%")));
   document.getElementById("focusFoot").textContent = foot.join(" ");
 }
+
+// --------------------------------------------------------------------------
+// Kleines Brett unter einem Fehler: rot dein Zug, gruen der beste, orange
+// gestrichelt die Antwort, mit der der Gegner bestraft haette. Stellung kommt
+// vom Server (aus dem PGN nachgespielt), gezeichnet als SVG - Pfeile lassen
+// sich so sauber legen, ohne Bibliothek.
+// --------------------------------------------------------------------------
+const boardCache = new Map();   // Zug-ID -> Daten | "loading" | "error"
+const boardOpen = new Set();
+
+function boardButton(id) {
+  if (id == null) return "";
+  const L = t(), open = boardOpen.has(id);
+  return ` · <button class="linkbtn" type="button" data-board="${id}" aria-expanded="${open}">${esc(open ? L.boardHide : L.boardShow)}</button>`;
+}
+function boardSlot(id) {
+  if (id == null) return "";
+  return `<div class="mb-slot" data-slot="${id}">${boardOpen.has(id) ? boardBlock(id) : ""}</div>`;
+}
+function boardBlock(id) {
+  const L = t(), d = boardCache.get(id);
+  if (!d || d === "loading") return `<p class="muted">${esc(L.loading)}</p>`;
+  if (d === "error" || !d.consistent) return `<p class="muted">${esc(L.boardError)}</p>`;
+  const key = (cls, label, san) => san
+    ? `<li><i class="k ${cls}"></i>${esc(label)} <strong>${esc(san)}</strong></li>` : "";
+  return `<div class="mb">${miniBoard(d, id)}
+    <ul class="mb-key">
+      ${key("played", L.boardYou, d.played_san)}
+      ${key("best", L.boardBest, d.best_san)}
+      ${key("reply", L.boardReply, d.refutation_san)}
+    </ul></div>`;
+}
+function sqCenter(sq, white) {
+  const f = sq.charCodeAt(0) - 97, r = Number(sq[1]) - 1;
+  return [(white ? f : 7 - f) * 100 + 50, (white ? 7 - r : r) * 100 + 50];
+}
+function arrow(uci, cls, white) {
+  // Spitze als eigenes Dreieck statt SVG-Marker: Marker in per innerHTML
+  // eingefuegtem SVG zeichnete Chromium im Test nicht, Safari ist dort auch
+  // unzuverlaessig.
+  if (!uci) return "";
+  const [x1, y1] = sqCenter(uci.slice(0, 2), white), [x2, y2] = sqCenter(uci.slice(2, 4), white);
+  const len = Math.hypot(x2 - x1, y2 - y1) || 1;
+  const ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+  // Kurze Pfeile (Nachbarfeld) bekommen eine kleinere Spitze, sonst bliebe
+  // vom Schaft nichts uebrig.
+  const head = Math.min(40, len * 0.32), half = Math.min(22, len * 0.18);
+  const tipX = x2 - ux * 12, tipY = y2 - uy * 12;          // Spitze knapp vor der Feldmitte
+  const baseX = tipX - ux * head, baseY = tipY - uy * head;
+  const nx = -uy * half, ny = ux * half;
+  const f = (v) => v.toFixed(1);
+  return `<g class="ar ${cls}"><line x1="${x1}" y1="${y1}" x2="${f(baseX + ux * 2)}" y2="${f(baseY + uy * 2)}"/>` +
+    `<polygon points="${f(tipX)},${f(tipY)} ${f(baseX + nx)},${f(baseY + ny)} ${f(baseX - nx)},${f(baseY - ny)}"/></g>`;
+}
+function miniBoard(d, uid) {
+  const white = d.orientation !== "black";
+  const rows = d.fen.split(" ")[0].split("/");
+  const last = d.last ? [d.last.slice(0, 2), d.last.slice(2, 4)] : [];
+  let sq = "", pcs = "", coords = "";
+  for (let r = 0; r < 8; r++) {
+    let file = 0;
+    for (const ch of rows[r]) {
+      if (/\d/.test(ch)) { file += Number(ch); continue; }
+      const name = FILES[file] + (8 - r);
+      const [x, y] = sqCenter(name, white);
+      const w = ch === ch.toUpperCase();
+      pcs += `<text x="${x}" y="${y + 4}" class="${w ? "pw" : "pb"}">${GLYPH[ch.toLowerCase()]}︎</text>`;
+      file += 1;
+    }
+  }
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const name = FILES[f] + (r + 1);
+    const [x, y] = sqCenter(name, white);
+    const light = (r + f) % 2 === 1;
+    sq += `<rect x="${x - 50}" y="${y - 50}" width="100" height="100" class="${light ? "l" : "d"}${last.includes(name) ? " last" : ""}"/>`;
+  }
+  for (let i = 0; i < 8; i++) {
+    const fileName = white ? FILES[i] : FILES[7 - i], rankName = white ? 8 - i : i + 1;
+    coords += `<text x="${i * 100 + 92}" y="793" class="co ${i % 2 ? "on-l" : "on-d"}">${fileName}</text>`;
+    coords += `<text x="6" y="${i * 100 + 22}" class="co st ${i % 2 ? "on-d" : "on-l"}">${rankName}</text>`;
+  }
+  return `<svg class="mini" viewBox="0 0 800 800" role="img" aria-label="${esc(d.fen)}">
+    ${sq}${coords}${pcs}
+    ${arrow(d.refutation, "reply", white)}${arrow(d.best, "best", white)}${arrow(d.played, "played", white)}
+  </svg>`;
+}
+async function toggleBoard(id) {
+  const fill = () => document.querySelectorAll(`[data-slot="${id}"]`).forEach((el) => {
+    el.innerHTML = boardOpen.has(id) ? boardBlock(id) : "";
+  });
+  const label = () => document.querySelectorAll(`[data-board="${id}"]`).forEach((b) => {
+    b.textContent = boardOpen.has(id) ? t().boardHide : t().boardShow;
+    b.setAttribute("aria-expanded", String(boardOpen.has(id)));
+  });
+  if (boardOpen.has(id)) { boardOpen.delete(id); fill(); label(); return; }
+  boardOpen.add(id); label();
+  if (!boardCache.has(id) || boardCache.get(id) === "error") {
+    boardCache.set(id, "loading"); fill();
+    try { boardCache.set(id, await api(`moves/${id}/board`)); }
+    catch { boardCache.set(id, "error"); }
+  }
+  fill();
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-board]");
+  if (!b) return;
+  e.preventDefault();
+  toggleBoard(Number(b.dataset.board));
+});
 
 function renderErrors() {
   const L = t();
@@ -1095,7 +1242,7 @@ function errorDetail(row) {
     const link = m.game_url
       ? ` · <a href="${esc(m.game_url)}" target="_blank" rel="noreferrer">${esc(L.openGame(m.move_number))}</a>`
       : "";
-    return `<div class="item"><p>${line}.</p><p>${meta}${link}</p></div>`;
+    return `<div class="item"><p>${line}.</p><p>${meta}${link}${boardButton(m.id)}</p>${boardSlot(m.id)}</div>`;
   }).join("");
 
   const more = list.items.length < list.total
@@ -1173,7 +1320,7 @@ function missedDetail(row) {
     const link = m.game_url
       ? ` · <a href="${esc(m.game_url)}" target="_blank" rel="noreferrer">${esc(L.openGame(m.move_number))}</a>`
       : "";
-    return `<div class="item"><p>${line}.</p><p>${meta}${link}</p></div>`;
+    return `<div class="item"><p>${line}.</p><p>${meta}${link}${boardButton(m.id)}</p>${boardSlot(m.id)}</div>`;
   }).join("");
 
   const more = missList.items.length < missList.total

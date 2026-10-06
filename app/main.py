@@ -641,6 +641,14 @@ def get_game_errors(
     return result
 
 
+@api.get("/moves/{move_id}/board")
+def get_move_board(move_id: int, session: Session = Depends(get_session)) -> dict[str, object]:
+    result = stats.move_board(session, move_id)
+    if not result.get("found"):
+        raise HTTPException(status_code=404, detail="move_not_found")
+    return result
+
+
 @api.get("/rating")
 def get_rating(
     time_class: str = Query(default="rapid", max_length=20),

@@ -100,6 +100,7 @@ def _pct(part: int, whole: int) -> Optional[float]:
 
 def _example(move: ChessMove, game: ChessGame) -> dict[str, Any]:
     return {
+        "move_id": move.id,
         "game_url": game.url or None,
         "played_at": game.played_at.isoformat(),
         "platform": game.platform,

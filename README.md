@@ -96,6 +96,16 @@ clock, *what would have been better?*
 Puzzles are prepared after each run from the mistakes found, about a second of
 engine time per candidate, in a separate low-resource Stockfish process.
 
+## See it on the board
+
+Every mistake in every list has a **Show board** link. It opens a small board
+right under the line — from your side, with the opponent's last move
+highlighted — and three arrows: **red** your move, **green** the better one,
+**orange dashed** the reply that would have punished you. The position is
+rebuilt from the stored PGN on the fly, so there is nothing extra to store and
+nothing that can go stale. The link to the game on Chess.com or Lichess stays
+for when you want the whole game.
+
 ## And where to start: the focus card
 
 A dozen statistics still leave you guessing which one matters. The card at the
@@ -271,6 +281,7 @@ GET  /api/missed                             # tactics that were there and weren
 GET  /api/missed/moves?motif=fork&sort=recent
 GET  /api/openings?color=black&min_games=3
 GET  /api/focus                              # where to focus: at most three points
+GET  /api/moves/{id}/board                   # position + arrows for one mistake
 GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze
 GET  /api/tactics/today?day=2026-10-01       # today's puzzles (solutions stay on the server)

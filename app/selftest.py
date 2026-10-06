@@ -1015,6 +1015,39 @@ def test_duplicates() -> bool:
     return bool(ok)
 
 
+def test_board() -> bool:
+    """Stellung zu einem Fehler fuer das kleine Brett: aus dem PGN nachgespielt,
+    Pfeile als UCI. Partie: Schaefermatt-Falle, 4. d3?? statt 4. Qxf7#."""
+    from datetime import datetime
+
+    from sqlmodel import Session
+
+    from .models import ChessGame, ChessMove
+    from .stats import move_board
+
+    eng = _temp_db()
+    ok = True
+    with Session(eng) as s:
+        g = ChessGame(platform="lichess", uuid="lichess:brett", url="https://lichess.org/brett",
+                      played_at=datetime(2026, 10, 6), color="white", pgn=SCHOLAR_PGN)
+        s.add(g); s.commit()
+        m = ChessMove(game_id=g.id, ply=7, move_number=4, san="d3", best_move_san="Qxf7#",
+                      refutation_san="Nxh5", color="white", played_at=g.played_at)
+        wrong = ChessMove(game_id=g.id, ply=7, move_number=4, san="Nc3", color="white", played_at=g.played_at)
+        s.add_all([m, wrong]); s.commit()
+        d = move_board(s, m.id)
+        ok &= _check("Stellung vor dem Zug", d.get("fen", "").startswith("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/"),
+                     str(d.get("fen")))
+        ok &= _check("Pfeile: dein Zug, bester Zug, Widerlegung",
+                     (d["played"], d["best"], d["refutation"]) == ("d2d3", "h5f7", "f6h5"),
+                     f"{d['played']} {d['best']} {d['refutation']}")
+        ok &= _check("letzter Gegnerzug markiert", d["last"] == "g8f6", str(d["last"]))
+        ok &= _check("aus eigener Sicht gedreht", d["orientation"] == "white")
+        ok &= _check("Abweichung zum Gespeicherten wird erkannt", move_board(s, wrong.id)["consistent"] is False)
+        ok &= _check("unbekannter Zug: nicht gefunden", move_board(s, 99999) == {"found": False})
+    return bool(ok)
+
+
 def main() -> int:
     print("=" * 66)
     print("Chess-Analyzer Selbsttest")
@@ -1047,9 +1080,12 @@ def main() -> int:
     print("\n9) Doppelte Partien zusammenfuehren")
     dup_ok = test_duplicates()
 
+    print("\n10) Brett zu einem Fehler")
+    board_ok = test_board()
+
     print("\n" + "=" * 66)
     if (helpers_ok and mapping_ok and lichess_ok and classification_ok
-            and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok):
+            and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok):
         print("Alles in Ordnung.")
         return 0
     print("Mindestens ein Test ist fehlgeschlagen (siehe oben).")
