@@ -33,6 +33,7 @@ from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import (
     SETUP_KEYS,
     USERNAME_PATTERN,
+    current_settings,
     load_settings,
     settings_file,
     write_settings_file,
@@ -184,7 +185,12 @@ async def no_store_for_api(request, call_next):
     Versionsnummer gefuehrt.
     """
     response = await call_next(request)
-    if request.url.path.startswith("/api/"):
+    # Hinter einem Praefix (Online-Fassung, /lichess/<name>/) steht der in
+    # root_path - verglichen wird der Pfad innerhalb dieser App.
+    path, root = request.url.path, request.scope.get("root_path") or ""
+    if root and path.startswith(root):
+        path = path[len(root):]
+    if path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -222,9 +228,12 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
         ).all()
     )
     state = session.get(ChessSyncState, 1)
+    # Pro Anfrage: die Online-Fassung setzt hier die Einstellungen des Spielers.
+    settings = current_settings()
 
     return {
         "version": __version__,
+        "online": settings.online_mode,
         "configured": settings.configured,
         "chesscom_username": settings.chesscom_username or None,
         "lichess_username": settings.lichess_username or None,
@@ -262,7 +271,9 @@ def status(session: Session = Depends(get_session)) -> dict[str, object]:
         "platforms": stats.available_platforms(session),
         "configured_platforms": list(settings.platforms),
         "setup_available": settings_file() is not None,
-        "run": current_status(),
+        # Online laeuft der Zeitplan nicht pro Spieler - der Zustand des
+        # Abholens gehoert dort dem Auftrag (app/online.py), nicht diesem Zaehler.
+        "run": None if settings.online_mode else current_status(),
         "last_sync": {
             "at": state.last_sync_at.isoformat() if state and state.last_sync_at else None,
             "status": state.last_sync_status if state else "nie gelaufen",
@@ -724,8 +735,14 @@ def tactics_today(day: Optional[date] = Query(default=None)) -> dict[str, object
     """Die Aufgaben des Tages. Beim ersten Aufruf wird die Auswahl
     festgeschrieben; reicht der Vorrat nicht, startet die Vorbereitung und
     die Seite fragt nach (preparing)."""
-    trainer = tactics.get_trainer()
     d = _tactic_day(day)
+    if current_settings().online_mode:
+        # Das Training haengt an einer einzigen Datenbank und einem eigenen
+        # Engine-Prozess - in der Online-Fassung (viele Spieler) gibt es es nicht.
+        return {"day": d.isoformat(), "items": [], "stats": None, "enabled": False,
+                "engine": False, "preparing": False, "per_day": 0,
+                "problem": "disabled", "error": None}
+    trainer = tactics.get_trainer()
     data = _tactics_payload(d, False)
     if not data["items"] and trainer.enabled:
         if trainer.pool_ready(d) or trainer.status["exhausted"] or not trainer.engine.available:

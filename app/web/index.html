@@ -404,10 +404,11 @@ const I18N = {
     unreachable: (m) => `Backend unreachable: ${m}`,
     noData: (m) => `Could not load data: ${m}`,
     gameType: "Game type", period: "Period", all: "All", platform: "Platform",
+    onlineHome: "Start another analysis", privacy: "Privacy",
     d30: "Last 30 days", d90: "Last 90 days", dAll: "All time",
     ultrabullet: "UltraBullet", bullet: "Bullet", blitz: "Blitz", rapid: "Rapid",
     classical: "Classical", daily: "Daily",
-    chesscom: "Chess.com", lichess: "Lichess",
+    chesscom: "Chess.com", lichess: "Lichess", pgn: "PGN",
     kAnalysed: "Games analysed",
     kAnalysedSub: (g, p, f) => `${g} fetched${p ? `, ${p} pending` : ""}${f ? `, ${f} unreadable` : ""}.`,
     kScore: "Score", kScoreSub: (w, d, l) => `${w} wins, ${d} draws, ${l} losses.`,
@@ -550,10 +551,11 @@ const I18N = {
     unreachable: (m) => `Dienst nicht erreichbar: ${m}`,
     noData: (m) => `Daten nicht abrufbar: ${m}`,
     gameType: "Partieart", period: "Zeitraum", all: "Alle", platform: "Plattform",
+    onlineHome: "Weitere Analyse starten", privacy: "Datenschutz",
     d30: "Letzte 30 Tage", d90: "Letzte 90 Tage", dAll: "Alles",
     ultrabullet: "UltraBullet", bullet: "Bullet", blitz: "Blitz", rapid: "Rapid",
     classical: "Klassisch", daily: "Täglich",
-    chesscom: "Chess.com", lichess: "Lichess",
+    chesscom: "Chess.com", lichess: "Lichess", pgn: "PGN",
     kAnalysed: "Analysierte Partien",
     kAnalysedSub: (g, p, f) => `${g} geholt${p ? `, ${p} offen` : ""}${f ? `, ${f} nicht lesbar` : ""}.`,
     kScore: "Punkteausbeute", kScoreSub: (w, d, l) => `${w} Siege, ${d} Remis, ${l} Niederlagen.`,
@@ -699,9 +701,14 @@ const store = {
 };
 
 let lang = store.get("knightmare.lang", (navigator.language || "en").startsWith("de") ? "de" : "en");
-let timeClass = store.get("knightmare.timeClass", "rapid");
-let platform = store.get("knightmare.platform", "all");
-let range = store.get("knightmare.range", "90");
+// Online-Fassung: viele Spieler unter einer Adresse. Filter gelten dort pro
+// Spieler und beginnen bei "alles" - sonst zeigte der Filter des zuletzt
+// angesehenen Spielers ins Leere.
+const ONLINE_PATH = /^\/(lichess|chesscom|pgn)\/[A-Za-z0-9_-]{2,40}\//.test(location.pathname);
+const scoped = (key) => (ONLINE_PATH ? key + ":" + location.pathname : key);
+let timeClass = store.get(scoped("knightmare.timeClass"), ONLINE_PATH ? "all" : "rapid");
+let platform = store.get(scoped("knightmare.platform"), "all");
+let range = store.get(scoped("knightmare.range"), ONLINE_PATH ? "all" : "90");
 let color = "all";
 
 let data = {};
@@ -901,6 +908,13 @@ function render() {
   document.getElementById("refreshBtn").disabled = busy;
 
   const run = data.status && data.status.run;
+  // Online-Fassung (viele Spieler auf einem Server): Abholen, Neu analysieren
+  // und Training gibt es dort nicht - das steuert der Dienst selbst.
+  const online = !!(data.status && data.status.online);
+  document.getElementById("syncBtn").hidden = online;
+  document.getElementById("tabs").hidden = online;
+  document.getElementById("reBtn").closest(".toolbar").hidden = online;
+  if (online && view === "train") setView("analyse");
   const syncBtn = document.getElementById("syncBtn");
   syncBtn.textContent = run && run.running ? L.running : L.sync;
   syncBtn.disabled = !!(run && run.running) || (data.status && data.status.configured === false);
@@ -908,7 +922,7 @@ function render() {
   // Hinweise
   const notes = [];
   if (data.error) notes.push(`<div class="note err">${data.error}</div>`);
-  if (data.status && data.status.configured === false && !data.status.setup_available)
+  if (data.status && data.status.configured === false && !data.status.setup_available && !online)
     notes.push(`<div class="note err">${L.notConfigured}</div>`);
   if (run && run.running)
     notes.push(`<div class="note info">${esc(L.runNote(run.phase, run.fetched || 0, run.analyzed || 0))}</div>`);
@@ -1474,6 +1488,7 @@ function renderFooter() {
     : "";
 
   document.getElementById("footer").innerHTML =
+    (s.online ? `<a href="../../">${esc(L.onlineHome)}</a><a href="../../privacy">${esc(L.privacy)}</a>` : "") +
     `<a href="https://github.com/doodelidodo/knightmare" target="_blank" rel="noreferrer">GitHub</a>` +
     `<a href="https://ko-fi.com/abetterdodo" target="_blank" rel="noreferrer">Ko-fi</a>` +
     `<a href="api/docs" target="_blank">API</a>` +
@@ -2188,16 +2203,16 @@ document.addEventListener("click", (event) => {
 
   if (el.dataset.pf) {
     platform = el.dataset.pf;
-    store.set("knightmare.platform", platform);
+    store.set(scoped("knightmare.platform"), platform);
     // Partiearten hängen von der Plattform ab (Classical gibt es nur bei
     // Lichess) - eine Auswahl, die es nicht mehr gibt, würde leer aussehen.
     timeClass = "all";
-    store.set("knightmare.timeClass", timeClass);
+    store.set(scoped("knightmare.timeClass"), timeClass);
     loadAll();
     return;
   }
-  if (el.dataset.tc) { timeClass = el.dataset.tc; store.set("knightmare.timeClass", timeClass); loadAll(); return; }
-  if (el.dataset.range) { range = el.dataset.range; store.set("knightmare.range", range); loadAll(); return; }
+  if (el.dataset.tc) { timeClass = el.dataset.tc; store.set(scoped("knightmare.timeClass"), timeClass); loadAll(); return; }
+  if (el.dataset.range) { range = el.dataset.range; store.set(scoped("knightmare.range"), range); loadAll(); return; }
   if (el.dataset.color) { color = el.dataset.color; loadAll(); return; }
   // Leerer Wert = "Alle" - darum auf das Vorhandensein pruefen, nicht auf den Inhalt.
   if ("emate" in el.dataset) {

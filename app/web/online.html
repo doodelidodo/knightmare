@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knightmare</title>
+<meta name="description" content="Enter your Lichess or Chess.com username and see the patterns behind your chess mistakes. Free, no account.">
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f5f7fa; --surface: #ffffff; --surface-soft: #eef2f7;
+    --border: rgba(18, 32, 55, 0.13); --text: #16202e; --muted: #5d6b7e;
+    --heading: #0a1420; --accent: #5b6ef5; --good: #16794a; --bad: #c2410c;
+    --shadow: 0 12px 40px rgba(15, 23, 42, 0.09);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0a1018; --surface: #121b27; --surface-soft: #0e1623;
+      --border: rgba(148, 163, 184, 0.18); --text: #e4ecf7; --muted: #94a3b8;
+      --heading: #f6fafe; --accent: #8098ff; --good: #5fd39b; --bad: #ff9a68;
+      --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0a1018; --surface: #121b27; --surface-soft: #0e1623;
+    --border: rgba(148, 163, 184, 0.18); --text: #e4ecf7; --muted: #94a3b8;
+    --heading: #f6fafe; --accent: #8098ff; --good: #5fd39b; --bad: #ff9a68;
+    --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  a { color: var(--accent); }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 36px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img { width: 40px; height: 40px; }
+  .brand h1 { margin: 0; font-size: 1.4rem; color: var(--heading); letter-spacing: -0.02em; }
+  button, input { font: inherit; }
+  .chip { border: 1px solid var(--border); background: transparent; color: var(--muted);
+          border-radius: 999px; padding: 5px 12px; font-size: 0.85rem; cursor: pointer; }
+  .chip:hover { color: var(--text); }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  h2 { font-size: clamp(1.7rem, 5vw, 2.3rem); line-height: 1.15; letter-spacing: -0.03em;
+       color: var(--heading); margin: 0 0 12px; text-wrap: balance; }
+  .lead { color: var(--muted); margin: 0 0 26px; font-size: 1.05rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+          padding: 20px; box-shadow: var(--shadow); margin-bottom: 18px; }
+  .seg { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; }
+  .field { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=text] { flex: 1 1 220px; min-width: 0; border: 1px solid var(--border); border-radius: 10px;
+                     background: var(--surface-soft); color: var(--text); padding: 11px 13px; }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type=file] { width: 100%; padding: 10px; border: 1px dashed var(--border);
+                     border-radius: 10px; background: var(--surface-soft); color: var(--muted); }
+  .btn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 10px;
+         padding: 11px 18px; cursor: pointer; font-weight: 600; }
+  .btn:disabled { opacity: 0.55; cursor: default; }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .names { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .hint { font-size: 0.85rem; color: var(--muted); margin: 10px 0 0; }
+  .err { background: rgba(194, 65, 12, 0.12); color: var(--bad); border-radius: 10px;
+         padding: 10px 12px; margin-top: 12px; font-size: 0.92rem; }
+  .progress h3 { margin: 0 0 4px; color: var(--heading); font-size: 1.1rem; }
+  .progress p { margin: 0; }
+  .bar { height: 8px; border-radius: 999px; background: var(--border); overflow: hidden; margin: 14px 0 10px; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 999px;
+             transition: width .6s ease; }
+  .bar.busy > i { width: 30%; animation: slide 1.3s ease-in-out infinite; }
+  @keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+  @media (prefers-reduced-motion: reduce) { .bar.busy > i { animation: none; width: 100%; opacity: .5; } }
+  ul.facts { list-style: none; padding: 0; margin: 26px 0 0; display: grid; gap: 8px;
+             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  ul.facts li { color: var(--muted); font-size: 0.9rem; padding-left: 22px; position: relative; }
+  ul.facts li::before { content: "✓"; position: absolute; left: 0; color: var(--good); font-weight: 700; }
+  footer { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 16px; font-size: 0.85rem; color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><img src="/assets/logo.svg" alt=""><h1>Knightmare</h1></div>
+    <button class="chip" id="langBtn" type="button"></button>
+  </header>
+
+  <h2 id="title"></h2>
+  <p class="lead" id="lead"></p>
+
+  <div class="card" id="formCard">
+    <div class="seg" role="tablist" id="seg">
+      <button class="chip" type="button" data-kind="lichess">Lichess</button>
+      <button class="chip" type="button" data-kind="chesscom">Chess.com</button>
+      <button class="chip" type="button" data-kind="pgn" id="segPgn"></button>
+    </div>
+
+    <form id="userForm" autocomplete="off">
+      <label for="username" id="userLabel"></label>
+      <div class="field">
+        <input type="text" id="username" maxlength="30" spellcheck="false" autocapitalize="off" required>
+        <button class="btn" id="goBtn" type="submit"></button>
+      </div>
+    </form>
+
+    <form id="pgnForm" hidden>
+      <label for="pgnFile" id="pgnLabel"></label>
+      <input type="file" id="pgnFile" accept=".pgn,text/plain">
+      <label for="pgnName" id="nameLabel" style="margin-top:14px"></label>
+      <div class="field">
+        <input type="text" id="pgnName" maxlength="60" spellcheck="false" autocapitalize="off">
+        <button class="btn" id="pgnBtn" type="submit"></button>
+      </div>
+      <div class="names" id="names"></div>
+      <p class="hint" id="pgnHint"></p>
+    </form>
+    <div class="err" id="err" hidden></div>
+  </div>
+
+  <div class="card progress" id="progCard" hidden>
+    <h3 id="progTitle"></h3>
+    <p class="hint" id="progLine" style="margin:0"></p>
+    <div class="bar" id="bar"><i id="barFill"></i></div>
+    <p class="hint" id="progNote"></p>
+  </div>
+
+  <ul class="facts" id="facts"></ul>
+
+  <footer id="footer"></footer>
+</div>
+
+<script>
+const I18N = {
+  en: {
+    lang: "Deutsch",
+    title: "See the patterns behind your chess mistakes",
+    lead: (n) => `Enter your username. Knightmare runs your last ${n} games through Stockfish and shows what keeps costing you: hung pieces, forks you walked into, mates you missed.`,
+    pgn: "PGN file",
+    userLabel: (k) => `Your username on ${k}`,
+    go: "Analyse",
+    pgnLabel: "Your games as a PGN file (max. 2 MB)",
+    nameLabel: "Your name in the file",
+    pgnHint: "The file stays private: only people with the link can see the result.",
+    pickName: "Which one is you?",
+    queued: (name) => `${name} is in the queue`,
+    running: (name) => `Analysing ${name}`,
+    place: (p, m) => `Place ${p} · about ${m}`,
+    fetching: "Fetching your games …",
+    analysing: (d, t, m) => `Game ${d} of ${t} · about ${m} left`,
+    starting: "Starting …",
+    note: "Keep this page open – it opens the result by itself. You can also bookmark it and come back later.",
+    minutes: (s) => s < 90 ? "1 minute" : `${Math.round(s / 60)} minutes`,
+    facts: (n, d) => [
+      "No account, no sign-up",
+      `Only public games, your last ${n}`,
+      `Deleted after ${d} days without a visit`,
+      "Open source – also runs on your own computer",
+    ],
+    errors: {
+      bad_username: "That does not look like a username.",
+      not_found: "No such user on this site.",
+      too_many: "Too many analyses from your connection. Try again in an hour.",
+      queue_full: "A lot is going on right now. Try again in a few minutes.",
+      no_games: "No games found in the last months.",
+      no_games_for_name: "No finished standard games with that name in the file.",
+      too_big: "The file is too large (max. 2 MB).",
+      not_pgn: "This does not look like a PGN file.",
+      read_only: "This page is read-only.",
+      network: "No connection to the server.",
+      choose_file: "Please choose a PGN file first.",
+    },
+    footer: { app: "Desktop app", privacy: "Privacy" },
+  },
+  de: {
+    lang: "English",
+    title: "Sieh die Muster hinter deinen Schachfehlern",
+    lead: (n) => `Gib deinen Benutzernamen ein. Knightmare schickt deine letzten ${n} Partien durch Stockfish und zeigt, was dich immer wieder Partien kostet: eingestellte Figuren, kassierte Gabeln, verpasste Matts.`,
+    pgn: "PGN-Datei",
+    userLabel: (k) => `Dein Benutzername auf ${k}`,
+    go: "Analysieren",
+    pgnLabel: "Deine Partien als PGN-Datei (max. 2 MB)",
+    nameLabel: "Dein Name in der Datei",
+    pgnHint: "Die Datei bleibt privat: das Ergebnis sieht nur, wer den Link hat.",
+    pickName: "Welcher Name bist du?",
+    queued: (name) => `${name} steht in der Warteschlange`,
+    running: (name) => `${name} wird analysiert`,
+    place: (p, m) => `Platz ${p} · etwa ${m}`,
+    fetching: "Partien werden geholt …",
+    analysing: (d, t, m) => `Partie ${d} von ${t} · noch etwa ${m}`,
+    starting: "Startet …",
+    note: "Lass die Seite offen – das Ergebnis öffnet sich von selbst. Du kannst sie auch als Lesezeichen speichern und später zurückkommen.",
+    minutes: (s) => s < 90 ? "1 Minute" : `${Math.round(s / 60)} Minuten`,
+    facts: (n, d) => [
+      "Kein Konto, keine Anmeldung",
+      `Nur öffentliche Partien, deine letzten ${n}`,
+      `Gelöscht nach ${d} Tagen ohne Besuch`,
+      "Open Source – läuft auch auf deinem eigenen Rechner",
+    ],
+    errors: {
+      bad_username: "Das sieht nicht nach einem Benutzernamen aus.",
+      not_found: "Diesen Benutzer gibt es dort nicht.",
+      too_many: "Zu viele Analysen von deiner Verbindung. Versuch es in einer Stunde wieder.",
+      queue_full: "Gerade ist viel los. Versuch es in ein paar Minuten wieder.",
+      no_games: "In den letzten Monaten keine Partien gefunden.",
+      no_games_for_name: "Keine beendeten Standardpartien mit diesem Namen in der Datei.",
+      too_big: "Die Datei ist zu gross (max. 2 MB).",
+      not_pgn: "Das sieht nicht nach einer PGN-Datei aus.",
+      read_only: "Diese Seite lässt sich nur ansehen.",
+      network: "Keine Verbindung zum Server.",
+      choose_file: "Bitte zuerst eine PGN-Datei wählen.",
+    },
+    footer: { app: "Desktop-App", privacy: "Datenschutz" },
+  },
+};
+const NAMES = { lichess: "Lichess", chesscom: "Chess.com" };
+
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* egal */ } },
+};
+let lang = store.get("knightmare.lang", (navigator.language || "en").toLowerCase().startsWith("de") ? "de" : "en");
+let kind = store.get("knightmare.online.kind", "lichess");
+let cfg = { games: 30, keep_days: 30 };
+let poll = null, job = null, lastError = null;
+const $ = (id) => document.getElementById(id);
+const L = () => I18N[lang];
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function showError(code) {
+  lastError = code;
+  const el = $("err");
+  if (!code) { el.hidden = true; return; }
+  el.textContent = L().errors[code] || code;
+  el.hidden = false;
+}
+
+function render() {
+  const T = L();
+  document.documentElement.lang = lang;
+  $("langBtn").textContent = T.lang;
+  $("title").textContent = T.title;
+  $("lead").textContent = T.lead(cfg.games);
+  $("segPgn").textContent = T.pgn;
+  document.querySelectorAll("#seg .chip").forEach((b) => b.classList.toggle("on", b.dataset.kind === kind));
+  $("userForm").hidden = kind === "pgn";
+  $("pgnForm").hidden = kind !== "pgn";
+  $("userLabel").textContent = T.userLabel(NAMES[kind] || "");
+  $("goBtn").textContent = T.go;
+  $("pgnBtn").textContent = T.go;
+  $("pgnLabel").textContent = T.pgnLabel;
+  $("nameLabel").textContent = T.nameLabel;
+  $("pgnHint").textContent = T.pgnHint;
+  $("facts").innerHTML = T.facts(cfg.games, cfg.keep_days).map((f) => `<li>${esc(f)}</li>`).join("");
+  $("footer").innerHTML =
+    `<a href="https://abetterdodo.ch" target="_blank" rel="noreferrer">${esc(T.footer.app)}</a>` +
+    `<a href="https://github.com/doodelidodo/knightmare" target="_blank" rel="noreferrer">GitHub</a>` +
+    `<a href="https://ko-fi.com/abetterdodo" target="_blank" rel="noreferrer">Ko-fi</a>` +
+    `<a href="/privacy">${esc(T.footer.privacy)}</a>` +
+    `<span>Knightmare ${esc(cfg.version || "")}</span>`;
+  if (lastError) showError(lastError);
+  if (job) renderJob(job);
+}
+
+function renderJob(s) {
+  const T = L();
+  $("progCard").hidden = false;
+  const name = s.kind === "pgn" ? T.pgn : `${s.name} (${NAMES[s.kind] || s.kind})`;
+  const bar = $("bar"), fill = $("barFill");
+  if (s.status === "queued") {
+    $("progTitle").textContent = T.queued(name);
+    $("progLine").textContent = T.place(s.position || 1, T.minutes(s.eta_seconds || 60));
+    bar.classList.add("busy"); fill.style.width = "";
+  } else if (s.status === "running") {
+    $("progTitle").textContent = T.running(name);
+    if (s.progress) {
+      $("progLine").textContent = T.analysing(s.progress.done + 1, s.progress.total, T.minutes(s.eta_seconds || 60));
+      bar.classList.remove("busy");
+      fill.style.width = Math.round(100 * s.progress.done / Math.max(1, s.progress.total)) + "%";
+    } else {
+      $("progLine").textContent = s.phase === "fetch" ? T.fetching : T.starting;
+      bar.classList.add("busy"); fill.style.width = "";
+    }
+  }
+  $("progNote").textContent = T.note;
+}
+
+async function call(url, opts) {
+  let res;
+  try { res = await fetch(url, { cache: "no-store", ...opts }); }
+  catch { throw new Error("network"); }
+  let body = null;
+  try { body = await res.json(); } catch { /* leer */ }
+  if (!res.ok) throw new Error((body && typeof body.detail === "string" && body.detail) || `HTTP ${res.status}`);
+  return body;
+}
+
+function follow(state) {
+  job = state;
+  clearTimeout(poll);
+  // Fertig - oder es gibt schon Ergebnisse und es wird nur aufgefrischt.
+  if (state.status === "ready" || (state.analyzed > 0 && state.status !== "error")) {
+    location.href = state.url; return;
+  }
+  if (state.status === "error") {
+    $("progCard").hidden = true;
+    $("formCard").hidden = false;
+    showError(state.message === "no_games" ? "no_games" : (state.message || "no_games"));
+    setBusy(false);
+    return;
+  }
+  // Waehrend des Wartens steht nur der Fortschritt da - auf dem Handy waere
+  // er sonst unter dem Formular versteckt.
+  $("formCard").hidden = true;
+  renderJob(state);
+  history.replaceState(null, "", "/?p=" + state.slug);
+  poll = setTimeout(async () => {
+    try { follow(await call(`/api/job/${state.slug}`)); }
+    catch (e) { poll = setTimeout(() => follow(state), 5000); }
+  }, 3000);
+}
+
+function setBusy(on) {
+  ["goBtn", "pgnBtn", "username"].forEach((id) => { $(id).disabled = on; });
+}
+
+async function startUser(platform, username) {
+  showError(null); setBusy(true);
+  try {
+    follow(await call("/api/analyse", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform, username }),
+    }));
+  } catch (e) { showError(e.message); setBusy(false); }
+}
+
+$("userForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = $("username").value.trim();
+  if (!/^[A-Za-z0-9_-]{2,30}$/.test(name)) { showError("bad_username"); return; }
+  startUser(kind, name);
+});
+
+$("pgnForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const file = $("pgnFile").files[0];
+  if (!file) { showError("choose_file"); return; }
+  if (file.size > 2000000) { showError("too_big"); return; }
+  showError(null); setBusy(true);
+  const form = new FormData();
+  form.append("file", file);
+  form.append("name", $("pgnName").value.trim());
+  try {
+    const res = await call("/api/upload", { method: "POST", body: form });
+    if (res.need_name) {
+      setBusy(false);
+      $("names").innerHTML = `<span class="hint" style="margin:0 6px 0 0">${esc(L().pickName)}</span>` +
+        res.players.map((n) => `<button type="button" class="chip" data-name="${esc(n)}">${esc(n)}</button>`).join("");
+      return;
+    }
+    follow(res);
+  } catch (err) { showError(err.message); setBusy(false); }
+});
+
+$("names").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-name]");
+  if (!b) return;
+  $("pgnName").value = b.dataset.name;
+  $("pgnForm").requestSubmit();
+});
+
+$("seg").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-kind]");
+  if (!b) return;
+  kind = b.dataset.kind; store.set("knightmare.online.kind", kind);
+  showError(null); render();
+});
+$("langBtn").addEventListener("click", () => {
+  lang = lang === "de" ? "en" : "de"; store.set("knightmare.lang", lang); render();
+});
+
+(async function init() {
+  try { cfg = await call("/api/config"); } catch { /* Vorgaben */ }
+  const p = new URLSearchParams(location.search).get("p") || "";
+  const m = p.match(/^(lichess|chesscom|pgn)\/([A-Za-z0-9_-]{2,40})$/);
+  if (m) {
+    kind = m[1];
+    if (m[1] === "pgn") {
+      render();
+      try { follow(await call(`/api/job/${p}`)); } catch (e) { showError("no_games_for_name"); }
+      return;
+    }
+    $("username").value = m[2];
+    render();
+    startUser(m[1], m[2]);
+    return;
+  }
+  render();
+})();
+</script>
+</body>
+</html>

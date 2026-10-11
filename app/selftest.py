@@ -1048,6 +1048,175 @@ def test_board() -> bool:
     return bool(ok)
 
 
+# --------------------------------------------------------------------------
+# 11) Online-Fassung: viele Spieler, eine Datenbank pro Spieler
+# --------------------------------------------------------------------------
+ONLINE_PGN = """[Event "Club"]
+[Date "2026.09.01"]
+[White "Dodo"]
+[Black "Gegner"]
+[Result "0-1"]
+[TimeControl "600+5"]
+[WhiteElo "1400"]
+[BlackElo "1450"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. d3 d6 0-1
+
+[Event "Club"]
+[Date "2026.09.03"]
+[White "Gegner"]
+[Black "dodo"]
+[Result "1/2-1/2"]
+[TimeControl "180"]
+
+1. d4 d5 2. c4 e6 1/2-1/2
+
+[Event "Club"]
+[Date "2026.09.05"]
+[White "Jemand"]
+[Black "Anders"]
+[Result "1-0"]
+
+1. e4 e5 1-0
+
+[Event "Club"]
+[Date "2026.09.07"]
+[White "Dodo"]
+[Black "Gegner"]
+[Result "*"]
+
+1. e4 *
+"""
+
+
+def test_online() -> bool:
+    """Ohne Engine und ohne Netz: PGN-Upload, Umschalten zwischen Spielern,
+    nur lesender Zugriff, Weiterleitung auf die Startseite."""
+    import os
+    import tempfile
+    from datetime import datetime
+
+    from sqlmodel import Session
+
+    from .models import ChessGame, utc_now
+    from .pipeline import ingest_pgn, keep_newest, pgn_players, time_class_from_control
+
+    ok = True
+    ok &= _check("Partieart aus TimeControl",
+                 [time_class_from_control(x) for x in ("600+5", "180", "60+1", "1800", "-", "1/259200", "15")]
+                 == ["rapid", "blitz", "bullet", "classical", "unknown", "daily", "ultrabullet"])
+    ok &= _check("Namen in der Datei, haeufigster zuerst", list(pgn_players(ONLINE_PGN))[:2] == ["Gegner", "Dodo"],
+                 str(pgn_players(ONLINE_PGN)))
+
+    eng = _temp_db()
+    with Session(eng) as s:
+        res = ingest_pgn(s, ONLINE_PGN, "DODO")
+        again = ingest_pgn(s, ONLINE_PGN, "dodo")
+        games = sorted(s.exec(select_games()).all(), key=lambda g: g.played_at)
+        ok &= _check("zwei eigene Partien, fremde und unbeendete uebersprungen",
+                     res["added"] == 2 and res["skipped"] == 2, str(res))
+        ok &= _check("zweiter Upload legt nichts doppelt an", again["added"] == 0, str(again))
+        ok &= _check("Farbe und Ergebnis aus Sicht des Namens",
+                     [(g.color, g.result, g.time_class) for g in games]
+                     == [("white", "loss", "rapid"), ("black", "draw", "blitz")],
+                     str([(g.color, g.result, g.time_class) for g in games]))
+        removed = keep_newest(s, 1)
+        left = s.exec(select_games()).all()
+        ok &= _check("nur die juengste Partie bleibt", removed == 1 and len(left) == 1
+                     and left[0].played_at == datetime(2026, 9, 3, 12, 0), str(removed))
+
+    # Der Dienst selbst - eigener Datenordner, ohne Hintergrundarbeiter.
+    keep_env = {k: os.environ.get(k) for k in ("ONLINE_DATA_DIR", "ONLINE_WORKER", "ONLINE_PER_IP_HOUR")}
+    os.environ.update(ONLINE_DATA_DIR=tempfile.mkdtemp(), ONLINE_WORKER="0", ONLINE_PER_IP_HOUR="4")
+    try:
+        from fastapi.testclient import TestClient
+
+        from . import main as regular
+        from . import online
+
+        online.cfg = online.OnlineConfig.from_env()
+        online.registry = online.Registry(online.cfg)
+        online.worker = online.Worker(online.registry, load_settings())
+        online.limiter = online.RateLimit(online.cfg.per_ip_hour)
+        regular_exists = regular._account_exists
+        regular._account_exists = lambda platform, name: name != "gibtsnicht"
+
+        def player(slug: str, kind: str, name: str, count: int) -> None:
+            online.registry.enqueue(slug, kind, name)
+            with Session(online.registry.engine_for(slug)) as s:
+                for i in range(count):
+                    s.add(ChessGame(platform=kind, uuid=f"{kind}:{name}{i}", played_at=datetime(2026, 9, 1 + i),
+                                    analyzed_at=datetime(2026, 9, 2), time_class="blitz"))
+                s.commit()
+            online.registry.update(slug, status="ready", games=count, analyzed=count,
+                                   finished_at=utc_now())
+
+        player("lichess/anna", "lichess", "Anna", 2)
+        player("chesscom/bert", "chesscom", "Bert", 3)
+        client = TestClient(online.app)
+        a = client.get("/lichess/anna/api/status").json()
+        b = client.get("/chesscom/bert/api/status").json()
+        ok &= _check("jeder Spieler sieht nur seine Partien",
+                     (a["games_total"], b["games_total"]) == (2, 3), f"{a['games_total']} / {b['games_total']}")
+        ok &= _check("Einstellungen pro Spieler", a["online"] and a["lichess_username"] == "Anna"
+                     and b["chesscom_username"] == "Bert" and a["run"] is None)
+        ok &= _check("Seite unter dem Spieler-Praefix", client.get("/lichess/anna/").status_code == 200
+                     and client.get("/lichess/anna/assets/logo.svg").status_code == 200)
+        ok &= _check("API-Antworten nie aus dem Cache",
+                     client.get("/lichess/anna/api/status").headers.get("cache-control") == "no-store")
+        ok &= _check("nur lesen: Abholen gesperrt", client.post("/lichess/anna/api/sync").status_code == 403)
+        ok &= _check("Training aus", client.get("/lichess/anna/api/tactics/today").json()["enabled"] is False)
+        r = client.get("/lichess/niemand/", follow_redirects=False)
+        ok &= _check("Unbekannter Spieler -> Startseite holt ihn",
+                     r.status_code == 302 and r.headers["location"] == "/?p=lichess/niemand", r.headers.get("location", ""))
+        ok &= _check("ohne Schraegstrich -> mit", client.get("/lichess/anna", follow_redirects=False).status_code == 308)
+        ok &= _check("Startseite", client.get("/").status_code == 200 and client.get("/privacy").status_code == 200)
+
+        ok &= _check("unbekannte Plattform abgelehnt",
+                     client.post("/api/analyse", json={"platform": "x", "username": "anna"}).status_code == 400)
+        ok &= _check("ungueltiger Name abgelehnt",
+                     client.post("/api/analyse", json={"platform": "lichess", "username": "a b"}).status_code == 400)
+        ok &= _check("frisch analysiert: sofort fertig, kein neuer Auftrag",
+                     client.post("/api/analyse", json={"platform": "lichess", "username": "ANNA"}).json()["status"] == "ready")
+        ok &= _check("Konto gibt es nicht -> 404",
+                     client.post("/api/analyse", json={"platform": "lichess", "username": "gibtsnicht"}).status_code == 404)
+        q = client.post("/api/analyse", json={"platform": "chesscom", "username": "Neu1"}).json()
+        ok &= _check("neuer Spieler kommt in die Warteschlange",
+                     q["status"] == "queued" and q["position"] == 1 and q["url"] == "/chesscom/neu1/", str(q))
+
+        up = client.post("/api/upload", files={"file": ("g.pgn", ONLINE_PGN)})
+        ok &= _check("Upload ohne Namen fragt nach", up.json().get("need_name") is True, up.text[:80])
+        up = client.post("/api/upload", files={"file": ("g.pgn", ONLINE_PGN)}, data={"name": "Dodo"}).json()
+        ok &= _check("Upload mit Namen: eigene, zufaellige Adresse",
+                     up.get("status") == "queued" and up["url"].startswith("/pgn/") and len(up["url"]) > 20, str(up)[:120])
+        bad = client.post("/api/upload", files={"file": ("g.pgn", ONLINE_PGN)}, data={"name": "Niemand"})
+        ok &= _check("Name nicht in der Datei -> Fehler", bad.status_code == 400, bad.text[:80])
+        limited = [client.post("/api/analyse", json={"platform": "lichess", "username": f"neu{i}"}).status_code
+                   for i in range(3)]
+        ok &= _check("Grenze pro Verbindung", 429 in limited, str(limited))
+
+        online.registry.update("lichess/anna", viewed_at=datetime(2020, 1, 1))
+        removed = online.worker.cleanup()
+        ok &= _check("lange nicht besucht -> geloescht", removed == 1 and online.registry.get("lichess/anna") is None
+                     and not online.registry.db_path("lichess/anna").exists())
+        regular._account_exists = regular_exists
+    finally:
+        for key, value in keep_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+    return bool(ok)
+
+
+def select_games():
+    from sqlmodel import select
+
+    from .models import ChessGame
+
+    return select(ChessGame)
+
+
 def main() -> int:
     print("=" * 66)
     print("Chess-Analyzer Selbsttest")
@@ -1083,9 +1252,13 @@ def main() -> int:
     print("\n10) Brett zu einem Fehler")
     board_ok = test_board()
 
+    print("\n11) Online-Fassung: viele Spieler")
+    online_ok = test_online()
+
     print("\n" + "=" * 66)
     if (helpers_ok and mapping_ok and lichess_ok and classification_ok
-            and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok):
+            and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
+            and online_ok):
         print("Alles in Ordnung.")
         return 0
     print("Mindestens ein Test ist fehlgeschlagen (siehe oben).")

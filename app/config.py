@@ -12,9 +12,11 @@ import re
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 
 log = logging.getLogger(__name__)
 
@@ -30,6 +32,9 @@ ENGINE_CANDIDATES = (
 PLATFORM_CHESSCOM = "chesscom"
 PLATFORM_LICHESS = "lichess"
 PLATFORMS = (PLATFORM_CHESSCOM, PLATFORM_LICHESS)
+# Hochgeladene PGN-Dateien (Online-Fassung). Bewusst nicht in PLATFORMS: es
+# gibt nichts abzuholen, die Partien kommen nur ueber den Upload.
+PLATFORM_PGN = "pgn"
 
 # Lichess kennt eigene Geschwindigkeitsnamen. Sie werden auf ein gemeinsames
 # Vokabular abgebildet, damit sich beide Plattformen zusammen auswerten lassen.
@@ -230,6 +235,13 @@ class Settings:
     tactics_engine_seconds: float = 0.4
     tactics_min_cp: int = -300
 
+    # Hoechstens so viele Partien pro Abholen (0 = alle im Zeitraum). Die
+    # Online-Fassung braucht nur die juengsten paar Dutzend.
+    fetch_max_games: int = 0
+    # Laeuft als oeffentlicher Dienst fuer viele Spieler (app/online.py):
+    # die Oberflaeche blendet dann Abholen, Neu analysieren und das Training aus.
+    online_mode: bool = False
+
     @property
     def configured(self) -> bool:
         return bool(self.chesscom_username or self.lichess_username)
@@ -299,4 +311,23 @@ def load_settings() -> Settings:
         # Aussichtslose Stellungen sind keine gute Aufgabe - "was waere besser
         # gewesen" hat keine Antwort, wenn ohnehin alles verliert.
         tactics_min_cp=_env_int("CHESS_TACTICS_MIN_CP", -300),
+        fetch_max_games=max(0, _env_int("CHESS_FETCH_MAX_GAMES", 0)),
     )
+
+
+# Die Online-Fassung setzt pro Anfrage die Einstellungen des jeweiligen
+# Spielers (Benutzernamen, Online-Modus). Ohne Ueberschreibung gilt load_settings().
+_settings_override: ContextVar[Optional[Settings]] = ContextVar("knightmare_settings", default=None)
+
+
+def current_settings() -> Settings:
+    return _settings_override.get() or load_settings()
+
+
+@contextmanager
+def use_settings(value: Settings) -> Iterator[Settings]:
+    token = _settings_override.set(value)
+    try:
+        yield value
+    finally:
+        _settings_override.reset(token)

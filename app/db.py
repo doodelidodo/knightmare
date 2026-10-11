@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
+from typing import Iterator, Optional
 
 from sqlalchemy import inspect, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.schema import CreateColumn
 from sqlmodel import Session, SQLModel, create_engine
 
@@ -30,7 +34,38 @@ engine = create_engine(
 )
 
 
-def _add_missing_columns() -> None:
+# --------------------------------------------------------------------------
+# Mehrere Spieler auf einem Server (Online-Fassung, app/online.py)
+# --------------------------------------------------------------------------
+# Normalerweise gibt es genau eine Datenbank. Die Online-Fassung haelt pro
+# Spieler eine eigene SQLite-Datei und schaltet fuer die Dauer einer Anfrage
+# oder eines Analyse-Auftrags um. Alles, was ueber get_session/new_session/
+# current_engine geht, landet dann automatisch in der richtigen Datei - der
+# Rest des Codes muss davon nichts wissen.
+_engine_override: ContextVar[Optional[Engine]] = ContextVar("knightmare_engine", default=None)
+
+
+def current_engine() -> Engine:
+    return _engine_override.get() or engine
+
+
+@contextmanager
+def use_engine(target: Engine) -> Iterator[Engine]:
+    token = _engine_override.set(target)
+    try:
+        yield target
+    finally:
+        _engine_override.reset(token)
+
+
+def make_sqlite_engine(path: Path) -> Engine:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return create_engine(
+        f"sqlite:///{path}", echo=False, connect_args={"check_same_thread": False}
+    )
+
+
+def _add_missing_columns(target: Engine) -> None:
     """Ergaenzt Spalten, die im Modell stehen, aber in der Tabelle fehlen.
 
     `SQLModel.metadata.create_all` legt nur neue Tabellen an und fasst
@@ -39,7 +74,7 @@ def _add_missing_columns() -> None:
     gehalten: nur neue, nullbare Spalten und fehlende Indizes - alles andere
     waere ein Fall fuer ein richtiges Migrationswerkzeug.
     """
-    inspector = inspect(engine)
+    inspector = inspect(target)
     existing_tables = set(inspector.get_table_names())
 
     for table in SQLModel.metadata.sorted_tables:
@@ -58,10 +93,10 @@ def _add_missing_columns() -> None:
                     column.name,
                 )
                 continue
-            definition = CreateColumn(column).compile(dialect=engine.dialect)
+            definition = CreateColumn(column).compile(dialect=target.dialect)
             statement = f"ALTER TABLE {table.name} ADD COLUMN {definition}"
             try:
-                with engine.begin() as connection:
+                with target.begin() as connection:
                     connection.execute(text(statement))
                 log.info("Spalte ergaenzt: %s.%s", table.name, column.name)
             except Exception as exc:  # noqa: BLE001 - Start darf daran nicht scheitern
@@ -70,31 +105,35 @@ def _add_missing_columns() -> None:
 
         for index in table.indexes:
             try:
-                with engine.begin() as connection:
+                with target.begin() as connection:
                     index.create(bind=connection, checkfirst=True)
             except Exception as exc:  # noqa: BLE001
                 log.debug("Index %s uebersprungen: %s", index.name, exc)
 
 
-def init_db() -> None:
+def init_db(target: Optional[Engine] = None) -> None:
     # Die Modelle muessen importiert sein, damit sie in der Metadata stehen.
     from . import models  # noqa: F401
 
-    SQLModel.metadata.create_all(engine)
+    target = target or current_engine()
+    SQLModel.metadata.create_all(target)
     try:
-        _add_missing_columns()
+        _add_missing_columns(target)
     except Exception as exc:  # noqa: BLE001
         log.error("Spaltenabgleich fehlgeschlagen: %s", exc)
 
 
 def get_session():
-    with Session(engine) as session:
+    with Session(current_engine()) as session:
         yield session
 
 
 def new_session() -> Session:
     """Session fuer Hintergrundjobs, die nicht ueber FastAPI-Depends laufen."""
-    return Session(engine)
+    return Session(current_engine())
 
 
-__all__ = ["engine", "get_session", "new_session", "init_db", "DATABASE_URL"]
+__all__ = [
+    "engine", "current_engine", "use_engine", "make_sqlite_engine",
+    "get_session", "new_session", "init_db", "DATABASE_URL",
+]

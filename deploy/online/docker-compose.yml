@@ -1,0 +1,57 @@
+# Knightmare online - a public instance for many players.
+#
+#   cp .env.example .env    # fill in DOMAIN and ONLINE_CONTACT
+#   docker compose up -d
+#
+# Caddy fetches the HTTPS certificate by itself. Knightmare itself is not
+# reachable from outside, only through Caddy.
+services:
+  knightmare:
+    image: ghcr.io/doodelidodo/knightmare:latest
+    container_name: knightmare-online
+    command: ["uvicorn", "app.online:app", "--host", "0.0.0.0", "--port", "8000",
+              "--proxy-headers", "--forwarded-allow-ips", "*", "--no-access-log"]
+    environment:
+      ONLINE_DATA_DIR: /app/data/online
+      ONLINE_CONTACT: ${ONLINE_CONTACT:-}
+      ONLINE_OPERATOR: ${ONLINE_OPERATOR:-}
+      ONLINE_GAMES: ${ONLINE_GAMES:-30}
+      ONLINE_KEEP_DAYS: ${ONLINE_KEEP_DAYS:-30}
+      ONLINE_REFRESH_HOURS: ${ONLINE_REFRESH_HOURS:-6}
+      ONLINE_PER_IP_HOUR: ${ONLINE_PER_IP_HOUR:-6}
+      ONLINE_QUEUE_MAX: ${ONLINE_QUEUE_MAX:-100}
+      ONLINE_SECONDS_PER_GAME: ${ONLINE_SECONDS_PER_GAME:-12}
+      CHESS_USER_AGENT: "knightmare-online/1 (+https://${DOMAIN}; ${ONLINE_CONTACT:-})"
+      CHESS_ENGINE_THREADS: ${CHESS_ENGINE_THREADS:-2}
+      CHESS_ENGINE_HASH_MB: ${CHESS_ENGINE_HASH_MB:-256}
+      CHESS_ENGINE_MOVETIME: ${CHESS_ENGINE_MOVETIME:-0.15}
+      CHESS_RATED_ONLY: ${CHESS_RATED_ONLY:-0}
+      TZ: Europe/Zurich
+    volumes:
+      - knightmare_data:/app/data
+    restart: unless-stopped
+    # Stockfish must not starve the web server - leave some air.
+    cpus: ${KNIGHTMARE_CPUS:-1.8}
+    mem_limit: 2g
+
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - knightmare
+    restart: unless-stopped
+
+volumes:
+  knightmare_data:
+  caddy_data:
+  caddy_config:

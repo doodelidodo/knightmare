@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy · Knightmare</title>
+<link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
+<style>
+  :root { color-scheme: light dark; --muted: #5d6b7e; --accent: #5b6ef5; }
+  @media (prefers-color-scheme: dark) { :root { --muted: #94a3b8; --accent: #8098ff; } body { background: #0a1018; color: #e4ecf7; } }
+  body { margin: 0; font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+  a { color: var(--accent); }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 28px 0 6px; }
+  .muted { color: var(--muted); }
+  hr { border: 0; border-top: 1px solid rgba(128,128,128,.3); margin: 36px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p><a href="/">← Knightmare</a></p>
+
+  <h1>Privacy</h1>
+  <p class="muted">Operated by {{OPERATOR}} · Contact: {{CONTACT}}</p>
+
+  <h2>What is stored</h2>
+  <p>When you enter a username, Knightmare fetches up to {{GAMES}} of that player's most recent
+  <strong>public</strong> games from Lichess or Chess.com and stores them together with the analysis.
+  An uploaded PGN file is stored the same way. No account, no e-mail address, no cookies, no tracking.</p>
+
+  <h2>Who can see it</h2>
+  <p>The result for a username is public under its address (for example <code>/lichess/name/</code>) –
+  just like the games themselves are public on Lichess and Chess.com. A PGN upload gets a random address
+  that only people with the link know.</p>
+
+  <h2>How long</h2>
+  <p>Everything about a player is deleted automatically after {{KEEP_DAYS}} days without a visit.
+  To have it deleted earlier, write to the contact above.</p>
+
+  <h2>Technical data</h2>
+  <p>Your IP address is held in memory only, to limit the number of analyses per hour, and is never written
+  to disk by Knightmare. The web server may keep short-lived access logs for operation and security.
+  The language choice is stored in your browser.</p>
+
+  <h2>Third parties</h2>
+  <p>Games are fetched from the public APIs of Lichess (lichess.org) and Chess.com. Knightmare is not
+  affiliated with either. The server is hosted in the EU.</p>
+
+  <hr>
+
+  <h1>Datenschutz</h1>
+  <p class="muted">Betrieben von {{OPERATOR}} · Kontakt: {{CONTACT}}</p>
+
+  <h2>Was gespeichert wird</h2>
+  <p>Wenn du einen Benutzernamen eingibst, holt Knightmare bis zu {{GAMES}} der jüngsten
+  <strong>öffentlichen</strong> Partien dieses Spielers von Lichess oder Chess.com und speichert sie samt
+  Analyse. Eine hochgeladene PGN-Datei wird genauso gespeichert. Kein Konto, keine E-Mail-Adresse,
+  keine Cookies, kein Tracking.</p>
+
+  <h2>Wer es sehen kann</h2>
+  <p>Das Ergebnis zu einem Benutzernamen ist unter seiner Adresse öffentlich (z. B. <code>/lichess/name/</code>) –
+  so wie die Partien selbst auf Lichess und Chess.com öffentlich sind. Ein PGN-Upload bekommt eine zufällige
+  Adresse, die nur kennt, wer den Link hat.</p>
+
+  <h2>Wie lange</h2>
+  <p>Alles zu einem Spieler wird nach {{KEEP_DAYS}} Tagen ohne Besuch automatisch gelöscht. Wer es früher
+  gelöscht haben möchte, schreibt an den Kontakt oben.</p>
+
+  <h2>Technische Daten</h2>
+  <p>Deine IP-Adresse wird nur im Arbeitsspeicher gehalten, um die Zahl der Analysen pro Stunde zu begrenzen,
+  und von Knightmare nie auf die Festplatte geschrieben. Der Webserver kann für Betrieb und Sicherheit kurzlebige
+  Zugriffsprotokolle führen. Die Sprachwahl wird in deinem Browser gespeichert.</p>
+
+  <h2>Dritte</h2>
+  <p>Die Partien kommen über die öffentlichen Schnittstellen von Lichess (lichess.org) und Chess.com.
+  Knightmare steht mit keiner der beiden in Verbindung. Der Server steht in der EU.</p>
+</div>
+</body>
+</html>

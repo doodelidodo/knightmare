@@ -7,6 +7,7 @@ naechsten Lauf einfach weiterverarbeitet.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import logging
 import re
@@ -38,6 +39,7 @@ from .config import (
     LICHESS_SPEEDS,
     PLATFORM_CHESSCOM,
     PLATFORM_LICHESS,
+    PLATFORM_PGN,
     Settings,
 )
 from .db import new_session
@@ -473,6 +475,10 @@ def sync_chesscom(
     with ChessComClient(username, settings.user_agent) as client:
         archives = client.archives()
         targets = _archives_to_fetch(archives, settings, has_games)
+        if settings.fetch_max_games:
+            # Nur die juengsten Partien gefragt: von hinten her lesen und
+            # aufhoeren, sobald genug da sind.
+            targets = list(reversed(targets))
 
         added = 0
         skipped = 0
@@ -504,6 +510,8 @@ def sync_chesscom(
                 session.add(game)
                 added += 1
             session.commit()
+            if settings.fetch_max_games and added >= settings.fetch_max_games:
+                break
 
     return {
         "platform": PLATFORM_CHESSCOM,
@@ -551,7 +559,11 @@ def sync_lichess(
         username, settings.user_agent, token=settings.lichess_token
     ) as client:
         _set_status(phase="Lichess")
-        for payload in client.games(since_ms=since_ms, rated_only=settings.rated_only):
+        for payload in client.games(
+            since_ms=since_ms,
+            max_games=settings.fetch_max_games or None,
+            rated_only=settings.rated_only,
+        ):
             seen += 1
             if seen % 50 == 0:
                 _set_status(phase=f"Lichess ({seen} gelesen)")
@@ -627,6 +639,184 @@ def sync_games(session: Session, settings: Settings, full: bool = False) -> dict
         "problems": problems,
         "last_archive": last_archive,
     }
+
+
+# --------------------------------------------------------------------------
+# PGN-Upload (Online-Fassung): Partien aus einer Datei statt von einer Plattform
+# --------------------------------------------------------------------------
+PGN_MAX_BYTES = 2_000_000
+
+
+def time_class_from_control(control: str) -> str:
+    """Partieart aus dem TimeControl-Kopf ("600+5", "180", "-", "1/259200").
+
+    Dieselben Grenzen wie Chess.com: geschaetzte Dauer = Grundzeit + 40 x
+    Inkrement; unter 3 Minuten Bullet, unter 10 Blitz, unter 30 Rapid.
+    """
+    control = (control or "").strip()
+    if not control or control in {"-", "?"}:
+        return "unknown"
+    if "/" in control:  # Fernschach: Zuege pro Zeitraum
+        return "daily"
+    base, _, inc = control.partition("+")
+    try:
+        total = float(base) + 40 * float(inc or 0)
+    except ValueError:
+        return "unknown"
+    if total < 30:
+        return "ultrabullet"
+    if total < 180:
+        return "bullet"
+    if total < 600:
+        return "blitz"
+    if total < 1800:
+        return "rapid"
+    return "classical"
+
+
+def _pgn_date(headers: chess.pgn.Headers) -> datetime:
+    day = headers.get("UTCDate") or headers.get("Date") or ""
+    clock = headers.get("UTCTime") or headers.get("StartTime") or "12:00:00"
+    for value, fmt in ((f"{day} {clock}", "%Y.%m.%d %H:%M:%S"), (day, "%Y.%m.%d")):
+        try:
+            return datetime.strptime(value, fmt)
+        except ValueError:
+            continue
+    return utc_now()
+
+
+def map_pgn_game(game: chess.pgn.Game, name: str) -> Optional[ChessGame]:
+    """Eine Partie aus einer hochgeladenen Datei. None = ueberspringen.
+
+    Welche Seite man selbst ist, steht nirgends ausser im Namen - darum muss
+    der Name in White oder Black vorkommen (Gross-/Kleinschreibung egal).
+    """
+    headers = game.headers
+    variant = (headers.get("Variant") or "standard").lower()
+    if variant not in {"standard", "chess", ""} or headers.get("SetUp") == "1":
+        return None
+    if game.errors or game.next() is None:
+        return None
+
+    wanted = (name or "").strip().lower()
+    white, black = headers.get("White", ""), headers.get("Black", "")
+    if wanted and white.strip().lower() == wanted:
+        color, opponent = "white", black
+        my_elo, opp_elo = headers.get("WhiteElo"), headers.get("BlackElo")
+    elif wanted and black.strip().lower() == wanted:
+        color, opponent = "black", white
+        my_elo, opp_elo = headers.get("BlackElo"), headers.get("WhiteElo")
+    else:
+        return None
+
+    outcome = headers.get("Result", "*")
+    if outcome == "1/2-1/2":
+        result = "draw"
+    elif outcome in {"1-0", "0-1"}:
+        result = "win" if (outcome == "1-0") == (color == "white") else "loss"
+    else:
+        return None  # nicht beendet
+
+    exporter = chess.pgn.StringExporter(headers=True, variations=False, comments=True)
+    pgn_text = game.accept(exporter)
+    digest = hashlib.sha1(pgn_text.encode("utf-8")).hexdigest()[:24]
+    site = headers.get("Site", "")
+    url = site if site.startswith(("https://", "http://")) else ""
+    opening_name = _trim(headers.get("Opening"), 200)
+    control = headers.get("TimeControl", "")
+
+    return ChessGame(
+        platform=PLATFORM_PGN,
+        uuid=f"pgn:{digest}",
+        url=url[:300],
+        played_at=_pgn_date(headers),
+        time_class=time_class_from_control(control),
+        time_control=control[:30],
+        rated=True,
+        color=color,
+        result=result,
+        termination=_trim(headers.get("Termination"), 160),
+        my_rating=_to_int(my_elo),
+        opponent=(opponent or "")[:60],
+        opponent_rating=_to_int(opp_elo),
+        eco=_trim(headers.get("ECO"), 10),
+        opening_name=opening_name,
+        opening_family=_trim(opening_family_from_name(opening_name), 120),
+        pgn=pgn_text,
+    )
+
+
+def pgn_players(text: str, limit: int = 200) -> dict[str, int]:
+    """Welche Namen wie oft vorkommen - fuer die Frage "wer bist du?"."""
+    counts: dict[str, int] = {}
+    handle = io.StringIO(text)
+    for _ in range(limit):
+        headers = chess.pgn.read_headers(handle)
+        if headers is None:
+            break
+        for side in ("White", "Black"):
+            value = (headers.get(side) or "").strip()
+            if value and value != "?":
+                counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items(), key=lambda item: -item[1]))
+
+
+def ingest_pgn(session: Session, text: str, name: str, max_games: int = 0) -> dict[str, Any]:
+    """Liest eine PGN-Datei ein, juengste Partien zuerst behalten."""
+    games: list[ChessGame] = []
+    skipped = 0
+    handle = io.StringIO(text)
+    while True:
+        try:
+            game = chess.pgn.read_game(handle)
+        except (ValueError, UnicodeDecodeError):
+            skipped += 1
+            continue
+        if game is None:
+            break
+        mapped = map_pgn_game(game, name)
+        if mapped is None:
+            skipped += 1
+            continue
+        games.append(mapped)
+
+    games.sort(key=lambda g: g.played_at, reverse=True)
+    if max_games:
+        skipped += max(0, len(games) - max_games)
+        games = games[:max_games]
+
+    added = 0
+    for game in games:
+        if _is_known(session, game.uuid, game.url or None):
+            skipped += 1
+            continue
+        session.add(game)
+        added += 1
+    session.commit()
+    return {"platform": PLATFORM_PGN, "added": added, "skipped": skipped}
+
+
+def keep_newest(session: Session, keep: int) -> int:
+    """Behaelt die juengsten `keep` Partien, loescht den Rest samt Zuegen.
+
+    Fuer die Online-Fassung: der Speicher pro Spieler bleibt begrenzt, und es
+    wird nur analysiert, was ohnehin angezeigt wird.
+    """
+    if keep <= 0:
+        return 0
+    old_ids = session.exec(
+        select(ChessGame.id).order_by(ChessGame.played_at.desc()).offset(keep)  # type: ignore[union-attr]
+    ).all()
+    if not old_ids:
+        return 0
+    old_uuids = session.exec(select(ChessGame.uuid).where(ChessGame.id.in_(old_ids))).all()  # type: ignore[union-attr]
+    session.exec(delete(ChessMove).where(ChessMove.game_id.in_(old_ids)))  # type: ignore[union-attr,call-overload]
+    from .models import ChessTactic
+
+    session.exec(delete(ChessTactic).where(ChessTactic.game_uuid.in_(old_uuids)))  # type: ignore[union-attr,call-overload]
+    session.exec(delete(ChessGame).where(ChessGame.id.in_(old_ids)))  # type: ignore[union-attr,call-overload]
+    session.commit()
+    return len(old_ids)
 
 
 # --------------------------------------------------------------------------

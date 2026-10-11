@@ -191,6 +191,15 @@ engine time, and each run analyses at most 40 games by default, so a few
 hundred games catch up over several runs. The scheduler keeps going every six
 hours; the status line shows what's left.
 
+### A public instance for many players
+
+`deploy/online/` runs the same image as a website: anyone types a Lichess or
+Chess.com username (or uploads a PGN file) and gets the analysis of their
+newest games - no install, no account. One SQLite file per player, a queue
+with one Stockfish job at a time, limits per IP address, and automatic
+deletion after 30 days without a visit. Training stays in the desktop app and
+the self-hosted version. See [deploy/online/README.md](deploy/online/README.md).
+
 ## How it works
 
 1. **Fetch** — via the public APIs of Chess.com and Lichess. Neither needs an
