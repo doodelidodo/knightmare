@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Knightmare</title>
 <meta name="description" content="Enter your Lichess or Chess.com username and see the patterns behind your chess mistakes. Free, no account.">
+<script>
+  // Helles oder dunkles Erscheinungsbild: gewaehlt (Knopf oben) oder vom System.
+  // Hier im Kopf, damit die Seite nicht erst dunkel aufblitzt.
+  (function () { try { var v = localStorage.getItem("knightmare.theme"); if (v === "light" || v === "dark") document.documentElement.dataset.theme = v; } catch (e) { /* egal */ } })();
+</script>
 <link rel="icon" href="/assets/logo.svg" type="image/svg+xml">
 <style>
   :root {
@@ -85,7 +90,10 @@
 <div class="wrap">
   <header>
     <div class="brand"><img src="/assets/logo.svg" alt=""><h1>Knightmare</h1></div>
-    <button class="chip" id="langBtn" type="button"></button>
+    <div style="display:flex;gap:8px">
+      <button class="chip" id="themeBtn" type="button"></button>
+      <button class="chip" id="langBtn" type="button"></button>
+    </div>
   </header>
 
   <h2 id="title"></h2>
@@ -136,6 +144,7 @@
 const I18N = {
   en: {
     lang: "Deutsch",
+    theme: { light: "Light mode", dark: "Dark mode" },
     title: "See the patterns behind your chess mistakes",
     lead: (n) => `Enter your username. Knightmare runs your last ${n} games through Stockfish and shows what keeps costing you: hung pieces, forks you walked into, mates you missed.`,
     pgn: "PGN file",
@@ -176,6 +185,7 @@ const I18N = {
   },
   de: {
     lang: "English",
+    theme: { light: "Helles Design", dark: "Dunkles Design" },
     title: "Sieh die Muster hinter deinen Schachfehlern",
     lead: (n) => `Gib deinen Benutzernamen ein. Knightmare schickt deine letzten ${n} Partien durch Stockfish und zeigt, was dich immer wieder Partien kostet: eingestellte Figuren, kassierte Gabeln, verpasste Matts.`,
     pgn: "PGN-Datei",
@@ -238,6 +248,7 @@ function showError(code) {
 }
 
 function render() {
+  renderThemeBtn();
   const T = L();
   document.documentElement.lang = lang;
   $("langBtn").textContent = T.lang;
@@ -399,6 +410,29 @@ $("langBtn").addEventListener("click", () => {
   }
   render();
 })();
+
+// --------------------------------------------------------------------------
+// Hell / dunkel
+// --------------------------------------------------------------------------
+function currentTheme() {
+  const t = document.documentElement.dataset.theme;
+  if (t === "light" || t === "dark") return t;
+  return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+function renderThemeBtn() {
+  const b = document.getElementById("themeBtn");
+  const dark = currentTheme() === "dark";
+  b.textContent = dark ? "☀" : "☾";
+  const label = dark ? L().theme.light : L().theme.dark;
+  b.title = label;
+  b.setAttribute("aria-label", label);
+}
+document.getElementById("themeBtn").addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("knightmare.theme", next); } catch { /* egal */ }
+  renderThemeBtn();
+});
 </script>
 </body>
 </html>
