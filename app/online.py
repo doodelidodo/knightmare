@@ -47,7 +47,7 @@ os.environ.setdefault("CHESS_AUTO_SYNC", "0")
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile  # noqa: E402
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse  # noqa: E402
 from pydantic import BaseModel, Field  # noqa: E402
-from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table, create_engine, select  # noqa: E402
+from sqlalchemy import Column, Date, DateTime, Integer, MetaData, String, Table, create_engine, select, text  # noqa: E402
 from sqlalchemy.engine import Engine  # noqa: E402
 
 from . import __version__, pipeline  # noqa: E402
@@ -127,6 +127,19 @@ players = Table(
     Column("viewed_at", DateTime, nullable=True),
     Column("created_at", DateTime, nullable=False),
 )
+
+# Counters per day, nothing else: no IP, no name, no cookie. For the operator's
+# dashboard (GET /api/stats). Metrics: visit (start page), new_lichess /
+# new_chesscom / new_pgn (first analysis of a player), refresh, result (a
+# result page opened), done / failed (finished jobs), games (games analysed).
+daily = Table(
+    "online_daily",
+    _meta,
+    Column("day", Date, primary_key=True),
+    Column("metric", String(24), primary_key=True),
+    Column("n", Integer, nullable=False, default=0),
+)
+STAT_METRICS = ("visit", "new_lichess", "new_chesscom", "new_pgn", "refresh", "result", "done", "failed", "games")
 
 
 class Registry:
@@ -216,6 +229,36 @@ class Registry:
         with self.db.begin() as conn:
             conn.execute(players.update().where(players.c.status == "running")
                          .values(status="queued", phase=None))
+
+    def count(self, metric: str, n: int = 1) -> None:
+        """Adds n to today's counter. Local date (TZ of the container)."""
+        if n <= 0:
+            return
+        try:
+            with self.db.begin() as conn:
+                conn.execute(text(
+                    "INSERT INTO online_daily (day, metric, n) VALUES (:d, :m, :n) "
+                    "ON CONFLICT(day, metric) DO UPDATE SET n = n + :n"),
+                    {"d": datetime.now().date(), "m": metric, "n": n})
+        except Exception as exc:  # noqa: BLE001 - counting must never break a request
+            log.warning("Counter %s: %s", metric, exc)
+
+    def stats(self, days: int) -> dict[str, Any]:
+        start = datetime.now().date() - timedelta(days=days - 1)
+        with self.db.connect() as conn:
+            rows = conn.execute(select(daily).where(daily.c.day >= start)).all()
+            total_players = conn.execute(text("SELECT count(*) FROM online_player")).scalar() or 0
+            by_kind = dict(conn.execute(text(
+                "SELECT kind, count(*) FROM online_player GROUP BY kind")).all())
+        per_day: dict[str, dict[str, int]] = {}
+        for r in rows:
+            per_day.setdefault(r.day.isoformat(), {})[r.metric] = r.n
+        out_days = []
+        for i in range(days):
+            d = (start + timedelta(days=i)).isoformat()
+            out_days.append({"day": d, **{m: per_day.get(d, {}).get(m, 0) for m in STAT_METRICS}})
+        totals = {m: sum(x[m] for x in out_days) for m in STAT_METRICS}
+        return {"days": out_days, "totals": totals, "players": total_players, "players_by_kind": by_kind}
 
     def expired(self) -> list[str]:
         cutoff = utc_now() - timedelta(days=self.cfg.keep_days)
@@ -320,7 +363,8 @@ class Worker:
                         problems = list(fetched.get("problems") or [])
                     pipeline.keep_newest(session, cfg.games)
                     self.reg.update(slug, phase="analyse")
-                    pipeline.analyse_pending(session, settings, limit=cfg.games)
+                    result = pipeline.analyse_pending(session, settings, limit=cfg.games)
+                    self.reg.count("games", int(result.get("analyzed") or 0))
                     total = len(session.exec(select(ChessGame.id)).all())
                     done = len(session.exec(
                         select(ChessGame.id).where(ChessGame.analyzed_at.is_not(None))  # type: ignore[union-attr]
@@ -331,15 +375,18 @@ class Worker:
                 message = "; ".join(problems) or "no_games"
                 self.reg.update(slug, status="error", phase=None, message=message[:400],
                                 games=0, analyzed=0, finished_at=utc_now())
+                self.reg.count("failed")
             else:
                 self.reg.update(slug, status="ready", phase=None,
                                 message=("; ".join(problems)[:400] or None),
                                 games=total, analyzed=done, finished_at=utc_now())
+                self.reg.count("done")
             log.info("%s: %d games, %d analysed", slug, total, done if total else 0)
         except Exception as exc:  # noqa: BLE001 - one player must not stop the queue
             log.exception("Job %s failed", slug)
             self.reg.update(slug, status="error", phase=None, message=str(exc)[:400],
                             finished_at=utc_now())
+            self.reg.count("failed")
         finally:
             self.current = None
 
@@ -440,6 +487,16 @@ def health() -> dict[str, Any]:
             "queued": len(registry.queued()), "running": worker.current}
 
 
+@site.get("/api/stats")
+def stats(days: int = 14) -> JSONResponse:
+    """Daily totals for the operator's dashboard. Only counts, no personal
+    data - readable from another origin (the dashboard runs elsewhere)."""
+    data = registry.stats(max(1, min(90, days)))
+    data.update(version=__version__, queued=len(registry.queued()), running=worker.current is not None,
+                games_per_player=cfg.games)
+    return JSONResponse(data, headers={"Access-Control-Allow-Origin": "*", "Cache-Control": "no-store"})
+
+
 @site.get("/api/config")
 def config() -> dict[str, Any]:
     return {"games": cfg.games, "keep_days": cfg.keep_days, "version": __version__,
@@ -468,6 +525,7 @@ def analyse(body: AnalyseBody, request: Request) -> dict[str, Any]:
         registry.touch(slug)
         if len(registry.queued()) < cfg.queue_max and limiter.allow(_client_ip(request)):
             registry.enqueue(slug, kind, row["name"])
+            registry.count("refresh")
             worker.nudge()
         return job_state(slug)
     if len(registry.queued()) >= cfg.queue_max:
@@ -480,6 +538,7 @@ def analyse(body: AnalyseBody, request: Request) -> dict[str, Any]:
         if _account_exists(kind, name) is False:
             raise HTTPException(404, "not_found")
     registry.enqueue(slug, kind, row["name"] if row else name)
+    registry.count(f"new_{kind}" if row is None else "refresh")
     worker.nudge()
     return job_state(slug)
 
@@ -524,6 +583,7 @@ async def upload(request: Request, file: UploadFile = File(...), name: str = For
         registry.drop(slug)
         raise HTTPException(400, "no_games_for_name")
     registry.enqueue(slug, PLATFORM_PGN, name)
+    registry.count("new_pgn")
     worker.nudge()
     return job_state(slug)
 
@@ -534,7 +594,9 @@ def _page(name: str) -> FileResponse:
 
 
 @site.get("/", include_in_schema=False)
-def landing() -> FileResponse:
+def landing(request: Request) -> FileResponse:
+    if request.method == "GET":
+        registry.count("visit")
     return _page("online.html")
 
 
@@ -612,6 +674,8 @@ class Dispatcher:
             return
 
         if rest == "/":
+            if scope["method"] == "GET":
+                registry.count("result")
             if not row["viewed_at"] or utc_now() - row["viewed_at"] > timedelta(hours=1):
                 registry.touch(slug)
 

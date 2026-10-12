@@ -1195,6 +1195,13 @@ def test_online() -> bool:
                    for i in range(3)]
         ok &= _check("Grenze pro Verbindung", 429 in limited, str(limited))
 
+        st = client.get("/api/stats?days=7")
+        t = st.json()["totals"]
+        ok &= _check("Zaehler pro Tag: Startseite, Ergebnis, neue Spieler",
+                     t["visit"] >= 1 and t["result"] >= 1 and t["new_chesscom"] == 1 and t["new_pgn"] == 1
+                     and len(st.json()["days"]) == 7, str(t))
+        ok &= _check("Zaehler fuers Dashboard abrufbar (CORS)",
+                     st.headers.get("access-control-allow-origin") == "*")
         online.registry.update("lichess/anna", viewed_at=datetime(2020, 1, 1))
         removed = online.worker.cleanup()
         ok &= _check("lange nicht besucht -> geloescht", removed == 1 and online.registry.get("lichess/anna") is None
