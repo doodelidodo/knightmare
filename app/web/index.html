@@ -269,7 +269,102 @@
            color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 0.9rem; opacity: 0;
            transition: opacity 0.2s; pointer-events: none; z-index: 60; max-width: calc(100% - 32px); }
   .toast.show { opacity: 1; }
+  /* --- Partien ----------------------------------------------------------- */
+  .gv-layout { display: grid; gap: 16px; grid-template-columns: minmax(250px, 330px) minmax(0, 1fr); align-items: start; }
+  .gv-list { position: sticky; top: 12px; max-height: calc(100vh - 24px); display: flex; flex-direction: column; }
+  .gv-list #gvList { overflow-y: auto; margin: 8px -6px 0; padding: 0 6px; }
+  .gl { display: flex; flex-direction: column; gap: 6px; }
+  .gl-item { display: flex; flex-direction: column; gap: 3px; text-align: left; width: 100%; color: inherit;
+             border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); padding: 8px 10px; }
+  .gl-item:hover { border-color: var(--accent); }
+  .gl-item.on { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+  .gl-top { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .gl-mid { font-size: 0.8rem; }
+  .gl-pills { display: flex; gap: 5px; flex-wrap: wrap; }
+  .gl-more { margin-top: 10px; width: 100%; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--muted); display: inline-block; margin-left: auto; }
+  .dot.white { background: #fff; } .dot.black { background: #1b1d22; }
+  .ph { font-size: 0.74rem; font-weight: 600; border-radius: 6px; padding: 1px 7px; border: 1px solid var(--border);
+        color: var(--muted); font-variant-numeric: tabular-nums; }
+  .ph.g-strong { color: var(--good); border-color: var(--good); background: rgba(22, 121, 74, 0.08); }
+  .ph.g-weak { color: var(--bad); border-color: var(--bad); background: rgba(194, 65, 12, 0.08); }
+  .ph.g-average { color: var(--text); }
+  .rp-head { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: flex-start; }
+  .rp-head h2 { font-size: 1.15rem; }
+  .rp-head p { margin: 2px 0 0; }
+  .rp-sum { margin: 12px 0 0; }
+  .rp-p { margin: 6px 0 0; font-size: 0.92rem; }
+  .ph-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); margin-top: 14px; }
+  .ph-tile { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface-soft);
+             border-top: 4px solid var(--border); }
+  .ph-tile.g-strong { border-top-color: var(--good); }
+  .ph-tile.g-weak { border-top-color: var(--bad); }
+  .ph-tile.g-average { border-top-color: var(--accent); }
+  .ph-tile p { margin: 4px 0 0; font-size: 0.84rem; }
+  .ph-name { font-weight: 600; color: var(--heading); }
+  .ph-name .muted { font-weight: 400; font-size: 0.8rem; }
+  .ph-acc { font-size: 1.9rem; font-weight: 700; color: var(--heading); line-height: 1.15; margin-top: 4px;
+            display: flex; align-items: center; gap: 8px; }
+  .ph-acc small { font-size: 1rem; font-weight: 600; }
+  .tag.grade.strong { color: var(--good); border-color: var(--good); }
+  .tag.grade.weak { color: var(--bad); border-color: var(--bad); }
+  .tag.grade.average { color: var(--accent); border-color: var(--accent); }
+  .evc { width: 100%; height: auto; display: block; margin-top: 10px; }
+  .evc .band.opening { fill: rgba(91, 110, 245, 0.07); }
+  .evc .band.middlegame { fill: transparent; }
+  .evc .band.endgame { fill: rgba(154, 97, 0, 0.08); }
+  .evc .grid-ln { stroke: var(--border); stroke-width: 1; }
+  .evc .ax { fill: var(--muted); font-size: 11px; text-anchor: end; }
+  .evc .ax.mid { text-anchor: middle; }
+  .evc .ln { fill: none; stroke: var(--accent); stroke-width: 2.2; stroke-linejoin: round; }
+  .evc .area { fill: var(--accent); opacity: 0.1; }
+  .evc .dot-blunder { fill: var(--bad); } .evc .dot-mistake { fill: var(--warn); }
+  .evc .dot-inaccuracy { fill: var(--surface); stroke: var(--muted); stroke-width: 2; }
+  .evc-key { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+  .evc-key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px;
+               border: 1px solid var(--border); }
+  .band-key.opening { background: rgba(91, 110, 245, 0.18); } .band-key.endgame { background: rgba(154, 97, 0, 0.2); }
+  .dk { border-radius: 50% !important; } .dk.blunder { background: var(--bad); } .dk.mistake { background: var(--warn); }
+  .rp-list { margin: 8px 0 0; padding-left: 18px; font-size: 0.88rem; }
+  .rp-list li { margin: 4px 0; } .rp-list li.ok::marker { color: var(--good); } .rp-list li.miss::marker { color: var(--bad); }
+  /* --- Eroeffnungen ------------------------------------------------------ */
+  .leak .path { margin: 6px 0 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.84rem; color: var(--muted);
+                overflow-wrap: anywhere; }
+  .leak p { margin: 6px 0 0; }
+  .leak .acts { font-size: 0.86rem; }
+  .hist { display: inline-flex; gap: 3px; vertical-align: middle; margin-right: 6px; }
+  .hist i { width: 10px; height: 10px; border-radius: 3px; background: var(--border); display: inline-block; }
+  .hist i.bad { background: var(--bad); } .hist i.good { background: var(--good); } .hist i.meh { background: var(--warn); }
+  .drill { border: 1px solid var(--accent); border-radius: 12px; padding: 14px; margin: 12px 0; background: var(--surface-soft); }
+  .drill .tac-msg strong { font-weight: 700; }
+  .crumbs { font-size: 0.88rem; margin: 4px 0 10px; line-height: 1.8; }
+  .tree { display: grid; gap: 16px; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); align-items: start; }
+  .tree-board .mini { width: 100%; }
+  .tree-board p { margin: 6px 0 0; }
+  .tt { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .tt th { text-align: left; font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted);
+           font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--border); }
+  .tt td { padding: 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .tt .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .tt .mv { font-weight: 700; white-space: nowrap; }
+  .tt .sc { min-width: 110px; } .tt .sc .bar { display: inline-block; width: 60px; vertical-align: middle; margin-right: 6px; }
+  .tt .note .tag { white-space: normal; }
+  @media (max-width: 900px) {
+    .gv-layout { grid-template-columns: 1fr; }
+    .gv-list { position: static; max-height: none; }
+    .gv-list #gvList { max-height: 46vh; }
+    .tree { grid-template-columns: 1fr; }
+    .tree-moves { overflow-x: auto; }
+    .tt .sc { min-width: 0; } .tt .sc .bar { display: none; }
+    .tt td, .tt th { padding: 6px 4px; }
+    .tree-board { max-width: 340px; }
+  }
+  .tabs { overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; }
   @media (max-width: 480px) {
+    .tab { padding: 9px 8px 10px; }
+    .tab .badge { margin-left: 4px; }
     .tac-dots { grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
     .tac-dot { height: 28px; font-size: 11px; }
   }
@@ -295,17 +390,19 @@
 
   <nav class="tabs" id="tabs">
     <button class="tab" type="button" data-view="analyse" id="tabAnalyse"></button>
+    <button class="tab" type="button" data-view="games" id="tabGames"></button>
+    <button class="tab" type="button" data-view="openings" id="tabOpenings"></button>
     <button class="tab" type="button" data-view="train" id="tabTrain"></button>
   </nav>
 
   <div id="notes"></div>
   <div id="setup"></div>
 
-  <div id="viewAnalyse">
-
   <div class="chips" id="platformChips"></div>
   <div class="chips" id="classChips"></div>
   <div class="chips" id="rangeChips"></div>
+
+  <div id="viewAnalyse">
 
   <div class="grid" id="kpis"></div>
 
@@ -354,13 +451,6 @@
   </div>
 
   <div class="card">
-    <h2 id="openTitle"></h2>
-    <p class="muted" id="openIntro"></p>
-    <div class="chips" id="colorChips"></div>
-    <div class="rows" id="openRows"></div>
-  </div>
-
-  <div class="card">
     <h2 id="gamesTitle"></h2>
     <div class="items" id="gamesRows" style="max-height:none"></div>
   </div>
@@ -375,6 +465,43 @@
     </div>
     <p class="muted" id="statusLine"></p>
   </div>
+  </div>
+
+  <div id="viewGames" hidden>
+    <div class="gv-layout">
+      <div class="card gv-list">
+        <h2 id="gvListTitle"></h2>
+        <p class="muted" id="gvListIntro"></p>
+        <div id="gvList"></div>
+      </div>
+      <div class="gv-report" id="gvReport"></div>
+    </div>
+  </div>
+
+  <div id="viewOpenings" hidden>
+    <div class="chips" id="colorChips"></div>
+    <div class="card" id="leakCard">
+      <div class="toolbar">
+        <div>
+          <h2 id="leakTitle"></h2>
+          <p class="muted" id="leakIntro"></p>
+        </div>
+        <button class="btn primary" id="drillAllBtn" type="button" hidden></button>
+      </div>
+      <div id="drillBox"></div>
+      <p id="leakSummary"></p>
+      <div class="rows" id="leakRows"></div>
+    </div>
+    <div class="card" id="treeCard">
+      <h2 id="treeTitle"></h2>
+      <p class="muted" id="treeIntro"></p>
+      <div id="treeBody"></div>
+    </div>
+    <div class="card">
+      <h2 id="openTitle"></h2>
+      <p class="muted" id="openIntro"></p>
+      <div class="rows" id="openRows"></div>
+    </div>
   </div>
 
   <div id="viewTrain" hidden>
@@ -919,7 +1046,8 @@ function render() {
   // und Training gibt es dort nicht - das steuert der Dienst selbst.
   const online = !!(data.status && data.status.online);
   document.getElementById("syncBtn").hidden = online;
-  document.getElementById("tabs").hidden = online;
+  // Partien und Eroeffnungen sind reine Auswertungen - die gibt es online auch.
+  document.getElementById("tabTrain").hidden = online;
   document.getElementById("reBtn").closest(".toolbar").hidden = online;
   if (online && view === "train") setView("analyse");
   const syncBtn = document.getElementById("syncBtn");
@@ -945,6 +1073,8 @@ function render() {
   renderPressure();
   renderOpenings();
   renderGames();
+  renderGamesView();
+  renderOpeningsView();
   renderFooter();
   renderTabs();
   renderSetup();
@@ -1473,9 +1603,10 @@ function renderGames() {
     else if (game.analysis_error) meta += esc(L.failed(game.analysis_error));
     else meta += esc(L.notAnalysed);
     const link = game.url ? ` · <a href="${esc(game.url)}" target="_blank" rel="noreferrer">${esc(L.openOn(L[game.platform] || game.platform))}</a>` : "";
+    const report = game.analyzed ? ` · <a href="#games" data-report="${game.id}">${esc(tx().gvOpenReport)}</a>` : "";
     return `<div class="item">
       <p>${tag} <strong>${esc(game.opponent)}</strong>${game.opponent_rating ? ` (${game.opponent_rating})` : ""} · ${esc(game.color === "white" ? L.white : L.black)} · ${esc(L[game.time_class] || game.time_class)}${showPlatform() ? " · " + esc(L[game.platform] || game.platform) : ""} · ${esc(date(game.played_at))}</p>
-      <p>${meta}${link}</p></div>`;
+      <p>${meta}${link}${report}</p></div>`;
   }).join("");
 }
 
@@ -1618,32 +1749,40 @@ I18N.de.tr = {
 };
 const tr = () => I18N[lang].tr;
 
-let view = location.hash === "#train" ? "train" : store.get("knightmare.view", "analyse");
+const VIEWS = ["analyse", "games", "openings", "train"];
+let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get("knightmare.view", "analyse");
+if (!VIEWS.includes(view)) view = "analyse";
 
 function renderTabs() {
   const L = tr();
   const items = tac.data ? tac.data.items : [];
   const done = items.filter((i) => i.result).length;
   document.getElementById("tabAnalyse").textContent = L.tabAnalyse;
+  document.getElementById("tabGames").textContent = tx().tabGames;
+  document.getElementById("tabOpenings").textContent = tx().tabOpenings;
   document.getElementById("tabTrain").innerHTML = esc(L.tabTrain) +
     (items.length ? `<span class="badge">${done}/${items.length}</span>` : "");
   document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("on", b.dataset.view === view));
   document.getElementById("viewAnalyse").hidden = view !== "analyse";
+  document.getElementById("viewGames").hidden = view !== "games";
+  document.getElementById("viewOpenings").hidden = view !== "openings";
   document.getElementById("viewTrain").hidden = view !== "train";
-  // Filter gehoeren zur Analyse - im Training nur Laerm.
+  // Filter gehoeren zu den Auswertungen - im Training nur Laerm.
   ["platformChips", "classChips", "rangeChips"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.hidden = view !== "analyse";
+    if (el) el.hidden = view === "train";
   });
 }
 
 function setView(v) {
   view = v;
   store.set("knightmare.view", v);
-  history.replaceState(null, "", v === "train" ? "#train" : location.pathname + location.search);
+  history.replaceState(null, "", v === "analyse" ? location.pathname + location.search : "#" + v);
   renderTabs();
   if (v === "train") renderTraining();
   else cancelDrag();
+  if (v === "games") renderGamesView();
+  if (v === "openings") renderOpeningsView();
 }
 
 document.getElementById("tabs").addEventListener("click", (e) => {
@@ -2386,6 +2525,655 @@ document.getElementById("footer").addEventListener("click", (e) => {
   setupOpen = true;
   renderSetup();
   window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+// ==========================================================================
+// Partien im Einzelnen und Eroeffnungs-Repertoire (1.12)
+// ==========================================================================
+// Eigenes Woerterbuch, damit die beiden neuen Reiter fuer sich lesbar bleiben.
+const I18N_X = {
+  en: {
+    tabGames: "Games", tabOpenings: "Openings",
+    gvOpenReport: "game report",
+    gvListTitle: "Your games",
+    gvListIntro: "Each phase is graded against your own games of the same type: green = better than two thirds of them, red = worse than two thirds.",
+    gvEmpty: "No games in this selection.",
+    gvMore: "Load more",
+    gvPick: "Pick a game on the left to see how each phase went.",
+    gvNotAnalysed: "This game has not been analysed yet.",
+    gvShort: { opening: "O", middlegame: "M", endgame: "E" },
+    gvVs: (o, r) => `vs ${o}${r ? ` (${r})` : ""}`,
+    gvAccuracy: (a) => `Accuracy ${a}%`,
+    gvSummary: (a, best, worst) => `Accuracy over the whole game: <strong>${a}%</strong>.` +
+      (best && worst ? ` Your best phase was the <strong>${best.toLowerCase()}</strong>, your weakest the <strong>${worst.toLowerCase()}</strong>.` : ""),
+    gvPlatformAcc: (p, a) => ` ${p} rated you at ${a}%.`,
+    grade: { strong: "Strong", average: "Average", weak: "Weak" },
+    gvMoves: (a, b) => a === b ? `move ${a}` : `moves ${a}–${b}`,
+    gvNotReached: "not reached",
+    gvTooShort: "too short to grade",
+    gvPct: (p, tc, m) => `better than ${p}% of your ${tc} games (your median ${m}%)`,
+    gvNoRef: "too few games of this type to compare",
+    gvErrCounts: (b, m, i) => `${b} blunders · ${m} mistakes · ${i} inaccuracies`,
+    gvWin: (a, b) => `win chance ${a}% → ${b}%`,
+    gvChartTitle: "Win chance over the game",
+    gvChartNote: "From your side. Dots are your mistakes; the phases are shaded.",
+    gvTurning: "Turning point",
+    gvTurningText: (mv, a, b) => `<strong>${mv}</strong> took your win chance from ${a}% to ${b}%.`,
+    gvGifts: "Your opponent's mistakes",
+    gvGiftsText: (n, u) => `Your opponent handed you something ${n}× — you kept it ${u}×.`,
+    gvGiftsNone: "Your opponent made no clear mistake in this game.",
+    gvGift: (mv, g, w) => `after their ${mv}. move: +${g} points (to ${w}%)`,
+    gvGiftUsed: (san) => ` — kept with ${san}`,
+    gvGiftMissed: (san, best) => ` — given back with ${san}${best ? ` (${best} was better)` : ""}`,
+    gvErrors: "Every mistake in this game",
+    gvNoErrors: "No mistakes, mistakes or inaccuracies — a clean game.",
+    gvBestWas: (m) => ` · better ${m}`,
+    gvReply: (m) => ` · their answer ${m}`,
+    gvSpent: (t) => ` · thought ${t}`,
+    gvOpenOn: (p) => `open on ${p}`,
+    leakTitle: "Mistakes you keep repeating",
+    leakIntro: "Same position, same weak move — at least twice. In the opening that is a habit, not chance, and the cheapest points in chess.",
+    leakNone: "No repeated opening mistake in this selection. Either your openings are solid, or there are not enough games yet.",
+    leakSummary: (n, c, g) => `<strong>${n} habits</strong> cost you ${c} points of win chance in total.`,
+    leakSingles: (n) => ` ${n} more opening mistakes happened only once.`,
+    leakTimes: (t, r) => `played ${t}× · position seen ${r}×`,
+    leakBody: (n, l) => `${n === 1 ? "A mistake" : `A mistake every time`}, on average −${l} points of win chance.`,
+    leakBodyPart: (e, n, l) => `A mistake ${e} of ${n} times, on average −${l} points of win chance.`,
+    leakBetter: (m) => ` Better: <strong>${m}</strong>.`,
+    leakOthers: "Also played here:",
+    leakClean: "clean", leakNotClean: "also shaky",
+    leakSince: (n) => n === 0 ? "Last time: this move again." : `Since then you played something else ${n}×.`,
+    leakDrilled: (ok) => ok ? "Last drill: solved ✓" : "Last drill: not yet",
+    leakHist: "Every time the position came up, oldest first: red = this move, green = a clean alternative.",
+    actBoard: "Show board", actHide: "Hide board", actDrill: "Practise", actTree: "Open in tree",
+    actLichess: "Analyse on Lichess",
+    drillAll: (n) => `Practise all ${n}`,
+    drillTitle: (i, n) => `Drill ${i} of ${n}`,
+    drillAsk: (side, mv) => `You are ${side}. In your games you played <strong>${mv}</strong> here. Find something better.`,
+    drillYour: (side) => `You are ${side}. Your move.`,
+    drillThinking: "Checking…",
+    drillGood: (san) => `Good — <strong>${san}</strong> holds the position.`,
+    drillGoodAlt: (san, best) => `Good — <strong>${san}</strong> works. The engine slightly prefers ${best}.`,
+    drillBad: (san, reply, best) => `<strong>${san}</strong> is not good enough${reply ? ` — ${reply} is the answer` : ""}. Better: <strong>${best}</strong>.`,
+    drillSame: (san) => `That is the move from your games again (<strong>${san}</strong>).`,
+    drillRetry: "Try again", drillNext: "Next", drillShow: "Show the answer", drillClose: "Close",
+    drillDone: (g, n) => `Done: ${g} of ${n} solved on the first try.`,
+    drillNoEngine: "No engine available for checking moves.",
+    drillErr: (m) => `Could not check the move: ${m}`,
+    treeTitle: "Your repertoire, move by move",
+    treeIntro: "Built from your own games only. Your moves show how accurately you played them; opponent moves show how you score after them.",
+    treeStart: "Start",
+    treeEmpty: "No games with this colour in this selection.",
+    treeEnd: "Beyond this point your games go separate ways.",
+    treeHead: { move: "Move", games: "Games", score: "Score", acc: "Accuracy", note: "" },
+    treeYour: "Your move", treeTheir: "Their move",
+    treeErr: (n, b) => `${n}× mistake${b ? ` · better ${b}` : ""}`,
+    treeGames: (n, s) => `${n} games · ${s} score`,
+    treeAllColor: "Showing your games as White — pick a colour above.",
+  },
+  de: {
+    tabGames: "Partien", tabOpenings: "Eröffnungen",
+    gvOpenReport: "Partiebericht",
+    gvListTitle: "Deine Partien",
+    gvListIntro: "Jede Phase im Vergleich mit deinen eigenen Partien derselben Art: grün = besser als zwei Drittel davon, rot = schlechter als zwei Drittel.",
+    gvEmpty: "Keine Partien in dieser Auswahl.",
+    gvMore: "Mehr laden",
+    gvPick: "Wähle links eine Partie, um zu sehen, wie jede Phase lief.",
+    gvNotAnalysed: "Diese Partie ist noch nicht analysiert.",
+    gvShort: { opening: "E", middlegame: "M", endgame: "S" },
+    gvVs: (o, r) => `gegen ${o}${r ? ` (${r})` : ""}`,
+    gvAccuracy: (a) => `Genauigkeit ${a} %`,
+    gvSummary: (a, best, worst) => `Genauigkeit über die ganze Partie: <strong>${a} %</strong>.` +
+      (best && worst ? ` Am besten lief das <strong>${best}</strong>, am schwächsten ${worst === "Eröffnung" ? "die" : "das"} <strong>${worst}</strong>.` : ""),
+    gvPlatformAcc: (p, a) => ` ${p} gab dir ${a} %.`,
+    grade: { strong: "Stark", average: "Durchschnitt", weak: "Schwach" },
+    gvMoves: (a, b) => a === b ? `Zug ${a}` : `Zug ${a}–${b}`,
+    gvNotReached: "nicht erreicht",
+    gvTooShort: "zu kurz für eine Note",
+    gvPct: (p, tc, m) => `besser als ${p} % deiner ${tc}-Partien (dein Mittel ${m} %)`,
+    gvNoRef: "zu wenige Partien dieser Art zum Vergleichen",
+    gvErrCounts: (b, m, i) => `${b} Patzer · ${m} Fehler · ${i} Ungenauigkeiten`,
+    gvWin: (a, b) => `Gewinnchance ${a} % → ${b} %`,
+    gvChartTitle: "Gewinnchance im Verlauf",
+    gvChartNote: "Aus deiner Sicht. Punkte sind deine Fehler, die Phasen sind hinterlegt.",
+    gvTurning: "Wendepunkt",
+    gvTurningText: (mv, a, b) => `<strong>${mv}</strong> brachte deine Gewinnchance von ${a} % auf ${b} %.`,
+    gvGifts: "Fehler deines Gegners",
+    gvGiftsText: (n, u) => `Dein Gegner hat dir ${n}× etwas geschenkt – ${u}× hast du es behalten.`,
+    gvGiftsNone: "Dein Gegner hat in dieser Partie keinen klaren Fehler gemacht.",
+    gvGift: (mv, g, w) => `nach seinem ${mv}. Zug: +${g} Punkte (auf ${w} %)`,
+    gvGiftUsed: (san) => ` – behalten mit ${san}`,
+    gvGiftMissed: (san, best) => ` – zurückgegeben mit ${san}${best ? ` (besser ${best})` : ""}`,
+    gvErrors: "Alle Fehler dieser Partie",
+    gvNoErrors: "Keine Patzer, Fehler oder Ungenauigkeiten – eine saubere Partie.",
+    gvBestWas: (m) => ` · besser ${m}`,
+    gvReply: (m) => ` · Antwort ${m}`,
+    gvSpent: (t) => ` · ${t} nachgedacht`,
+    gvOpenOn: (p) => `auf ${p} öffnen`,
+    leakTitle: "Fehler, die du immer wieder machst",
+    leakIntro: "Gleiche Stellung, gleicher schwacher Zug – mindestens zweimal. In der Eröffnung ist das kein Zufall, sondern eine Gewohnheit, und die billigsten Punkte im Schach.",
+    leakNone: "Kein wiederholter Eröffnungsfehler in dieser Auswahl. Entweder sitzen deine Eröffnungen, oder es sind noch zu wenige Partien.",
+    leakSummary: (n, c, g) => `<strong>${n} Gewohnheiten</strong> kosten dich zusammen ${c} Punkte Gewinnchance.`,
+    leakSingles: (n) => ` Dazu ${n} Eröffnungsfehler, die nur einmal vorkamen.`,
+    leakTimes: (t, r) => `${t}× gespielt · Stellung ${r}× erreicht`,
+    leakBody: (n, l) => `Jedes Mal ein Fehler, im Schnitt −${l} Punkte Gewinnchance.`,
+    leakBodyPart: (e, n, l) => `${e} von ${n} Mal ein Fehler, im Schnitt −${l} Punkte Gewinnchance.`,
+    leakBetter: (m) => ` Besser: <strong>${m}</strong>.`,
+    leakOthers: "Hier auch gespielt:",
+    leakClean: "sauber", leakNotClean: "auch wackelig",
+    leakSince: (n) => n === 0 ? "Zuletzt: wieder dieser Zug." : `Seither ${n}× etwas anderes gespielt.`,
+    leakDrilled: (ok) => ok ? "Zuletzt geübt: gelöst ✓" : "Zuletzt geübt: noch nicht gelöst",
+    leakHist: "Jedes Mal, als die Stellung aufs Brett kam, älteste zuerst: rot = dieser Zug, grün = eine saubere Alternative.",
+    actBoard: "Brett zeigen", actHide: "Brett ausblenden", actDrill: "Üben", actTree: "Im Baum öffnen",
+    actLichess: "Auf Lichess analysieren",
+    drillAll: (n) => `Alle ${n} üben`,
+    drillTitle: (i, n) => `Übung ${i} von ${n}`,
+    drillAsk: (side, mv) => `Du spielst ${side}. In deinen Partien kam hier <strong>${mv}</strong>. Finde etwas Besseres.`,
+    drillYour: (side) => `Du spielst ${side}. Dein Zug.`,
+    drillThinking: "Prüfe …",
+    drillGood: (san) => `Gut – <strong>${san}</strong> hält die Stellung.`,
+    drillGoodAlt: (san, best) => `Gut – <strong>${san}</strong> geht. Die Engine zieht ${best} knapp vor.`,
+    drillBad: (san, reply, best) => `<strong>${san}</strong> reicht nicht${reply ? ` – ${reply} ist die Antwort` : ""}. Besser: <strong>${best}</strong>.`,
+    drillSame: (san) => `Das ist wieder der Zug aus deinen Partien (<strong>${san}</strong>).`,
+    drillRetry: "Nochmal", drillNext: "Weiter", drillShow: "Lösung zeigen", drillClose: "Schliessen",
+    drillDone: (g, n) => `Fertig: ${g} von ${n} beim ersten Versuch gelöst.`,
+    drillNoEngine: "Keine Engine da, um Züge zu prüfen.",
+    drillErr: (m) => `Zug liess sich nicht prüfen: ${m}`,
+    treeTitle: "Dein Repertoire, Zug für Zug",
+    treeIntro: "Nur aus deinen eigenen Partien. Bei deinen Zügen steht, wie genau du sie gespielt hast; bei den Zügen des Gegners, wie du danach abschneidest.",
+    treeStart: "Start",
+    treeEmpty: "Keine Partien mit dieser Farbe in der Auswahl.",
+    treeEnd: "Ab hier gehen deine Partien auseinander.",
+    treeHead: { move: "Zug", games: "Partien", score: "Ergebnis", acc: "Genauigkeit", note: "" },
+    treeYour: "Dein Zug", treeTheir: "Zug des Gegners",
+    treeErr: (n, b) => `${n}× Fehler${b ? ` · besser ${b}` : ""}`,
+    treeGames: (n, s) => `${n} Partien · ${s} Ergebnis`,
+    treeAllColor: "Gezeigt: deine Partien mit Weiss – oben eine Farbe wählen.",
+  },
+};
+const tx = () => I18N_X[lang];
+
+const sideName = (c) => (c === "black" ? t().black : t().white);
+const moveLabel = (n, c, san) => `${n}${c === "black" ? "…" : "."} ${san}`;
+const isOnline = () => !!(data.status && data.status.online);
+
+function filterSig(extra) {
+  return [timeClass, platform, range, extra || ""].join("|");
+}
+function filterParts() {
+  const parts = [];
+  if (RANGES[range]) parts.push("days=" + RANGES[range]);
+  if (timeClass !== "all") parts.push("time_class=" + timeClass);
+  if (platform !== "all") parts.push("platform=" + platform);
+  return parts;
+}
+
+// --------------------------------------------------------------------------
+// Reiter "Partien"
+// --------------------------------------------------------------------------
+const gv = { sig: null, items: [], total: 0, loading: false, sel: null, report: null, reportFor: null, error: null };
+
+async function loadGameList(append) {
+  gv.loading = true;
+  const parts = filterParts().concat(["limit=30", "offset=" + (append ? gv.items.length : 0)]);
+  try {
+    const d = await api("review/games?" + parts.join("&"));
+    gv.items = append ? gv.items.concat(d.games) : d.games;
+    gv.total = d.total;
+    gv.error = null;
+    if (!append) {
+      // Gewaehlte Partie behalten, wenn sie noch in der Liste ist - sonst die
+      // juengste analysierte, damit gleich etwas zu sehen ist.
+      if (!gv.items.some((g) => g.id === gv.sel)) {
+        const first = gv.items.find((g) => g.analyzed);
+        gv.sel = first ? first.id : null;
+      }
+    }
+  } catch (err) {
+    gv.error = err.message;
+  } finally {
+    gv.loading = false;
+  }
+  renderGamesView();
+  if (gv.sel && gv.reportFor !== gv.sel) loadReport(gv.sel);
+}
+
+async function loadReport(id, scroll) {
+  gv.sel = id;
+  gv.reportFor = id;
+  gv.report = "loading";
+  renderGamesView();
+  try { gv.report = await api("review/games/" + id); }
+  catch { gv.report = "error"; }
+  renderGamesView();
+  if (scroll) {
+    const el = $id("gvReport");
+    if (el && window.innerWidth < 900) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+function gradeCls(g) { return g ? "g-" + g : "g-none"; }
+
+function renderGamesView() {
+  if (view !== "games") return;
+  const L = t(), X = tx();
+  if (gv.sig !== filterSig() && !gv.loading) {
+    gv.sig = filterSig();
+    loadGameList(false);
+  }
+  $id("gvListTitle").textContent = X.gvListTitle;
+  $id("gvListIntro").textContent = X.gvListIntro;
+  let html = "";
+  if (gv.error) html = `<p class="note err">${esc(L.noData(gv.error))}</p>`;
+  else if (!gv.items.length) html = `<p class="muted">${gv.loading ? esc(L.loading) : esc(X.gvEmpty)}</p>`;
+  else {
+    html = `<div class="gl">` + gv.items.map((g) => {
+      const tag = `<span class="tag ${g.result === "win" ? "win" : g.result === "loss" ? "loss" : ""}">${esc(L[g.result] || g.result)}</span>`;
+      const pills = g.analyzed
+        ? g.phases.map((p) => `<span class="ph ${gradeCls(p.grade)}" title="${esc(phaseName(p.phase))}${p.accuracy != null ? " " + p.accuracy + "%" : ""}">` +
+            `${esc(X.gvShort[p.phase])} ${p.accuracy != null ? Math.round(p.accuracy) : "–"}</span>`).join("")
+        : `<span class="muted">${esc(L.notAnalysed.replace(/^ · /, ""))}</span>`;
+      return `<button type="button" class="gl-item${g.id === gv.sel ? " on" : ""}" data-game="${g.id}">
+        <span class="gl-top">${tag} <strong>${esc(g.opponent || "?")}</strong>${g.opponent_rating ? ` <span class="muted">(${g.opponent_rating})</span>` : ""}
+          <span class="dot ${g.color}" title="${esc(sideName(g.color))}"></span></span>
+        <span class="gl-mid muted">${esc(date(g.played_at))} · ${esc(L[g.time_class] || g.time_class)}${g.opening ? " · " + esc(g.opening) : ""}</span>
+        <span class="gl-pills">${pills}</span>
+      </button>`;
+    }).join("") + `</div>`;
+    if (gv.items.length < gv.total)
+      html += `<button class="btn gl-more" type="button" data-gmore="1">${esc(X.gvMore)} (${gv.items.length}/${gv.total})</button>`;
+  }
+  $id("gvList").innerHTML = html;
+  $id("gvReport").innerHTML = reportHtml();
+}
+
+function reportHtml() {
+  const L = t(), X = tx(), r = gv.report;
+  if (!gv.sel) return `<div class="card"><p class="muted">${esc(X.gvPick)}</p></div>`;
+  if (r === "loading" || r == null) return `<div class="card"><p class="muted">${esc(L.loading)}</p></div>`;
+  if (r === "error") return `<div class="card"><p class="muted">${esc(L.noData("404"))}</p></div>`;
+  const g = r.game;
+  const tag = `<span class="tag ${g.result === "win" ? "win" : g.result === "loss" ? "loss" : ""}">${esc(L[g.result] || g.result)}</span>`;
+  const link = g.url && g.platform !== "pgn"
+    ? `<a href="${esc(g.url)}" target="_blank" rel="noreferrer">${esc(X.gvOpenOn(L[g.platform] || g.platform))}</a>` : "";
+  let head = `<div class="card">
+    <div class="rp-head">
+      <div><h2>${tag} ${esc(X.gvVs(g.opponent || "?", g.opponent_rating))}</h2>
+      <p class="muted">${esc(sideName(g.color))} · ${esc(L[g.time_class] || g.time_class)}${g.time_control ? " " + esc(g.time_control) : ""} · ${esc(date(g.played_at))}${g.opening ? " · " + esc(g.opening_name || g.opening) : ""}</p></div>
+      <div class="rp-link">${link}</div>
+    </div>`;
+  if (!g.analyzed) return head + `<p class="muted">${esc(g.analysis_error ? L.failed(g.analysis_error) : X.gvNotAnalysed)}</p></div>`;
+  const best = r.best_phase ? phaseName(r.best_phase) : null, worst = r.worst_phase ? phaseName(r.worst_phase) : null;
+  head += `<p class="rp-sum">${X.gvSummary(num(r.accuracy, 0), best, worst)}${g.accuracy_platform != null ? esc(X.gvPlatformAcc(L[g.platform] || g.platform, num(g.accuracy_platform, 0))) : ""}</p>`;
+  head += `<div class="ph-grid">` + r.phases.map((p) => phaseTile(p, g.time_class)).join("") + `</div></div>`;
+
+  const chart = `<div class="card"><h2>${esc(X.gvChartTitle)}</h2><p class="muted">${esc(X.gvChartNote)}</p>${evalChart(r)}</div>`;
+
+  let moments = "";
+  if (r.turning_point) {
+    const tp = r.turning_point;
+    moments += `<div class="row"><div class="row-top"><strong>${esc(X.gvTurning)}</strong></div>
+      <p class="rp-p">${X.gvTurningText(esc(moveLabel(tp.move_number, tp.color, tp.san)), num(tp.win_before, 0), num(tp.win_after, 0))}${tp.best_move_san ? esc(X.gvBestWas(tp.best_move_san)) : ""}${boardButton(tp.id)}</p>${boardSlot(tp.id)}</div>`;
+  }
+  const gifts = r.opponent_gifts || [];
+  moments += `<div class="row"><div class="row-top"><strong>${esc(X.gvGifts)}</strong></div>` +
+    (gifts.length
+      ? `<p class="rp-p">${esc(X.gvGiftsText(gifts.length, gifts.filter((x) => x.used).length))}</p><ul class="rp-list">` +
+        gifts.map((x) => `<li class="${x.used ? "ok" : "miss"}">${esc(X.gvGift(x.move_number, num(x.gain, 0), num(x.win_after, 0)))}` +
+          `${esc(x.used ? X.gvGiftUsed(x.reply_san) : X.gvGiftMissed(x.reply_san, x.reply_best))}` +
+          `${x.used ? "" : boardButton(x.reply_id)}${x.used ? "" : boardSlot(x.reply_id)}</li>`).join("") + `</ul>`
+      : `<p class="rp-p muted">${esc(X.gvGiftsNone)}</p>`) + `</div>`;
+  const momentsCard = `<div class="card"><div class="rows">${moments}</div></div>`;
+
+  const errs = r.errors || [];
+  const errCard = `<div class="card"><h2>${esc(X.gvErrors)}</h2>` + (errs.length
+    ? `<div class="items" style="max-height:none;margin-top:10px">` + errs.map((e) => {
+        const kind = e.error_type && L.errors[e.error_type] ? L.errors[e.error_type] : "";
+        const missed = e.missed_motif && L.missed[e.missed_motif] ? L.missed[e.missed_motif] : "";
+        return `<div class="item">
+          <p><span class="tag ${e.category}">${esc(L[e.category] || e.category)}</span> <strong>${esc(moveLabel(e.move_number, e.color, e.san))}</strong>${kind ? " · " + esc(kind) : ""}${missed ? " · " + esc(missed) : ""} · ${esc(phaseName(e.phase))}</p>
+          <p>${esc(X.gvWin(num(e.win_before, 0), num(e.win_after, 0)))}${e.best_move_san ? esc(X.gvBestWas(e.best_move_san)) : ""}${e.refutation_san ? esc(X.gvReply(e.refutation_san)) : ""}${e.seconds_spent != null && g.time_class !== "daily" ? esc(X.gvSpent(secs(e.seconds_spent))) : ""}${boardButton(e.id)}</p>
+          ${boardSlot(e.id)}</div>`;
+      }).join("") + `</div>`
+    : `<p class="muted">${esc(X.gvNoErrors)}</p>`) + `</div>`;
+  return head + chart + momentsCard + errCard;
+}
+
+function phaseTile(p, timeClass) {
+  const L = t(), X = tx();
+  if (!p.reached) return `<div class="ph-tile g-none"><div class="ph-name">${esc(phaseName(p.phase))}</div>
+    <div class="ph-acc muted">–</div><p class="muted">${esc(X.gvNotReached)}</p></div>`;
+  const grade = p.grade ? `<span class="tag grade ${p.grade}">${esc(X.grade[p.grade])}</span>` : "";
+  const cmp = p.accuracy == null ? X.gvTooShort
+    : p.percentile != null ? X.gvPct(p.percentile, L[timeClass] || timeClass, num(p.your_median, 0)) : X.gvNoRef;
+  return `<div class="ph-tile ${gradeCls(p.grade)}">
+    <div class="ph-name">${esc(phaseName(p.phase))} <span class="muted">${esc(X.gvMoves(p.from_move, p.to_move))}</span></div>
+    <div class="ph-acc">${p.accuracy != null ? num(p.accuracy, 0) + "<small>%</small>" : "–"} ${grade}</div>
+    <p class="muted">${esc(cmp)}</p>
+    <p>${esc(X.gvErrCounts(p.blunders, p.mistakes, p.inaccuracies))}</p>
+    <p class="muted">${esc(X.gvWin(num(p.win_start, 0), num(p.win_end, 0)))}</p>
+  </div>`;
+}
+
+function evalChart(r) {
+  const pts = r.curve || [];
+  if (pts.length < 2) return "";
+  const W = 640, H = 180, padL = 30, padR = 8, padT = 8, padB = 20;
+  const maxPly = Math.max(...pts.map((p) => p.ply), 1);
+  const x = (ply) => padL + (ply / maxPly) * (W - padL - padR);
+  const y = (w) => padT + (1 - w / 100) * (H - padT - padB);
+  // Phasen als Baender: zusammenhaengende Abschnitte derselben Phase.
+  let bands = "", start = pts[0], prev = pts[0];
+  const flush = (a, b) => {
+    bands += `<rect class="band ${a.phase}" x="${x(a.ply).toFixed(1)}" y="${padT}" width="${Math.max(0, x(b.ply) - x(a.ply)).toFixed(1)}" height="${H - padT - padB}"/>`;
+  };
+  for (const p of pts.slice(1)) {
+    if (p.phase !== start.phase) { flush(start, prev); start = prev; start = { ...prev, phase: p.phase }; }
+    prev = p;
+  }
+  flush(start, prev);
+  const line = pts.map((p, i) => `${i ? "L" : "M"}${x(p.ply).toFixed(1)},${y(p.win).toFixed(1)}`).join(" ");
+  const area = `${line} L${x(pts[pts.length - 1].ply).toFixed(1)},${y(0)} L${x(pts[0].ply).toFixed(1)},${y(0)} Z`;
+  const dots = pts.filter((p) => p.category).map((p) =>
+    `<circle class="dot-${p.category}" cx="${x(p.ply).toFixed(1)}" cy="${y(p.win).toFixed(1)}" r="5"><title>${esc(moveLabel(p.move_number, r.game.color, p.san))} · ${p.win}%</title></circle>`).join("");
+  const grid = [0, 50, 100].map((v) => `<line class="grid-ln" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/>` +
+    `<text class="ax" x="${padL - 5}" y="${y(v) + 4}">${v}</text>`).join("");
+  const ticks = [];
+  for (let m = 10; m * 2 <= maxPly; m += 10) ticks.push(`<text class="ax mid" x="${x(m * 2 - 1).toFixed(1)}" y="${H - 5}">${m}</text>`);
+  const legend = ["opening", "middlegame", "endgame"].filter((ph) => pts.some((p) => p.phase === ph))
+    .map((ph) => `<span><i class="band-key ${ph}"></i>${esc(phaseName(ph))}</span>`).join("");
+  return `<svg class="evc" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tx().gvChartTitle)}">
+    ${bands}${grid}${ticks.join("")}<path class="area" d="${area}"/><path class="ln" d="${line}"/>${dots}</svg>
+    <div class="evc-key">${legend}<span><i class="dk blunder"></i>${esc(t().blunder)}</span><span><i class="dk mistake"></i>${esc(t().mistake)}</span><span><i class="dk inaccuracy"></i>${esc(t().inaccuracy)}</span></div>`;
+}
+
+// --------------------------------------------------------------------------
+// Reiter "Eroeffnungen"
+// --------------------------------------------------------------------------
+const rp = { sig: null, leaks: null, loading: false, error: null, open: new Set(),
+             tree: null, treeKey: null, treeSig: null, treeLoading: false };
+const drillStore = {
+  get(id) { try { return JSON.parse(localStorage.getItem("knightmare.drill") || "{}")[id] || null; } catch { return null; } },
+  set(id, ok) {
+    try {
+      const all = JSON.parse(localStorage.getItem("knightmare.drill") || "{}");
+      all[id] = { ok, at: new Date().toISOString().slice(0, 10) };
+      localStorage.setItem("knightmare.drill", JSON.stringify(all));
+    } catch { /* egal */ }
+  },
+};
+const treeColor = () => (color === "black" ? "black" : "white");
+
+async function loadLeaks() {
+  rp.loading = true;
+  const parts = filterParts().concat(["limit=40"]);
+  if (color !== "all") parts.push("color=" + color);
+  try { rp.leaks = await api("repertoire/leaks?" + parts.join("&")); rp.error = null; }
+  catch (err) { rp.error = err.message; }
+  finally { rp.loading = false; }
+  renderOpeningsView();
+}
+async function loadTree(key) {
+  rp.treeLoading = true;
+  rp.treeKey = key || null;
+  const parts = filterParts().concat(["color=" + treeColor()]);
+  if (key) parts.push("key=" + encodeURIComponent(key));
+  try { rp.tree = await api("repertoire/tree?" + parts.join("&")); }
+  catch { rp.tree = null; }
+  finally { rp.treeLoading = false; }
+  renderTree();
+}
+
+function renderOpeningsView() {
+  if (view !== "openings") return;
+  const X = tx();
+  const sig = filterSig(color);
+  if (rp.sig !== sig && !rp.loading) {
+    rp.sig = sig;
+    loadLeaks();
+  }
+  const tsig = filterSig(treeColor());
+  if (rp.treeSig !== tsig && !rp.treeLoading) {
+    // Farbe gewechselt: zurueck zum Anfang, der alte Knoten gehoert zur anderen Farbe.
+    const keep = rp.treeSig && rp.treeSig.split("|")[3] === treeColor();
+    rp.treeSig = tsig;
+    loadTree(keep ? rp.treeKey : null);
+  }
+  $id("leakTitle").textContent = X.leakTitle;
+  $id("leakIntro").textContent = X.leakIntro;
+  $id("treeTitle").textContent = X.treeTitle;
+  $id("treeIntro").textContent = X.treeIntro;
+  renderLeaks();
+  renderTree();
+  renderDrill();
+}
+
+function lichessUrl(fen, side) {
+  return "https://lichess.org/analysis/" + fen.replace(/ /g, "_") + "?color=" + side;
+}
+function leakBoard(l) {
+  return miniBoard({ fen: l.fen, orientation: l.color, last: l.last_move, played: l.uci, best: l.best_uci }, l.id);
+}
+
+function renderLeaks() {
+  const L = t(), X = tx(), d = rp.leaks;
+  const btn = $id("drillAllBtn");
+  if (rp.error) { $id("leakRows").innerHTML = `<p class="note err">${esc(L.noData(rp.error))}</p>`; btn.hidden = true; return; }
+  if (!d) { $id("leakRows").innerHTML = `<p class="muted">${esc(L.loading)}</p>`; $id("leakSummary").innerHTML = ""; btn.hidden = true; return; }
+  const rows = d.leaks || [];
+  btn.hidden = !rows.length || isOnline();
+  btn.textContent = X.drillAll(rows.length);
+  if (!rows.length) {
+    $id("leakSummary").innerHTML = "";
+    $id("leakRows").innerHTML = `<p class="muted">${esc(X.leakNone)}${d.single_errors ? esc(X.leakSingles(d.single_errors)) : ""}</p>`;
+    return;
+  }
+  const cost = rows.reduce((a, r) => a + r.cost, 0);
+  $id("leakSummary").innerHTML = X.leakSummary(d.total, Math.round(cost)) + (d.single_errors ? esc(X.leakSingles(d.single_errors)) : "");
+  $id("leakRows").innerHTML = rows.map((l) => {
+    const open = rp.open.has(l.id);
+    const body = l.times_error === l.times ? X.leakBody(l.times, num(l.avg_loss, 0)) : X.leakBodyPart(l.times_error, l.times, num(l.avg_loss, 0));
+    const others = l.others.length
+      ? `<p class="muted">${esc(X.leakOthers)} ` + l.others.map((o) => `${esc(o.san)} (${o.times}×, ${esc(o.ok ? X.leakClean : X.leakNotClean)})`).join(", ") + `</p>` : "";
+    const hist = `<span class="hist" title="${esc(X.leakHist)}">` + l.history.map((h) =>
+      `<i class="${h.same ? "bad" : h.ok ? "good" : "meh"}" title="${esc(date(h.played_at))}: ${esc(h.san)}"></i>`).join("") + `</span>`;
+    const drilled = drillStore.get(l.id);
+    return `<div class="row leak">
+      <div class="row-top"><span><strong>${esc(moveLabel(l.move_number, l.color, l.san))}</strong> <span class="tag ${l.category}">${esc(L[l.category] || l.category)}</span></span>
+        <span class="muted">${esc(sideName(l.color))} · ${esc(X.leakTimes(l.times, l.reached))}</span></div>
+      <p class="path">${esc(l.path_text || "–")}</p>
+      <p class="rp-p">${esc(body)}${l.best_san ? X.leakBetter(esc(l.best_san)) : ""}</p>
+      ${others}
+      <p class="muted hist-line">${hist} ${esc(X.leakSince(l.since_last))}${drilled ? " · " + esc(X.leakDrilled(drilled.ok)) : ""}</p>
+      <p class="acts">
+        <button class="linkbtn" type="button" data-lboard="${esc(l.id)}">${esc(open ? X.actHide : X.actBoard)}</button>
+        ${isOnline() ? "" : `· <button class="linkbtn" type="button" data-ldrill="${esc(l.id)}">${esc(X.actDrill)}</button>`}
+        · <button class="linkbtn" type="button" data-ltree="${esc(l.id)}">${esc(X.actTree)}</button>
+        · <a href="${esc(lichessUrl(l.fen, l.color))}" target="_blank" rel="noreferrer">${esc(X.actLichess)}</a>
+      </p>
+      ${open ? `<div class="mb">${leakBoard(l)}<ul class="mb-key">
+        <li><i class="k played"></i>${esc(L.boardYou)} <strong>${esc(l.san)}</strong></li>
+        ${l.best_san ? `<li><i class="k best"></i>${esc(L.boardBest)} <strong>${esc(l.best_san)}</strong></li>` : ""}</ul></div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderTree() {
+  if (view !== "openings") return;
+  const L = t(), X = tx(), d = rp.tree;
+  const el = $id("treeBody");
+  const chips = `<div class="chips">` + [["white", L.asWhite], ["black", L.asBlack]].map(([k, label]) =>
+    `<button class="chip ${treeColor() === k ? "on" : ""}" data-color="${k}">${label}</button>`).join("") + `</div>`;
+  if (!d) { el.innerHTML = chips + `<p class="muted">${esc(L.loading)}</p>`; return; }
+  const crumbs = [`<button class="linkbtn" type="button" data-tkey="">${esc(X.treeStart)}</button>`].concat(
+    (d.trail || []).map((s, i) => `<button class="linkbtn" type="button" data-tkey="${esc(s.key)}">${esc(i % 2 === 0 ? `${i / 2 + 1}.${s.san}` : s.san)}</button>`)).join(" › ");
+  if (!d.games) { el.innerHTML = chips + `<p class="crumbs">${crumbs}</p><p class="muted">${esc(X.treeEmpty)}</p>`; return; }
+  const own = d.own_to_move;
+  const rows = d.moves.map((m) => {
+    const scoreTone = m.score >= 55 ? "good" : m.score <= 45 ? "bad" : "";
+    const accCell = own
+      ? `<td class="num">${m.accuracy != null ? num(m.accuracy, 0) + "%" : "–"}</td>
+         <td class="note">${m.errors ? `<span class="tag ${m.worst || "inaccuracy"}">${esc(X.treeErr(m.errors, m.better))}</span>` : ""}</td>`
+      : `<td></td><td></td>`;
+    const san = m.next_key
+      ? `<button class="linkbtn" type="button" data-tkey="${esc(m.next_key)}">${esc(m.san)}</button>` : esc(m.san);
+    return `<tr><td class="mv">${san}</td><td class="num">${m.games}</td>
+      <td class="sc">${bar(m.score, 100, scoreTone || "")}<span>${num(m.score, 0, "%")}</span></td>${accCell}</tr>`;
+  }).join("");
+  const head = X.treeHead;
+  el.innerHTML = chips + (color === "all" ? `<p class="muted">${esc(X.treeAllColor)}</p>` : "") +
+    `<p class="crumbs">${crumbs}</p>
+    <div class="tree">
+      <div class="tree-board">${miniBoard({ fen: d.fen, orientation: d.color, last: d.last_move }, "tree")}
+        <p class="muted">${esc(X.treeGames(d.games, num(d.score, 0, "%")))} · ${esc(own ? X.treeYour : X.treeTheir)}</p></div>
+      <div class="tree-moves">${d.moves.length ? `<table class="tt"><thead><tr><th>${esc(head.move)}</th><th class="num">${esc(head.games)}</th><th>${esc(head.score)}</th>
+        <th class="num">${own ? esc(head.acc) : ""}</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : `<p class="muted">${esc(X.treeEnd)}</p>`}</div>
+    </div>`;
+}
+
+// --------------------------------------------------------------------------
+// Eroeffnungs-Drill: Stellung aus einem wiederkehrenden Fehler, finde den
+// besseren Zug. Geprueft vom Server mit Stockfish - jeder Zug, der hoechstens
+// ein paar Punkte schlechter ist als der beste, zaehlt.
+// --------------------------------------------------------------------------
+const dr = { items: [], idx: 0, board: null, sel: null, state: "idle", res: null, first: true, solved: 0, marks: {} };
+
+function startDrill(ids) {
+  const all = (rp.leaks && rp.leaks.leaks) || [];
+  dr.items = ids ? all.filter((l) => ids.includes(l.id)) : all.slice();
+  dr.idx = 0; dr.solved = 0;
+  if (!dr.items.length) return;
+  openDrill();
+  const box = $id("drillBox");
+  if (box) box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function openDrill() {
+  const l = dr.items[dr.idx];
+  dr.board = fenBoard(l.fen); dr.sel = null; dr.state = "move"; dr.res = null; dr.first = true; dr.marks = {};
+  renderDrill();
+}
+function renderDrill() {
+  const box = $id("drillBox");
+  if (!box) return;
+  if (dr.state === "idle" || !dr.items.length) { box.innerHTML = ""; return; }
+  const X = tx(), L = t();
+  if (dr.state === "finished") {
+    box.innerHTML = `<div class="drill"><p class="tac-msg good">${esc(X.drillDone(dr.solved, dr.items.length))}</p>
+      <div class="tac-actions"><button class="btn" type="button" data-dclose="1">${esc(X.drillClose)}</button></div></div>`;
+    return;
+  }
+  const l = dr.items[dr.idx];
+  const white = l.color === "white";
+  const dests = new Set(dr.sel == null ? [] : l.legal.filter((u) => u.startsWith(sqName(dr.sel))).map((u) => sqIndex(u.slice(2, 4))));
+  const last = l.last_move ? [sqIndex(l.last_move.slice(0, 2)), sqIndex(l.last_move.slice(2, 4))] : [];
+  let html = "";
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const rank = white ? 7 - r : r, file = white ? c : 7 - c, i = rank * 8 + file;
+    const cls = ["sq", (rank + file) % 2 ? "l" : "d"];
+    if (last.includes(i) && dr.state === "move") cls.push("last");
+    if (dr.sel === i) cls.push("sel");
+    if (dests.has(i)) cls.push("dest", dr.board[i] ? "occ" : "");
+    if (dr.marks[i]) cls.push(dr.marks[i]);
+    const p = dr.board[i];
+    const piece = p ? `<span class="pc ${p === p.toUpperCase() ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : "";
+    const coords = (c === 0 ? `<span class="coord r">${rank + 1}</span>` : "") + (r === 7 ? `<span class="coord f">${FILES[file]}</span>` : "");
+    html += `<div class="${cls.join(" ")}" data-di="${i}">${coords}${piece}</div>`;
+  }
+  let msg = "", cls = "";
+  const res = dr.res;
+  if (dr.state === "busy") msg = esc(X.drillThinking);
+  else if (dr.state === "move") msg = X.drillAsk(esc(sideName(l.color)), esc(l.san));
+  else if (res && res.error) { msg = esc(res.error); cls = "bad"; }
+  else if (res && res.result === "good") {
+    cls = "good";
+    msg = res.best_san && res.best_san !== res.san ? X.drillGoodAlt(esc(res.san), esc(res.best_san)) : X.drillGood(esc(res.san));
+  } else if (res) {
+    cls = "bad";
+    msg = (res.san === l.san ? X.drillSame(esc(res.san)) + " " : "") + X.drillBad(esc(res.san), res.reply_san ? esc(res.reply_san) : "", esc(res.best_san || l.best_san || "?"));
+  }
+  const actions = dr.state === "result"
+    ? (res && res.result === "good"
+        ? `<button class="btn primary grow" type="button" data-dnext="1">${esc(X.drillNext)}</button>`
+        : `<button class="btn" type="button" data-dretry="1">${esc(X.drillRetry)}</button><button class="btn primary grow" type="button" data-dnext="1">${esc(X.drillNext)}</button>`)
+    : "";
+  box.innerHTML = `<div class="drill">
+    <div class="tac-meta"><strong>${esc(X.drillTitle(dr.idx + 1, dr.items.length))}</strong>
+      <span class="muted">${esc(l.path_text)}</span>
+      <button class="linkbtn" type="button" data-dclose="1">${esc(X.drillClose)}</button></div>
+    <div class="board-wrap"><div class="board" id="drillBoard">${html}</div></div>
+    <p class="tac-msg ${cls}">${msg}</p>
+    <div class="tac-actions">${actions}</div>
+  </div>`;
+}
+
+async function drillMove(from, to) {
+  const l = dr.items[dr.idx];
+  let uci = sqName(from) + sqName(to);
+  if (!l.legal.includes(uci)) {
+    if (l.legal.includes(uci + "q")) uci += "q";
+    else return;
+  }
+  dr.board = applyUci(dr.board, uci);
+  dr.sel = null; dr.state = "busy"; dr.marks = {};
+  renderDrill();
+  let res;
+  try {
+    res = await apiJson("repertoire/check", { fen: l.fen, uci });
+  } catch (err) {
+    const msg = String(err.message || err);
+    res = { error: msg.includes("no_engine") ? tx().drillNoEngine : tx().drillErr(msg) };
+  }
+  dr.res = res; dr.state = "result";
+  if (!res.error) {
+    const ok = res.result === "good";
+    dr.marks[sqIndex(uci.slice(0, 2))] = ok ? "good" : "bad";
+    dr.marks[sqIndex(uci.slice(2, 4))] = ok ? "good" : "bad";
+    if (!ok && res.best_uci) {
+      dr.marks[sqIndex(res.best_uci.slice(0, 2))] = dr.marks[sqIndex(res.best_uci.slice(0, 2))] || "good";
+      dr.marks[sqIndex(res.best_uci.slice(2, 4))] = "good";
+    }
+    if (dr.first) {
+      if (ok) dr.solved += 1;
+      drillStore.set(l.id, ok);
+    }
+    dr.first = false;
+  }
+  renderDrill();
+  renderLeaks();
+}
+
+document.addEventListener("click", (e) => {
+  const sq = e.target.closest("[data-di]");
+  if (sq && dr.state === "move") {
+    const i = Number(sq.dataset.di), l = dr.items[dr.idx];
+    const p = dr.board[i];
+    const mine = p && ((p === p.toUpperCase()) === (l.color === "white"));
+    if (dr.sel != null && dr.sel !== i && l.legal.some((u) => u.startsWith(sqName(dr.sel) + sqName(i)))) { drillMove(dr.sel, i); return; }
+    dr.sel = mine && dr.sel !== i ? i : null;
+    renderDrill();
+    return;
+  }
+  const el = e.target.closest("[data-game],[data-gmore],[data-report],[data-lboard],[data-ldrill],[data-ltree],[data-tkey],[data-dnext],[data-dretry],[data-dclose],#drillAllBtn");
+  if (!el) return;
+  if (el.id === "drillAllBtn") { startDrill(null); return; }
+  const ds = el.dataset;
+  if (ds.game) { loadReport(Number(ds.game), true); return; }
+  if (ds.gmore) { loadGameList(true); return; }
+  if (ds.report) { e.preventDefault(); gv.sel = Number(ds.report); gv.reportFor = null; setView("games"); loadReport(gv.sel); window.scrollTo(0, 0); return; }
+  if (ds.lboard) { rp.open.has(ds.lboard) ? rp.open.delete(ds.lboard) : rp.open.add(ds.lboard); renderLeaks(); return; }
+  if (ds.ldrill) { startDrill([ds.ldrill]); return; }
+  if (ds.ltree) {
+    const l = ((rp.leaks && rp.leaks.leaks) || []).find((x) => x.id === ds.ltree);
+    if (!l) return;
+    if (treeColor() !== l.color) { color = l.color; rp.treeSig = filterSig(treeColor()); renderFilters(); loadAll(); }
+    loadTree(l.key);
+    $id("treeCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if ("tkey" in ds) { loadTree(ds.tkey || null); return; }
+  if (ds.dnext) { dr.idx += 1; if (dr.idx >= dr.items.length) { dr.state = "finished"; renderDrill(); } else openDrill(); return; }
+  if (ds.dretry) { const keep = dr.first; openDrill(); dr.first = keep; return; }
+  if (ds.dclose) { dr.state = "idle"; dr.items = []; renderDrill(); return; }
 });
 
 // Waehrend ein Durchgang laeuft, den Status nachziehen.

@@ -19,6 +19,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Optional
 
+import chess
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -28,7 +29,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import __version__, focus, stats, tactics
+from . import __version__, focus, repertoire, review, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import (
     SETUP_KEYS,
@@ -658,6 +659,93 @@ def get_move_board(move_id: int, session: Session = Depends(get_session)) -> dic
     if not result.get("found"):
         raise HTTPException(status_code=404, detail="move_not_found")
     return result
+
+
+# --------------------------------------------------------------------------
+# Partien im Einzelnen: Phasen-Noten und alle Fehler einer Partie
+# --------------------------------------------------------------------------
+@api.get("/review/games")
+def get_review_games(
+    limit: int = Query(default=30, ge=1, le=200),
+    offset: int = Query(default=0, ge=0, le=100000),
+    days: Optional[int] = DaysParam,
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    return review.game_list(
+        session, limit=limit, offset=offset, days=days,
+        time_class=_clean_time_class(time_class), platform=_clean_platform(platform),
+    )
+
+
+@api.get("/review/games/{game_id}")
+def get_review_game(game_id: int, session: Session = Depends(get_session)) -> dict[str, object]:
+    result = review.game_report(session, game_id)
+    if not result.get("found"):
+        raise HTTPException(status_code=404, detail="game_not_found")
+    return result
+
+
+# --------------------------------------------------------------------------
+# Repertoire: Zugbaum der eigenen Partien und wiederkehrende Fehler
+# --------------------------------------------------------------------------
+ColorParam = Query(default=None, pattern="^(white|black|all)?$")
+
+
+@api.get("/repertoire/tree")
+def get_repertoire_tree(
+    color: Optional[str] = ColorParam,
+    key: Optional[str] = Query(default=None, max_length=100),
+    days: Optional[int] = DaysParam,
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    return repertoire.explore(
+        session, color=color or "white", key=key, days=days,
+        time_class=_clean_time_class(time_class), platform=_clean_platform(platform),
+    )
+
+
+@api.get("/repertoire/leaks")
+def get_repertoire_leaks(
+    color: Optional[str] = ColorParam,
+    days: Optional[int] = DaysParam,
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    limit: int = Query(default=30, ge=1, le=200),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    return repertoire.leaks(
+        session, color=None if color in (None, "all") else color, days=days,
+        time_class=_clean_time_class(time_class), platform=_clean_platform(platform), limit=limit,
+    )
+
+
+class DrillBody(BaseModel):
+    fen: str = Field(max_length=100)
+    uci: str = Field(min_length=4, max_length=5)
+
+
+@api.post("/repertoire/check")
+def repertoire_check(body: DrillBody) -> dict[str, object]:
+    """Eroeffnungs-Drill: ist der Zug in dieser Stellung gut genug? Nutzt die
+    Engine des Trainings (eigener Prozess, kurze Rechenzeit)."""
+    trainer = tactics.get_trainer()
+    if not trainer.engine.available:
+        raise HTTPException(status_code=503, detail="no_engine")
+    try:
+        board = chess.Board(body.fen)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="bad_fen") from exc
+    if not board.is_valid():
+        raise HTTPException(status_code=400, detail="bad_fen")
+    res = repertoire.check_drill(trainer.engine, body.fen, body.uci,
+                                 tolerance=trainer.settings.alt_tolerance)
+    if res["result"] == "illegal":
+        raise HTTPException(status_code=400, detail="illegal_move")
+    return res
 
 
 @api.get("/rating")

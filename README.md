@@ -106,6 +106,41 @@ rebuilt from the stored PGN on the fly, so there is nothing extra to store and
 nothing that can go stale. The link to the game on Chess.com or Lichess stays
 for when you want the whole game.
 
+## One game at a time: the game report
+
+The **Games** tab lists your games with three small grades — opening,
+middlegame, endgame. Pick one and you get:
+
+- **Accuracy per phase**, using Lichess' formula on the win probability each
+  move gave away. The grade is relative: *strong* means better than two
+  thirds of your own games of the same type, *weak* worse than two thirds.
+  A fixed "90% is good" would be a guess, and a 1200 and a 2000 player would
+  need different ones. Under ten comparison games there is no grade.
+- **Win chance over the game**, phases shaded, your mistakes as dots, and
+  how your chances went in and out of each phase.
+- **The turning point** — your single most expensive move — and **your
+  opponent's mistakes**: how often they gave you something, and whether you
+  kept it.
+- **Every mistake** of the game, each with its board.
+
+## Openings: the mistakes you keep repeating
+
+Openings are the part of chess that repeats. The **Openings** tab replays the
+first 20 plies of every game and works on *positions*, not names or move
+orders — so transpositions merge, and Chess.com and Lichess games meet no
+matter how each site names the opening.
+
+- **Repeated mistakes**: the same position, the same weak move, at least
+  twice. Each comes with the better move, what else you have played there and
+  whether it went better, a timeline of every time the position came up, a
+  board, and a link to the Lichess analysis board.
+- **Practise**: the position on a board, find the better move. Stockfish
+  checks it — any move within a few points of the best counts, because in the
+  opening there is often more than one good move.
+- **Your repertoire, move by move**: an explorer over your own games only. At
+  your moves you see how accurately you played them; at your opponent's,
+  how you score afterwards.
+
 ## And where to start: the focus card
 
 A dozen statistics still leave you guessing which one matters. The card at the
@@ -291,6 +326,10 @@ GET  /api/missed/moves?motif=fork&sort=recent
 GET  /api/openings?color=black&min_games=3
 GET  /api/focus                              # where to focus: at most three points
 GET  /api/moves/{id}/board                   # position + arrows for one mistake
+GET  /api/review/games  /api/review/games/{id} # games with phase grades, one game's report
+GET  /api/repertoire/leaks?color=black        # opening mistakes you repeat
+GET  /api/repertoire/tree?color=white&key=... # explorer over your own games
+POST /api/repertoire/check                    # drill: is this move good enough here?
 GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze
 GET  /api/tactics/today?day=2026-10-01       # today's puzzles (solutions stay on the server)

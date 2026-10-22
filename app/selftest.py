@@ -21,6 +21,7 @@ import sys
 from typing import Optional
 
 import chess
+import chess.pgn
 
 from .analysis import (
     CATEGORY_BLUNDER,
@@ -1216,6 +1217,102 @@ def test_online() -> bool:
     return bool(ok)
 
 
+# --------------------------------------------------------------------------
+# 12) Partiebericht und Repertoire
+# --------------------------------------------------------------------------
+def test_review_repertoire() -> bool:
+    """Phasen-Noten einer Partie, wiederkehrende Eroeffnungsfehler,
+    Zugumstellungen im Baum und der Drill gegen die Engine."""
+    from datetime import datetime, timedelta
+
+    from sqlmodel import Session
+
+    from . import repertoire, review
+    from .models import ChessGame, ChessMove
+
+    ok = True
+    acc0, acc10, acc30 = (review.move_accuracy(v) for v in (0, 10, 30))
+    ok &= _check("Genauigkeit: 0 Verlust = 100, faellt mit dem Verlust",
+                 acc0 == 100.0 and 60 < acc10 < 70 and 20 < acc30 < 30 and review.move_accuracy(80) >= 0,
+                 f"{acc0:.1f} {acc10:.1f} {acc30:.1f}")
+    ref = sorted(float(v) for v in range(80, 100))
+    ok &= _check("Note relativ zu den eigenen Partien",
+                 (review.grade_for(review.percentile(ref, 99.5)), review.grade_for(review.percentile(ref, 89.5)),
+                  review.grade_for(review.percentile(ref, 80.0))) == ("strong", "average", "weak"))
+
+    eng = _temp_db()
+    base = datetime(2026, 9, 1)
+    # Dreimal dieselbe Falle: 1.e4 e5 2.Nf3 Nc6 3.Bc4 Nd4 4.Nxe5? - einmal
+    # korrekt 4.Nxd4. Dazu eine Partie ueber 1.Nf3 d5 2.d4 und eine ueber
+    # 1.d4 d5 2.Nf3 - dieselbe Stellung.
+    lines = ["e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5", "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5", "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxd4",
+             "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5", "Nf3 d5 d4 Nf6", "d4 d5 Nf3 Nf6"]
+    with Session(eng) as s:
+        for i, line in enumerate(lines):
+            board = chess.Board()
+            sans = line.split()
+            for san in sans:
+                board.push_san(san)
+            pgn = str(chess.pgn.Game.from_board(board))
+            g = ChessGame(platform="lichess", uuid=f"lichess:rep{i}", url=f"https://lichess.org/rep{i}",
+                          played_at=base + timedelta(days=i), color="white", result="loss" if "Nxe5" in line else "win",
+                          time_class="rapid", pgn=pgn, analyzed_at=base, acpl=10.0)
+            s.add(g); s.commit()
+            for ply in range(1, len(sans) + 1, 2):
+                bad = sans[ply - 1] == "Nxe5"
+                s.add(ChessMove(game_id=g.id, ply=ply, move_number=(ply + 1) // 2, san=sans[ply - 1],
+                                phase="opening", cp_before=0, cp_after=-200 if bad else 0, cp_loss=200 if bad else 0,
+                                win_loss=18.0 if bad else 0.0, category="mistake" if bad else "ok",
+                                best_move_san="Nxd4" if bad else None, refutation_san="Qg5" if bad else None,
+                                played_at=g.played_at, time_class="rapid", color="white", platform="lichess"))
+            s.commit()
+
+        leaks = repertoire.leaks(s, color="white")
+        row = leaks["leaks"][0] if leaks["leaks"] else {}
+        ok &= _check("wiederkehrender Fehler gefunden: 4.Nxe5 dreimal",
+                     leaks["total"] == 1 and row.get("san") == "Nxe5" and row.get("times") == 3, str(row.get("san")))
+        ok &= _check("besserer Zug als UCI fuers Brett", row.get("best_san") == "Nxd4" and row.get("best_uci") == "f3d4",
+                     str(row.get("best_uci")))
+        ok &= _check("saubere Alternative und Verlauf",
+                     row.get("others") == [{"san": "Nxd4", "times": 1, "ok": True}] and len(row.get("history", [])) == 4
+                     and row.get("since_last") == 0 and row.get("path_text") == "1.e4 e5 2.Nf3 Nc6 3.Bc4 Nd4")
+        tree = repertoire.explore(s, color="white")
+        ok &= _check("Baum: erste Zuege mit Partienzahl",
+                     {m["san"]: m["games"] for m in tree["moves"]} == {"e4": 4, "Nf3": 1, "d4": 1})
+        b = chess.Board(); [b.push_san(m) for m in "d4 d5 Nf3".split()]
+        node = repertoire.explore(s, color="white", key=repertoire.position_key(b))
+        ok &= _check("Zugumstellung: 1.Nf3 d5 2.d4 = 1.d4 d5 2.Nf3", node["games"] == 2, str(node["games"]))
+        b = chess.Board(); [b.push_san(m) for m in "e4 e5 Nf3 Nc6 Bc4 Nd4".split()]
+        node = repertoire.explore(s, color="white", key=repertoire.position_key(b))
+        nxe5 = next((m for m in node["moves"] if m["san"] == "Nxe5"), {})
+        ok &= _check("Baum: eigener Zug mit Fehlern und besserem Zug",
+                     nxe5.get("errors") == 3 and nxe5.get("better") == "Nxd4" and nxe5.get("score") == 0.0)
+
+        first = s.get(ChessGame, 1)
+        rep = review.game_report(s, first.id)
+        ok &= _check("Partiebericht: Eroeffnung bewertet, Fehler gelistet",
+                     rep["phases"][0]["reached"] and rep["phases"][0]["mistakes"] == 1
+                     and [e["san"] for e in rep["errors"]] == ["Nxe5"] and not rep["phases"][2]["reached"])
+        ok &= _check("Partieliste mit Phasen", review.game_list(s, limit=2)["total"] == 6)
+
+    from .config import load_settings
+    from .tactics import Engine
+
+    engine = Engine(load_settings().engine_path, 0.3)
+    if not engine.available:
+        print("[ SKIP ] Drill gegen Stockfish - keine Engine")
+    else:
+        try:
+            b = chess.Board(); [b.push_san(m) for m in "e4 e5 Nf3 Nc6 Bc4 Nd4".split()]
+            good = repertoire.check_drill(engine, b.fen(), "f3d4")
+            bad = repertoire.check_drill(engine, b.fen(), "f3e5")
+            ok &= _check("Drill: 4.Nxd4 gut, 4.Nxe5 schlecht",
+                         good["result"] == "good" and bad["result"] == "bad", f"{good['result']} {bad['result']}")
+        finally:
+            engine.close()
+    return bool(ok)
+
+
 def select_games():
     from sqlmodel import select
 
@@ -1262,8 +1359,11 @@ def main() -> int:
     print("\n11) Online-Fassung: viele Spieler")
     online_ok = test_online()
 
+    print("\n12) Partiebericht und Repertoire")
+    review_ok = test_review_repertoire()
+
     print("\n" + "=" * 66)
-    if (helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")
