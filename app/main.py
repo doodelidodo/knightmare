@@ -29,7 +29,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import __version__, focus, repertoire, review, stats, tactics
+from . import __version__, focus, practice, progress, repertoire, review, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import (
     SETUP_KEYS,
@@ -907,6 +907,131 @@ def tactics_reveal(body: TacticRevealBody) -> dict[str, object]:
     with db_engine.connect() as conn:
         _tactic_for_day(conn, day, body.key)
     return _finish(day, body.key, False)
+
+
+# --------------------------------------------------------------------------
+# Fortschritt ueber Monate
+# --------------------------------------------------------------------------
+@api.get("/progress")
+def get_progress(
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    months: int = Query(default=12, ge=2, le=60),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    return progress.progress(session, time_class=_clean_time_class(time_class),
+                             platform=_clean_platform(platform), months=months)
+
+
+# --------------------------------------------------------------------------
+# Uebungen: Gewinn verwerten, Was droht?, Woodpecker
+# --------------------------------------------------------------------------
+def _practice_engine():
+    trainer = tactics.get_trainer()
+    if not trainer.engine.available:
+        raise HTTPException(status_code=503, detail="no_engine")
+    return trainer.engine
+
+
+@api.get("/practice/{kind}")
+def get_practice(kind: str) -> dict[str, object]:
+    if kind not in ("convert", "threat"):
+        raise HTTPException(status_code=404, detail="unknown_kind")
+    if current_settings().online_mode:
+        return {"kind": kind, "items": [], "total": 0, "mastered": 0, "online": True}
+    eng = tactics.get_trainer().engine
+    prepared = practice.ensure(db_engine, eng, kind, want=8, max_tries=12) if eng.available else None
+    out = practice.listing(db_engine, kind)
+    out["engine"] = eng.available
+    out["prepared"] = prepared
+    return out
+
+
+class ConvertBody(BaseModel):
+    key: str = Field(max_length=100)
+    moves: list[str] = Field(default_factory=list, max_length=200)
+
+
+@api.post("/practice/convert/move")
+def practice_convert_move(body: ConvertBody) -> dict[str, object]:
+    eng = _practice_engine()
+    try:
+        return practice.convert_move(db_engine, eng, body.key, body.moves)
+    except tactics.MoveError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+
+
+class KeyBody(BaseModel):
+    key: str = Field(max_length=100)
+
+
+@api.post("/practice/convert/giveup")
+def practice_convert_giveup(body: KeyBody) -> dict[str, object]:
+    try:
+        return practice.convert_giveup(db_engine, body.key)
+    except tactics.MoveError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+
+
+class ThreatBody(BaseModel):
+    key: str = Field(max_length=100)
+    uci: str = Field(default="", max_length=5)
+    reveal: bool = False
+
+
+@api.post("/practice/threat/check")
+def practice_threat_check(body: ThreatBody) -> dict[str, object]:
+    eng = tactics.get_trainer().engine
+    try:
+        return practice.threat_check(db_engine, eng, body.key, body.uci, reveal=body.reveal)
+    except tactics.MoveError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+
+
+@api.get("/woodpecker")
+def get_woodpecker() -> dict[str, object]:
+    return practice.woodpecker_state(db_engine)
+
+
+class WoodStartBody(BaseModel):
+    new_cycle: bool = False
+
+
+@api.post("/woodpecker/start")
+def woodpecker_start(body: WoodStartBody) -> dict[str, object]:
+    try:
+        return practice.woodpecker_start(db_engine, body.new_cycle)
+    except tactics.MoveError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+
+
+class WoodMoveBody(BaseModel):
+    key: str = Field(max_length=90)
+    moves: list[str] = Field(default_factory=list, max_length=20)
+    seconds: float = Field(default=0.0, ge=0, le=3600)
+    reveal: bool = False
+
+
+@api.post("/woodpecker/move")
+def woodpecker_move(body: WoodMoveBody) -> dict[str, object]:
+    """Wie /tactics/move, aber ohne Tagesauswahl und ohne Leitner: Woodpecker
+    misst Tempo, nicht Wiederholung. Gezaehlt wird der erste Ausgang."""
+    trainer = tactics.get_trainer()
+    try:
+        row = practice.woodpecker_row(db_engine, body.key)
+        if body.reveal:
+            res: dict[str, object] = {"result": "revealed", **tactics.explanation(row)}
+            res.update(practice.woodpecker_record(db_engine, body.key, False, body.seconds))
+            return res
+        res = tactics.check_move(trainer.engine, row, body.moves, trainer.settings)
+    except tactics.MoveError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+    if res["result"] in ("solved", "wrong"):
+        res.update(practice.woodpecker_record(db_engine, body.key, res["result"] == "solved", body.seconds))
+        if res["result"] == "solved":
+            res["explain"] = tactics.explanation(row)
+    return res
+
 
 
 app.include_router(api)

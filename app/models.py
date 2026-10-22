@@ -217,3 +217,56 @@ class ChessTacticDay(SQLModel, table=True):
     key: str = Field(max_length=90)
     result: Optional[str] = Field(default=None, max_length=10)
     updated_at: Optional[datetime] = Field(default=None)
+
+
+class ChessPractice(SQLModel, table=True):
+    """Uebungsstellungen jenseits der Taktik: "Gewinn verwerten" (kind=convert)
+    und "Was droht?" (kind=threat). Wie bei den Aufgaben werden auch
+    unbrauchbare Kandidaten mit Grund gespeichert, damit sie nicht jedes Mal
+    neu gerechnet werden. Schluessel "<kind>:<Partie-uuid>#<Halbzug>"."""
+
+    __tablename__ = "chess_practice"
+
+    key: str = Field(primary_key=True, max_length=100)
+    kind: str = Field(index=True, max_length=12)
+    status: str = Field(index=True, max_length=12)  # ready | unsuitable
+    reason: Optional[str] = Field(default=None, max_length=120)
+    game_uuid: Optional[str] = Field(default=None, index=True, max_length=64)
+    ply: Optional[int] = Field(default=None)
+    url: Optional[str] = Field(default=None, max_length=300)
+    played_at: Optional[datetime] = Field(default=None)
+    platform: Optional[str] = Field(default=None, max_length=12)
+    time_class: Optional[str] = Field(default=None, max_length=20)
+    color: Optional[str] = Field(default=None, max_length=5)
+    opponent: Optional[str] = Field(default=None, max_length=60)
+    result: Optional[str] = Field(default=None, max_length=10)  # Ausgang der Partie
+    fen: Optional[str] = Field(default=None, max_length=100)
+    last_move: Optional[str] = Field(default=None, max_length=6)
+    # threat: die Drohung (uci); convert: leer
+    solution: Optional[str] = Field(default=None, max_length=12)
+    solution_san: Optional[str] = Field(default=None, max_length=16)
+    played_san: Optional[str] = Field(default=None, max_length=16)
+    best_san: Optional[str] = Field(default=None, max_length=16)
+    win_start: Optional[float] = Field(default=None)
+    priority: Optional[float] = Field(default=None)
+    attempts: int = Field(default=0)
+    solved: int = Field(default=0)
+    last_result: Optional[str] = Field(default=None, max_length=10)
+    last_seen: Optional[date] = Field(default=None)
+    prepared_at: Optional[datetime] = Field(default=None)
+    updated_at: Optional[datetime] = Field(default=None)
+
+
+class ChessWoodpecker(SQLModel, table=True):
+    """Eine Runde der Woodpecker-Methode: derselbe Satz eigener Aufgaben,
+    immer wieder, jedes Mal schneller. cycle = ein Satz, round = Durchgang."""
+
+    __tablename__ = "chess_woodpecker"
+
+    cycle: int = Field(primary_key=True)
+    round: int = Field(primary_key=True)
+    keys: str = Field(sa_column=Column(Text))  # Aufgaben-Schluessel, Leerzeichen
+    results: str = Field(default="{}", sa_column=Column(Text))  # JSON key -> solved/failed
+    seconds: float = Field(default=0.0)  # reine Loesezeit, vom Browser gemessen
+    started_at: Optional[datetime] = Field(default=None)
+    finished_at: Optional[datetime] = Field(default=None)

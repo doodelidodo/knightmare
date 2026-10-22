@@ -1313,6 +1313,152 @@ def test_review_repertoire() -> bool:
     return bool(ok)
 
 
+# --------------------------------------------------------------------------
+# 13) Uebungen: Gewohnheiten, Gewinn verwerten, Was droht?, Woodpecker, Fortschritt
+# --------------------------------------------------------------------------
+def _add_game(s, uuid, sans, color, result, played_at, own_moves):
+    """own_moves: {ply: dict(cp_before, cp_after, win_loss, category, ...)} fuer
+    eigene Zuege; alle anderen eigenen Zuege werden als sauber eingetragen."""
+    from .models import ChessGame, ChessMove
+
+    board = chess.Board()
+    for san in sans:
+        board.push_san(san)
+    g = ChessGame(platform="lichess", uuid=uuid, url=f"https://lichess.org/{uuid}", played_at=played_at,
+                  color=color, result=result, time_class="rapid", pgn=str(chess.pgn.Game.from_board(board)),
+                  analyzed_at=played_at, acpl=10.0)
+    s.add(g); s.commit()
+    first = 1 if color == "white" else 2
+    for ply in range(first, len(sans) + 1, 2):
+        extra = own_moves.get(ply, {})
+        s.add(ChessMove(game_id=g.id, ply=ply, move_number=(ply + 1) // 2, san=sans[ply - 1],
+                        phase=extra.pop("phase", "opening"), cp_before=extra.pop("cp_before", 0),
+                        cp_after=extra.pop("cp_after", 0), cp_loss=0, win_loss=extra.pop("win_loss", 0.0),
+                        category=extra.pop("category", "ok"), played_at=played_at, time_class="rapid",
+                        color=color, platform="lichess", **extra))
+    s.commit()
+    return g
+
+
+def test_practice() -> bool:
+    from datetime import date, datetime, timedelta
+
+    from sqlalchemy import select as sa_sel
+    from sqlmodel import Session
+
+    from . import practice, progress, tactics
+    from .config import load_settings
+    from .models import ChessTactic
+
+    ok = True
+    eng = _temp_db()
+    base = datetime(2026, 8, 3)
+    trap = "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5".split()
+    with Session(eng) as s:
+        for i in range(3):
+            _add_game(s, f"lichess:hab{i}", trap, "white", "loss", base + timedelta(days=i),
+                      {7: {"cp_before": 0, "cp_after": -200, "win_loss": 18.0, "category": "mistake",
+                           "best_move_san": "Nxd4", "refutation_san": "Qg5", "error_type": "positional"}})
+        # Verlorene Partie aus Gewinnstellung: nach 2...Qg5?? haengt die Dame, gespielt wurde 3.e3.
+        _add_game(s, "lichess:conv", "d4 e5 dxe5 Qg5 e3 Qxe5".split(), "white", "loss", base + timedelta(days=5),
+                  {5: {"cp_before": 900, "cp_after": 0, "win_loss": 45.0, "category": "blunder",
+                       "best_move_san": "Bxg5", "error_type": "missed_win"}})
+        # Uebersehene Drohung: 3.Qh5 droht Qxf7#, gespielt wurde 3...Nf6??
+        _add_game(s, "lichess:thr", "e4 e5 Bc4 Nc6 Qh5 Nf6 Qxf7#".split(), "black", "loss", base + timedelta(days=6),
+                  {6: {"cp_before": 0, "cp_after": -1000, "win_loss": 50.0, "category": "blunder",
+                       "best_move_san": "Qe7", "refutation_san": "Qxf7#", "error_type": "allowed_mate"}})
+        # Fuer den Fortschritt: je fuenf Partien in zwei Monaten.
+        for i in range(10):
+            month = datetime(2026, 6, 10) if i < 5 else datetime(2026, 7, 10)
+            _add_game(s, f"lichess:prog{i}", "d4 d5 c4 e6".split(), "white", "win" if i % 2 else "draw",
+                      month + timedelta(days=i), {1: {"win_loss": 2.0 if i < 5 else 0.0}})
+
+    added = tactics.sync_habits(eng)
+    with eng.connect() as conn:
+        habit = conn.execute(sa_sel(ChessTactic.__table__).where(ChessTactic.__table__.c.key.like("rep:%"))).first()
+    ok &= _check("Gewohnheit landet im Aufgabenvorrat", added == 1 and habit is not None and habit.solution == "f3d4"
+                 and chess.Board(habit.fen).fullmove_number == 4, f"{added}")
+    ok &= _check("... und nur einmal", tactics.sync_habits(eng) == 0)
+    sol = tactics.check_move(tactics.Engine(None, 0.1), habit, ["f3d4"], tactics.TacticSettings())
+    ok &= _check("Gewohnheit loesen wie eine Aufgabe", sol["result"] == "solved")
+    ok &= _check("Oberflaeche erkennt die Gewohnheit", tactics.puzzle_payload(habit)["habit"] is True)
+
+    with eng.connect() as conn:
+        conv = practice.convert_candidates(conn)
+        thr = practice.threat_candidates(conn)
+    ok &= _check("Gewinn verwerten: Kandidat aus der verlorenen Partie",
+                 [(c["uuid"], c["ply"]) for c in conv] == [("lichess:conv", 5)], str(conv))
+    ok &= _check("Was droht?: Kandidat aus der uebersehenen Drohung",
+                 [(c["uuid"], c["ply"]) for c in thr] == [("lichess:thr", 6)], str(thr))
+
+    with Session(eng) as s:
+        prog = progress.progress(s, time_class="rapid")
+    june = next((m for m in prog["months"] if m["month"] == "2026-06"), {})
+    july = next((m for m in prog["months"] if m["month"] == "2026-07"), {})
+    ok &= _check("Fortschritt: Monate mit Genauigkeit",
+                 bool(june.get("enough")) and bool(july.get("enough")) and (july.get("accuracy") or 0) > (june.get("accuracy") or 0),
+                 f"{june.get('accuracy')} {july.get('accuracy')}")
+    aug = next((m for m in prog["months"] if m["month"] == "2026-08"), {})
+    ok &= _check("Fortschritt: Gewohnheit wiederholt gezaehlt", aug.get("habit_repeated") == 3, str(aug.get("habit_repeated")))
+
+    # Woodpecker: acht Aufgaben aus derselben Stellung reichen fuer einen Satz.
+    with eng.begin() as conn:
+        for i in range(8):
+            tactics.upsert(conn, tactics.TACTICS, {
+                "key": f"wp{i}", "status": "ready", "priority": float(i), "fen": habit.fen,
+                "solution": "f3d4", "solution_san": "4. Nxd4", "played_uci": "f3e5", "played_san": "Nxe5",
+                "box": 0, "attempts": 0, "solved": 0, "color": "white"}, ["key"])
+    st = practice.woodpecker_start(eng, new_cycle=True)
+    ok &= _check("Woodpecker: Satz mit Runde 1", st["active"] and st["round"] == 1 and len(st["items"]) == 9,
+                 f"{st.get('round')} {len(st.get('items', []))}")
+    first = st["items"][0]["key"]
+    r1 = practice.woodpecker_record(eng, first, True, 12.5)
+    r2 = practice.woodpecker_record(eng, first, False, 3.0)
+    st = practice.woodpecker_state(eng)
+    ok &= _check("Woodpecker: erster Ausgang zaehlt, Zeit summiert",
+                 r1["counted"] and not r2["counted"] and st["items"][0]["result"] == "solved" and st["seconds"] == 15.5,
+                 f"{st['seconds']}")
+    st = practice.woodpecker_start(eng, new_cycle=False)
+    ok &= _check("Woodpecker: naechste Runde mit demselben Satz",
+                 st["round"] == 2 and [i["key"] for i in st["items"]][0] == first and all(not i["result"] for i in st["items"]))
+
+    engine = tactics.Engine(load_settings().engine_path, 0.2)
+    if not engine.available:
+        print("[ SKIP ] Gewinn verwerten / Was droht? gegen Stockfish - keine Engine")
+        return bool(ok)
+    try:
+        practice.ensure(eng, engine, "convert")
+        practice.ensure(eng, engine, "threat")
+        conv = practice.listing(eng, "convert")
+        thr = practice.listing(eng, "threat")
+        ok &= _check("Stellungen mit Stockfish vorbereitet", conv["total"] == 1 and thr["total"] == 1,
+                     f"{conv['total']} {thr['total']}")
+        if conv["items"]:
+            key = conv["items"][0]["key"]
+            res = practice.convert_move(eng, engine, key, ["c1g5"])
+            ok &= _check("Verwerten: Dame nehmen, Engine antwortet, Vorteil bleibt",
+                         res["status"] == "continue" and res["win"] >= 85 and bool(res["reply"]), str(res.get("status")))
+            res = practice.convert_move(eng, engine, key, ["a2a3"])
+            ok &= _check("Verwerten: Dame stehen lassen = verloren", res["status"] == "fail"
+                         and res.get("better_san") == "Bxg5", f"{res['status']} {res.get('better_san')}")
+            try:
+                practice.convert_move(eng, engine, key, ["e1e8"])
+                ok &= _check("Verwerten: unmoeglicher Zug abgelehnt", False)
+            except tactics.MoveError:
+                ok &= _check("Verwerten: unmoeglicher Zug abgelehnt", True)
+        if thr["items"]:
+            item = thr["items"][0]
+            good = practice.threat_check(eng, engine, item["key"], "h5f7")
+            bad = practice.threat_check(eng, engine, item["key"], "a2a3")
+            ok &= _check("Was droht?: Qxf7# erkannt, a3 nicht", good["result"] == "good" and bad["result"] == "bad"
+                         and "h5f7" in item["legal_them"], f"{good['result']} {bad['result']}")
+            listed = practice.listing(eng, "threat")
+            ok &= _check("Versuche werden gezaehlt", listed["items"][0]["attempts"] == 2 and listed["mastered"] == 1)
+    finally:
+        engine.close()
+    return bool(ok)
+
+
 def select_games():
     from sqlmodel import select
 
@@ -1362,8 +1508,11 @@ def main() -> int:
     print("\n12) Partiebericht und Repertoire")
     review_ok = test_review_repertoire()
 
+    print("\n13) Uebungen und Fortschritt")
+    practice_ok = test_practice()
+
     print("\n" + "=" * 66)
-    if (review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")

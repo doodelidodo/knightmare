@@ -411,6 +411,77 @@ def ensure_pool(engine: DbEngine, eng: Engine, settings: TacticSettings, today: 
 
 
 # ---------------------------------------------------------------------------
+# Eroeffnungs-Gewohnheiten als Aufgaben
+# ---------------------------------------------------------------------------
+# Wiederkehrende Eroeffnungsfehler (repertoire.leaks) kommen in denselben
+# Vorrat wie die Taktik und damit in dieselbe Wiederholung nach Leitner. Sie
+# brauchen keine Vorbereitung mit der Engine: Stellung und besserer Zug sind
+# schon bekannt, und beim Loesen gilt wie immer jeder gleich starke Zug.
+# Schluessel "rep:<Hash>" - so erkennt die Oberflaeche sie, ohne neue Spalte.
+HABIT_PREFIX = "rep:"
+HABIT_PRIORITY = 20.0  # vor jeder Taktik: die billigsten Punkte zuerst ...
+HABITS_PER_DAY = 3     # ... aber hoechstens so viele neue am Tag
+
+
+def habit_key(color: str, position: str, san: str) -> str:
+    import hashlib
+
+    digest = hashlib.sha1(f"{color}|{position}|{san}".encode()).hexdigest()[:20]
+    return HABIT_PREFIX + digest
+
+
+def is_habit(key: Optional[str]) -> bool:
+    return bool(key) and key.startswith(HABIT_PREFIX)
+
+
+def sync_habits(engine: DbEngine) -> int:
+    """Neue Gewohnheiten in den Vorrat. Bestehende bleiben samt Lernstand
+    unangetastet - auch wenn die Gewohnheit inzwischen abgelegt ist, ist sie
+    eine gute Wiederholung. Gibt die Zahl der neuen zurueck."""
+    from sqlmodel import Session
+
+    from . import repertoire
+
+    with Session(engine) as session:
+        found = repertoire.leaks(session, limit=500)["leaks"]
+    if not found:
+        return 0
+    with engine.connect() as conn:
+        known = {row[0] for row in conn.execute(select(TACTICS.c.key).where(TACTICS.c.key.like(HABIT_PREFIX + "%")))}
+    added = 0
+    with engine.begin() as conn:
+        for leak in found:
+            if not leak.get("best_uci"):
+                continue
+            key = habit_key(leak["color"], leak["key"], leak["san"])
+            if key in known:
+                continue
+            board = chess.Board()
+            try:
+                for san in leak["path"].split():
+                    board.push_san(san)
+            except ValueError:
+                continue
+            last = next((h for h in reversed(leak["history"]) if h["same"]), leak["history"][-1])
+            played_at = datetime.fromisoformat(leak["last_played"])
+            upsert(conn, TACTICS, {
+                "key": key, "status": "ready", "reason": None, "priority": HABIT_PRIORITY,
+                "game_uuid": key, "ply": len(leak["path"].split()) + 1, "url": (last.get("url") or "")[:300],
+                "played_at": played_at, "platform": None, "time_class": None, "color": leak["color"],
+                "opponent": "", "fen": board.fen(), "last_move": leak.get("last_move"),
+                "played_uci": leak["uci"], "played_san": leak["san"], "solution": leak["best_uci"],
+                "solution_san": board.variation_san([chess.Move.from_uci(leak["best_uci"])]),
+                "punish_san": None, "win_best": None, "win_played": None, "gap": None,
+                "category": leak["category"], "error_type": None, "missed_motif": None, "mate_in": None,
+                "box": 0, "attempts": 0, "solved": 0, "prepared_at": utc_now(),
+            }, ["key"])
+            added += 1
+    if added:
+        log.info("Taktik: %s Eroeffnungs-Gewohnheiten aufgenommen", added)
+    return added
+
+
+# ---------------------------------------------------------------------------
 # Tagesauswahl und Wiederholung
 # ---------------------------------------------------------------------------
 def schedule(box: int, solved: bool, today: date) -> tuple[int, Optional[date]]:
@@ -473,6 +544,8 @@ def build_day(conn: Connection, day: date, settings: TacticSettings) -> list:
             break
         g = r.game_uuid or r.key
         if per_game.get(g, 0) >= settings.max_per_game:
+            continue
+        if is_habit(r.key) and sum(1 for k in new_keys if is_habit(k)) >= HABITS_PER_DAY:
             continue
         pk = position_key(r.fen)
         if pk and (pk in seen or pk in in_rotation):
@@ -585,6 +658,7 @@ def puzzle_payload(row) -> dict:
         "legal": legal_moves(board),
         "review": (row.box or 0) > 0,
         "box": row.box or 0,
+        "habit": is_habit(row.key),
         "hint": {"missed_motif": row.missed_motif, "error_type": row.error_type,
                  "mate_in": row.mate_in if row.mate_in and 0 < row.mate_in <= 5 else None},
         "game": {"opponent": row.opponent, "played_at": row.played_at.date().isoformat() if row.played_at else None,
@@ -722,6 +796,10 @@ class Trainer:
             return None
         self.status.update(preparing=True, last_error=None)
         try:
+            try:
+                sync_habits(self.db)
+            except Exception:  # noqa: BLE001 - Gewohnheiten sind ein Zusatz
+                log.exception("Eroeffnungs-Gewohnheiten nicht uebernommen")
             result = ensure_pool(
                 self.db, self.engine, self.settings, today or date.today(),
                 target_new or self.target_new, max_tries or self.settings.per_day * 12,

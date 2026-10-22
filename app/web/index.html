@@ -269,6 +269,33 @@
            color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 0.9rem; opacity: 0;
            transition: opacity 0.2s; pointer-events: none; z-index: 60; max-width: calc(100% - 32px); }
   .toast.show { opacity: 1; }
+  /* --- Fortschritt ------------------------------------------------------ */
+  :root { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --s1: #3987e5; --s2: #d95926; --s3: #199e70; } }
+  :root[data-theme="dark"] { --s1: #3987e5; --s2: #d95926; --s3: #199e70; }
+  .pg-wrap { position: relative; margin-top: 10px; }
+  .pg { width: 100%; height: auto; display: block; }
+  .pg .grid-ln { stroke: var(--border); stroke-width: 1; }
+  .pg .ax { fill: var(--muted); font-size: 11px; text-anchor: end; }
+  .pg .ax.mid { text-anchor: middle; }
+  .pg-ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .pg-ln.s1 { stroke: var(--s1); } .pg-ln.s2 { stroke: var(--s2); } .pg-ln.s3 { stroke: var(--s3); }
+  .pg-pt { stroke: var(--surface); stroke-width: 2; }
+  .pg-pt.s1 { fill: var(--s1); } .pg-pt.s2 { fill: var(--s2); } .pg-pt.s3 { fill: var(--s3); }
+  .pg-lbl { fill: var(--text); font-size: 11px; }
+  .pg-hit { fill: transparent; }
+  .pg-cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+  .pg-tip { position: absolute; background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+            padding: 7px 10px; font-size: 0.82rem; box-shadow: var(--shadow); pointer-events: none; min-width: 160px; }
+  .pg-tip div { margin-top: 2px; }
+  .pg-key { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+  .pg-key.s1 { background: var(--s1); } .pg-key.s2 { background: var(--s2); } .pg-key.s3 { background: var(--s3); }
+  .pg-trends { margin: 10px 0 0; }
+  .pg-trend { margin-right: 12px; white-space: nowrap; }
+  .pg-table { margin-top: 10px; font-size: 0.88rem; }
+  .pg-table summary { cursor: pointer; color: var(--accent); }
+  .tbl-wrap { overflow-x: auto; margin-top: 8px; }
+  .tt tr.thin td { color: var(--muted); }
   /* --- Partien ----------------------------------------------------------- */
   .gv-layout { display: grid; gap: 16px; grid-template-columns: minmax(250px, 330px) minmax(0, 1fr); align-items: start; }
   .gv-list { position: sticky; top: 12px; max-height: calc(100vh - 24px); display: flex; flex-direction: column; }
@@ -360,6 +387,12 @@
     .tree-board { max-width: 340px; }
   }
   .tabs { overflow-x: auto; scrollbar-width: none; }
+  #trModes { margin-top: 14px; }
+  #pxBody .explain + .tac-actions { margin-top: 10px; }
+  .px-h3 { font-size: 0.92rem; margin: 18px 0 6px; color: var(--heading); }
+  .tt.wp { max-width: 360px; }
+  .wp-dots { grid-template-columns: repeat(auto-fill, minmax(26px, 30px)); }
+  .wp-dots .tac-dot { height: 26px; }
   .tabs::-webkit-scrollbar { display: none; }
   .tab { white-space: nowrap; }
   @media (max-width: 480px) {
@@ -411,6 +444,12 @@
     <p class="muted" id="focusIntro"></p>
     <div class="rows" id="focusRows"></div>
     <p class="muted" id="focusFoot"></p>
+  </div>
+
+  <div class="card">
+    <h2 id="progTitle"></h2>
+    <p class="muted" id="progIntro"></p>
+    <div id="progBody"></div>
   </div>
 
   <div class="card">
@@ -505,7 +544,13 @@
   </div>
 
   <div id="viewTrain" hidden>
-    <div class="card">
+    <div class="chips" id="trModes"></div>
+    <div class="card" id="pxCard" hidden>
+      <h2 id="pxTitle"></h2>
+      <p class="muted" id="pxIntro"></p>
+      <div id="pxBody"></div>
+    </div>
+    <div class="card" id="trDaily">
       <div class="tac-top">
         <h2 id="trTitle"></h2>
         <span class="muted" id="tacHead"></span>
@@ -1075,6 +1120,7 @@ function render() {
   renderGames();
   renderGamesView();
   renderOpeningsView();
+  renderProgress();
   renderFooter();
   renderTabs();
   renderSetup();
@@ -1892,6 +1938,8 @@ async function loadTactics(keepIdx = false) {
 
 // Alles im Training neu zeichnen - nach Sprachwechsel oder Reiterwechsel.
 function renderTraining() {
+  renderTrModes();
+  if (trMode !== "daily") renderPractice();
   const L = tr();
   $id("trTitle").textContent = L.title;
   $id("trIntro").textContent = L.intro;
@@ -1987,7 +2035,8 @@ function openItem(i, quiet = false, keep = false) {
   const P = tac.pos, pz = item.puzzle;
   if (P.msgKey) P.msg = L[P.msgKey];
   const task = pz.moves_to_find > 1 ? L.findLine(pz.moves_to_find) : L.findBest;
-  const tag = pz.review ? `<span class="tag">${esc(L.tagReview(pz.box))}</span>` : `<span class="tag accent">${esc(L.tagNew)}</span>`;
+  const tag = `<span>` + (pz.habit ? `<span class="tag mistake">${esc(tx().habitTag)}</span> ` : "") +
+    (pz.review ? `<span class="tag">${esc(L.tagReview(pz.box))}</span>` : `<span class="tag accent">${esc(L.tagNew)}</span>`) + `</span>`;
   $id("tacBody").innerHTML = `
     <div class="tac-meta"><span><b>${esc(pz.to_move === "white" ? L.white : L.black)}</b> · ${esc(task)}</span>${tag}</div>
     <div class="board-wrap"><div class="board" id="board" aria-label="Chessboard"></div></div>
@@ -2025,6 +2074,7 @@ function renderBoard() {
 
 function hintText(pz) {
   const L = tr(), h = pz.hint || {};
+  if (pz.habit) return tx().habitHint;
   if (h.mate_in) return L.hintMate(h.mate_in);
   if (h.missed_motif && L.motif[h.missed_motif]) return L.hintMotif(L.motif[h.missed_motif]);
   return L.errHint[h.error_type] ? `${L.hintWord} ${L.errHint[h.error_type]}` : L.hintDefault;
@@ -2043,6 +2093,10 @@ function explainHtml(item) {
   const pct = (v) => (v == null ? "?" : `${Math.round(v)} %`);
   const who = (g.opponent ? L.vs(g.opponent) : "") + (g.played_at ? L.on(date(g.played_at)) : "");
   const san = (s) => `<span class="san">${esc(s)}</span>`;
+  if (item.puzzle.habit) return `<div class="explain">
+    <p>${tx().habitExplain(san(e.played_san), san(e.solution_san))}</p>
+    ${g.url ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(L.openGame)}</a></p>` : ""}
+  </div>`;
   return `<div class="explain">
     <p>${esc(L.inGame(who, "\u0000", pct(e.win_played), pct(e.win_best))).replace("\u0000", san(e.played_san))}${e.punish_san ? esc(L.bestAfter("\u0000")).replace("\u0000", san(e.punish_san)) : ""}</p>
     <p>${esc(L.better("\u0000")).replace("\u0000", san(e.solution_san))}</p>
@@ -2534,6 +2588,9 @@ document.getElementById("footer").addEventListener("click", (e) => {
 const I18N_X = {
   en: {
     tabGames: "Games", tabOpenings: "Openings",
+    habitTag: "Opening habit",
+    habitHint: "Hint: an opening habit — think about what you usually play here, and why it fails.",
+    habitExplain: (p, b) => `In your games you played ${p} here more than once — each time a mistake. Better: ${b}.`,
     gvOpenReport: "game report",
     gvListTitle: "Your games",
     gvListIntro: "Each phase is graded against your own games of the same type: green = better than two thirds of them, red = worse than two thirds.",
@@ -2613,6 +2670,9 @@ const I18N_X = {
   },
   de: {
     tabGames: "Partien", tabOpenings: "Eröffnungen",
+    habitTag: "Eröffnungs-Gewohnheit",
+    habitHint: "Tipp: eine Eröffnungs-Gewohnheit – überleg, was du hier sonst spielst und warum es nicht geht.",
+    habitExplain: (p, b) => `In deinen Partien kam hier mehrmals ${p} – jedes Mal ein Fehler. Besser: ${b}.`,
     gvOpenReport: "Partiebericht",
     gvListTitle: "Deine Partien",
     gvListIntro: "Jede Phase im Vergleich mit deinen eigenen Partien derselben Art: grün = besser als zwei Drittel davon, rot = schlechter als zwei Drittel.",
@@ -2975,7 +3035,7 @@ function renderLeaks() {
     const body = l.times_error === l.times ? X.leakBody(l.times, num(l.avg_loss, 0)) : X.leakBodyPart(l.times_error, l.times, num(l.avg_loss, 0));
     const others = l.others.length
       ? `<p class="muted">${esc(X.leakOthers)} ` + l.others.map((o) => `${esc(o.san)} (${o.times}×, ${esc(o.ok ? X.leakClean : X.leakNotClean)})`).join(", ") + `</p>` : "";
-    const hist = `<span class="hist" title="${esc(X.leakHist)}">` + l.history.map((h) =>
+    const hist = `<span class="hist" title="${esc(X.leakHist)}">` + l.history.slice(-10).map((h) =>
       `<i class="${h.same ? "bad" : h.ok ? "good" : "meh"}" title="${esc(date(h.played_at))}: ${esc(h.san)}"></i>`).join("") + `</span>`;
     const drilled = drillStore.get(l.id);
     return `<div class="row leak">
@@ -3175,6 +3235,612 @@ document.addEventListener("click", (e) => {
   if (ds.dretry) { const keep = dr.first; openDrill(); dr.first = keep; return; }
   if (ds.dclose) { dr.state = "idle"; dr.items = []; renderDrill(); return; }
 });
+
+// --------------------------------------------------------------------------
+// Training: weitere Uebungen (Gewinn verwerten, Was droht?, Woodpecker)
+// --------------------------------------------------------------------------
+const I18N_P = {
+  en: {
+    modes: { daily: "Daily puzzles", convert: "Convert the win", threat: "What's the threat?", woodpecker: "Woodpecker" },
+    intro: {
+      convert: "Positions from games you lost or drew although you were clearly winning. Play them out against Stockfish and bring them home without giving too much back.",
+      threat: "Positions right before a mistake of yours. Not your move this time: what does your opponent want to play next? Move one of their pieces.",
+      woodpecker: "The same set of your own puzzles, round after round, faster each time. Round 1 at your own pace; the goal is half the time in each following round.",
+    },
+    loading: "Loading…", preparing: "Preparing positions with Stockfish…",
+    noEngine: "No engine available — these exercises need Stockfish.",
+    none: { convert: "No position yet: none of your lost or drawn games was clearly won at some point.", threat: "No position yet: no overlooked threat in your games." },
+    mastered: (m, n) => `${m} of ${n} positions solved at least once.`,
+    pick: "Position", next: "Next position", retry: "Try again", giveup: "Give up", reveal: "Show the answer",
+    convertAsk: (side, w, opp, d, f) => `You are ${side}, win chance ${w}%. Against ${opp} on ${d} this game was not won. Win it now — and don't drop below ${f}%.`,
+    convertState: (w, n, max) => `Win chance ${w}% · move ${n} of max. ${max}`,
+    convertWin: { mate: "Checkmate — converted!", decisive: "Decisive advantage — converted!", limit: "Held the advantage — well done." },
+    convertLose: { gave_back: "Too much given back.", draw: "That is a draw — not enough.", mated: "Checkmated.", limit: "Advantage not kept until the end.", gave_up: "Given up.", no_reply: "Ended." },
+    convertBetter: (m) => ` Better at the last move: ${m}.`,
+    engineThinking: "Stockfish is thinking…",
+    threatAsk: (opp, side) => `It is your move as ${side} — but first: what is ${opp} threating? Move one of their pieces.`,
+    threatGood: (san) => `Right — ${san} was the threat.`,
+    threatBad: (san, sol) => `${san} is not it. The threat was ${sol}.`,
+    threatRevealed: (sol) => `The threat was ${sol}.`,
+    threatGame: (p, b) => `In the game you played ${p}${b ? `; ${b} was better` : ""}.`,
+    openGame: "Open the game",
+    wpNotEnough: (n, m) => `Woodpecker needs at least ${m} prepared puzzles — you have ${n}. Solve a few days of daily puzzles first.`,
+    wpStart: "Start round 1", wpNextRound: (r) => `Start round ${r}`, wpNewSet: "New set",
+    wpRound: (r, d, n) => `Round ${r} · ${d} of ${n}`,
+    wpTime: (t) => `time ${t}`,
+    wpDone: (r, s, n, t) => `Round ${r} finished: ${s} of ${n} solved in ${t}.`,
+    wpTarget: (t) => `Target for the next round: ${t}.`,
+    wpHist: "Rounds of this set",
+    wpHead: ["Round", "Solved", "Time"],
+    wpFind: (n) => (n > 1 ? `Find the best line (${n} moves).` : "Find the best move."),
+    wpCorrect: "Correct — keep going.", wpSolved: "Solved!", wpWrong: (san) => `${san} is not it.`,
+    wpSolution: (s) => `Solution: ${s}`,
+    side: (c) => (c === "black" ? "Black" : "White"),
+  },
+  de: {
+    modes: { daily: "Tagesaufgaben", convert: "Gewinn verwerten", threat: "Was droht?", woodpecker: "Woodpecker" },
+    intro: {
+      convert: "Stellungen aus Partien, die du verloren oder remis gespielt hast, obwohl du klar gewonnen standest. Spiel sie gegen Stockfish zu Ende und bring sie nach Hause, ohne zu viel herzugeben.",
+      threat: "Stellungen direkt vor einem deiner Fehler. Diesmal nicht dein Zug: was will dein Gegner als Nächstes spielen? Zieh eine seiner Figuren.",
+      woodpecker: "Derselbe Satz deiner eigenen Aufgaben, Runde um Runde, jedes Mal schneller. Runde 1 in deinem Tempo; Ziel ist in jeder weiteren Runde die halbe Zeit.",
+    },
+    loading: "Lädt …", preparing: "Stellungen werden mit Stockfish vorbereitet …",
+    noEngine: "Keine Engine da – diese Übungen brauchen Stockfish.",
+    none: { convert: "Noch keine Stellung: keine deiner verlorenen oder remisierten Partien war irgendwann klar gewonnen.", threat: "Noch keine Stellung: keine übersehene Drohung in deinen Partien." },
+    mastered: (m, n) => `${m} von ${n} Stellungen mindestens einmal geschafft.`,
+    pick: "Stellung", next: "Nächste Stellung", retry: "Nochmal", giveup: "Aufgeben", reveal: "Lösung zeigen",
+    convertAsk: (side, w, opp, d, f) => `Du spielst ${side}, Gewinnchance ${w} %. Gegen ${opp} am ${d} ging diese Partie nicht durch. Gewinn sie jetzt – und fall nicht unter ${f} %.`,
+    convertState: (w, n, max) => `Gewinnchance ${w} % · Zug ${n} von max. ${max}`,
+    convertWin: { mate: "Matt – verwertet!", decisive: "Entscheidender Vorteil – verwertet!", limit: "Vorteil gehalten – gut gemacht." },
+    convertLose: { gave_back: "Zu viel hergegeben.", draw: "Das ist remis – reicht nicht.", mated: "Matt gesetzt worden.", limit: "Vorteil nicht bis zum Schluss gehalten.", gave_up: "Aufgegeben.", no_reply: "Beendet." },
+    convertBetter: (m) => ` Besser beim letzten Zug: ${m}.`,
+    engineThinking: "Stockfish denkt …",
+    threatAsk: (opp, side) => `Du spielst ${side} und bist am Zug – aber zuerst: was droht ${opp}? Zieh eine seiner Figuren.`,
+    threatGood: (san) => `Genau – ${san} war die Drohung.`,
+    threatBad: (san, sol) => `${san} ist es nicht. Gedroht hat ${sol}.`,
+    threatRevealed: (sol) => `Gedroht hat ${sol}.`,
+    threatGame: (p, b) => `In der Partie hast du ${p} gespielt${b ? `; besser war ${b}` : ""}.`,
+    openGame: "Partie öffnen",
+    wpNotEnough: (n, m) => `Woodpecker braucht mindestens ${m} vorbereitete Aufgaben – du hast ${n}. Erst ein paar Tage Tagesaufgaben lösen.`,
+    wpStart: "Runde 1 starten", wpNextRound: (r) => `Runde ${r} starten`, wpNewSet: "Neuer Satz",
+    wpRound: (r, d, n) => `Runde ${r} · ${d} von ${n}`,
+    wpTime: (t) => `Zeit ${t}`,
+    wpDone: (r, s, n, t) => `Runde ${r} fertig: ${s} von ${n} gelöst in ${t}.`,
+    wpTarget: (t) => `Ziel für die nächste Runde: ${t}.`,
+    wpHist: "Runden dieses Satzes",
+    wpHead: ["Runde", "Gelöst", "Zeit"],
+    wpFind: (n) => (n > 1 ? `Finde die beste Folge (${n} Züge).` : "Finde den besten Zug."),
+    wpCorrect: "Richtig – weiter.", wpSolved: "Gelöst!", wpWrong: (san) => `${san} ist es nicht.`,
+    wpSolution: (s) => `Lösung: ${s}`,
+    side: (c) => (c === "black" ? "Schwarz" : "Weiss"),
+  },
+};
+const tp = () => I18N_P[lang];
+const TR_MODES = ["daily", "convert", "threat", "woodpecker"];
+let trMode = store.get("knightmare.trMode", "daily");
+if (!TR_MODES.includes(trMode)) trMode = "daily";
+
+const px = { data: {}, loading: {}, idx: {}, wood: null, woodLoading: false };
+// Ein Brett fuer alle drei Uebungen.
+const pb = { kind: null, item: null, board: null, legal: [], sel: null, marks: {}, last: null, white: true,
+             moves: [], state: "idle", msg: "", cls: "", extra: "", started: 0 };
+
+function renderTrModes() {
+  const el = $id("trModes");
+  if (!el) return;
+  el.innerHTML = TR_MODES.map((m) =>
+    `<button class="chip ${trMode === m ? "on" : ""}" type="button" data-trmode="${m}">${esc(tp().modes[m])}</button>`).join("");
+  $id("trDaily").hidden = trMode !== "daily";
+  $id("pxCard").hidden = trMode === "daily";
+}
+
+function setTrMode(m) {
+  trMode = m;
+  store.set("knightmare.trMode", m);
+  pb.state = "idle";
+  renderTrModes();
+  if (m === "daily") renderTraining();
+  else renderPractice();
+}
+
+async function loadPractice(kind) {
+  px.loading[kind] = true;
+  renderPractice();
+  try { px.data[kind] = await api("practice/" + kind); }
+  catch (err) { px.data[kind] = { error: err.message }; }
+  px.loading[kind] = false;
+  if (trMode === kind) {
+    pb.state = "idle";
+    renderPractice();
+  }
+}
+async function loadWood() {
+  px.woodLoading = true;
+  try { px.wood = await api("woodpecker"); } catch (err) { px.wood = { error: err.message }; }
+  px.woodLoading = false;
+  if (trMode === "woodpecker") renderPractice();
+}
+
+function renderPractice() {
+  if (view !== "train" || trMode === "daily") return;
+  const P = tp();
+  $id("pxTitle").textContent = P.modes[trMode];
+  $id("pxIntro").textContent = P.intro[trMode];
+  if (trMode === "woodpecker") { renderWood(); return; }
+  const d = px.data[trMode];
+  if (!d && !px.loading[trMode]) { loadPractice(trMode); }
+  if (!d || px.loading[trMode] && !d.items) {
+    $id("pxBody").innerHTML = `<p class="muted">${esc(P.preparing)}</p>`; return;
+  }
+  if (d.error) { $id("pxBody").innerHTML = `<p class="note err">${esc(d.error)}</p>`; return; }
+  if (!d.items.length) {
+    $id("pxBody").innerHTML = `<p class="muted">${esc(d.engine === false ? P.noEngine : P.none[trMode])}</p>`; return;
+  }
+  if (pb.kind !== trMode || pb.state === "idle") {
+    const i = Math.min(px.idx[trMode] || 0, d.items.length - 1);
+    startItem(trMode, i);
+    return;
+  }
+  drawPractice();
+}
+
+function startItem(kind, i) {
+  const d = px.data[kind], item = d.items[i];
+  px.idx[kind] = i;
+  Object.assign(pb, {
+    kind, item, board: fenBoard(item.fen), legal: kind === "threat" ? item.legal_them : item.legal,
+    sel: null, marks: {}, last: moveSquares(item.last_move), white: item.orientation !== "black",
+    moves: [], state: "move", msg: "", cls: "", extra: "", started: Date.now(),
+  });
+  pb.msg = promptFor(item);
+  drawPractice();
+}
+
+function promptFor(item) {
+  const P = tp(), g = item.game || {};
+  const opp = g.opponent || "?";
+  if (pb.kind === "convert") return P.convertAsk(P.side(item.orientation), num(item.win_start, 0), opp, date(g.played_at), num(item.fail_below, 0));
+  if (pb.kind === "threat") return P.threatAsk(opp, P.side(item.orientation));
+  return "";
+}
+
+function myPiece(p) {
+  if (!p) return false;
+  const white = p === p.toUpperCase();
+  // Bei "Was droht?" zieht man die Figuren des Gegners.
+  const mover = pb.kind === "threat" ? !pb.white : pb.white;
+  if (pb.kind === "woodpecker") return white === (pb.item.puzzle.to_move === "white");
+  return white === mover;
+}
+
+function drawPractice() {
+  const P = tp(), d = px.data[pb.kind];
+  if (pb.kind === "woodpecker") { renderWood(); return; }
+  const list = d.items.map((it, i) =>
+    `<button class="tac-dot ${it.solved ? "solved" : it.last_result === "failed" ? "failed" : ""} ${i === px.idx[pb.kind] ? "cur" : ""}" type="button" data-pxi="${i}" title="${esc(P.pick)} ${i + 1}">${i + 1}</button>`).join("");
+  $id("pxBody").innerHTML = `
+    <p class="muted">${esc(P.mastered(d.mastered, d.total))}</p>
+    <div class="tac-dots">${list}</div>
+    ${boardHtml()}
+    <p class="tac-msg ${pb.cls}">${pb.msg}</p>
+    ${pb.extra}
+    <div class="tac-actions">${actionsHtml()}</div>`;
+}
+
+function boardHtml() {
+  const dests = new Set(pb.sel == null ? [] : pb.legal.filter((u) => u.startsWith(sqName(pb.sel))).map((u) => sqIndex(u.slice(2, 4))));
+  let html = "";
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const rank = pb.white ? 7 - r : r, file = pb.white ? c : 7 - c, i = rank * 8 + file;
+    const cls = ["sq", (rank + file) % 2 ? "l" : "d"];
+    if (pb.last && pb.last.includes(i)) cls.push("last");
+    if (pb.sel === i) cls.push("sel");
+    if (dests.has(i)) cls.push("dest", pb.board[i] ? "occ" : "");
+    if (pb.marks[i]) cls.push(pb.marks[i]);
+    const p = pb.board[i];
+    const piece = p ? `<span class="pc ${p === p.toUpperCase() ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : "";
+    const coords = (c === 0 ? `<span class="coord r">${rank + 1}</span>` : "") + (r === 7 ? `<span class="coord f">${FILES[file]}</span>` : "");
+    html += `<div class="${cls.join(" ")}" data-pi="${i}">${coords}${piece}</div>`;
+  }
+  return `<div class="board-wrap"><div class="board" id="pxBoard">${html}</div></div>`;
+}
+
+function actionsHtml() {
+  const P = tp();
+  const b = (attr, label, primary) => `<button class="btn${primary ? " primary grow" : ""}" type="button" ${attr}="1">${esc(label)}</button>`;
+  if (pb.kind === "convert") {
+    if (pb.state === "move" || pb.state === "busy") return pb.moves.length ? b("data-pxgive", P.giveup) : "";
+    return b("data-pxretry", P.retry) + b("data-pxnext", P.next, true);
+  }
+  if (pb.kind === "threat") {
+    if (pb.state === "move") return b("data-pxreveal", P.reveal);
+    if (pb.state === "busy") return "";
+    return b("data-pxnext", P.next, true);
+  }
+  return "";
+}
+
+function markMove(uci, cls) {
+  if (!uci) return;
+  pb.marks[sqIndex(uci.slice(0, 2))] = cls;
+  pb.marks[sqIndex(uci.slice(2, 4))] = cls;
+}
+
+async function practiceMove(from, to) {
+  let uci = sqName(from) + sqName(to);
+  if (!pb.legal.includes(uci)) {
+    if (pb.legal.includes(uci + "q")) uci += "q"; else return;
+  }
+  const P = tp();
+  pb.board = applyUci(pb.board, uci);
+  pb.sel = null; pb.marks = {}; pb.last = moveSquares(uci);
+  pb.state = "busy"; pb.msg = esc(P.engineThinking); pb.cls = "";
+  if (pb.kind === "woodpecker") return woodMove(uci);
+  drawPractice();
+  try {
+    if (pb.kind === "convert") {
+      pb.moves.push(uci);
+      const res = await apiJson("practice/convert/move", { key: pb.item.key, moves: pb.moves });
+      if (res.reply) {
+        pb.board = applyUci(pb.board, res.reply);
+        pb.moves.push(res.reply);
+        pb.last = moveSquares(res.reply);
+      }
+      if (res.status === "continue") {
+        pb.legal = res.legal; pb.state = "move";
+        pb.msg = esc(P.convertState(num(res.win, 0), res.own_moves + 1, 15)) + (res.reply_san ? ` · <span class="san">${esc(res.reply_san)}</span>` : "");
+      } else {
+        finishConvert(res);
+      }
+    } else {
+      const res = await apiJson("practice/threat/check", { key: pb.item.key, uci });
+      finishThreat(res, uci);
+    }
+  } catch (err) {
+    pb.state = "move"; pb.msg = esc(err.message); pb.cls = "bad";
+    if (pb.kind === "convert") { pb.moves.pop(); }
+    pb.board = fenBoard(pb.kind === "convert" ? replayFen() : pb.item.fen);
+  }
+  drawPractice();
+}
+
+function replayFen() {
+  // Fuer den Fehlerfall: Brett aus der Ausgangsstellung und den Zuegen neu aufbauen.
+  let arr = fenBoard(pb.item.fen);
+  pb.moves.forEach((u) => { arr = applyUci(arr, u); });
+  pb.board = arr;
+  return pb.item.fen;
+}
+
+function finishConvert(res) {
+  const P = tp(), ok = res.status === "success";
+  pb.state = "done"; pb.cls = ok ? "good" : "bad";
+  pb.msg = esc(ok ? (P.convertWin[res.reason] || P.convertWin.limit) : (P.convertLose[res.reason] || P.convertLose.no_reply)) +
+    (res.better_san ? esc(P.convertBetter(res.better_san)) : "");
+  if (res.better_uci) markMove(res.better_uci, "good");
+  const it = pb.item;
+  it.last_result = ok ? "solved" : "failed";
+  if (ok && !it.solved) px.data[pb.kind].mastered += 1;
+  if (ok) it.solved = (it.solved || 0) + 1;
+  pb.extra = gameLink(it);
+}
+
+function finishThreat(res, uci) {
+  const P = tp(), it = pb.item;
+  pb.state = "done";
+  const sol = `<span class="san">${esc(res.solution_san)}</span>`;
+  if (res.result === "good") { pb.cls = "good"; pb.msg = P.threatGood(sol); markMove(uci, "good"); }
+  else if (res.result === "revealed") { pb.cls = "bad"; pb.msg = P.threatRevealed(sol); }
+  else { pb.cls = "bad"; pb.msg = P.threatBad(`<span class="san">${esc(res.san)}</span>`, sol); if (uci) markMove(uci, "bad"); }
+  if (res.result !== "good") {
+    pb.board = fenBoard(it.fen);
+    pb.board = applyUci(pb.board, res.solution);
+    markMove(res.solution, "good");
+  }
+  it.last_result = res.result === "good" ? "solved" : "failed";
+  if (res.result === "good" && !it.solved) px.data[pb.kind].mastered += 1;
+  if (res.result === "good") it.solved = (it.solved || 0) + 1;
+  pb.extra = `<div class="explain"><p>${P.threatGame(`<span class="san">${esc(res.played_san)}</span>`, res.best_san ? `<span class="san">${esc(res.best_san)}</span>` : "")}</p>${gameLinkInner(it)}</div>`;
+}
+
+function gameLinkInner(it) {
+  const g = it.game || {};
+  return g.url && g.platform !== "pgn" ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(tp().openGame)}</a></p>` : "";
+}
+function gameLink(it) {
+  const inner = gameLinkInner(it);
+  return inner ? `<div class="explain">${inner}</div>` : "";
+}
+
+// --- Woodpecker -----------------------------------------------------------
+function fmtTime(sec) {
+  const s = Math.round(sec || 0);
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+function woodCurrent() {
+  const w = px.wood;
+  if (!w || !w.active || w.finished) return -1;
+  return w.items.findIndex((it) => !it.result);
+}
+function renderWood() {
+  const P = tp(), w = px.wood;
+  if (!w && !px.woodLoading) { loadWood(); }
+  if (!w) { $id("pxBody").innerHTML = `<p class="muted">${esc(P.loading)}</p>`; return; }
+  if (w.error) { $id("pxBody").innerHTML = `<p class="note err">${esc(w.error)}</p>`; return; }
+  const hist = w.rounds && w.rounds.length
+    ? `<h3 class="px-h3">${esc(P.wpHist)}</h3><table class="tt wp"><thead><tr>${P.wpHead.map((h, i) => `<th${i ? ' class="num"' : ""}>${esc(h)}</th>`).join("")}</tr></thead><tbody>` +
+      w.rounds.map((r) => `<tr><td>${r.round}</td><td class="num">${r.solved}/${r.total}</td><td class="num">${fmtTime(r.seconds)}${r.finished ? "" : " …"}</td></tr>`).join("") + `</tbody></table>`
+    : "";
+  if (!w.active) {
+    const enough = w.available >= w.min;
+    $id("pxBody").innerHTML = enough
+      ? `<div class="tac-actions"><button class="btn primary" type="button" data-wpstart="new">${esc(P.wpStart)}</button></div>`
+      : `<p class="muted">${esc(P.wpNotEnough(w.available, w.min))}</p>`;
+    return;
+  }
+  let idx = woodCurrent();
+  // Nach dem Loesen bleibt die Aufgabe stehen, bis "Weiter" gedrueckt ist.
+  if (pb.kind === "woodpecker" && pb.state === "done" && w.items.includes(pb.item)) idx = w.items.indexOf(pb.item);
+  if (idx < 0) {
+    const last = w.rounds[w.rounds.length - 1];
+    $id("pxBody").innerHTML = `<p class="tac-msg good">${esc(P.wpDone(w.round, last.solved, last.total, fmtTime(last.seconds)))}</p>
+      <p class="muted">${esc(P.wpTarget(fmtTime(last.seconds / 2)))}</p>
+      <div class="tac-actions"><button class="btn primary" type="button" data-wpstart="next">${esc(P.wpNextRound(w.round + 1))}</button>
+      <button class="btn" type="button" data-wpstart="new">${esc(P.wpNewSet)}</button></div>${hist}`;
+    pb.state = "idle";
+    return;
+  }
+  const item = w.items[idx];
+  if (pb.kind !== "woodpecker" || pb.item !== item || pb.state === "idle") {
+    const pz = item.puzzle;
+    Object.assign(pb, {
+      kind: "woodpecker", item, board: fenBoard(pz.fen), legal: pz.legal, sel: null, marks: {},
+      last: moveSquares(pz.last_move), white: pz.orientation !== "black", moves: [], state: "move",
+      msg: esc(P.wpFind(pz.moves_to_find)), cls: "", extra: "", started: Date.now(),
+    });
+  }
+  const done = w.items.filter((it) => it.result).length;
+  const dots = w.items.map((it, i) => `<span class="tac-dot ${it.result === "solved" ? "solved" : it.result ? "failed" : ""} ${i === idx ? "cur" : ""}">${i + 1}</span>`).join("");
+  const elapsed = (w.seconds || 0);
+  $id("pxBody").innerHTML = `
+    <div class="tac-meta"><strong>${esc(P.wpRound(w.round, done, w.items.length))}</strong>
+      <span class="muted" id="wpClock">${esc(P.wpTime(fmtTime(elapsed)))}</span></div>
+    <div class="tac-dots wp-dots">${dots}</div>
+    ${boardHtml()}
+    <p class="tac-msg ${pb.cls}">${pb.msg}</p>
+    ${pb.extra}
+    <div class="tac-actions">${pb.state === "done"
+      ? `<button class="btn primary grow" type="button" data-wpnext="1">${esc(tp().next)}</button>`
+      : pb.state === "move" ? `<button class="btn" type="button" data-wpreveal="1">${esc(P.reveal)}</button>` : ""}</div>
+    ${hist}`;
+}
+
+// Uhr: laufende Rundenzeit = gespeicherte Zeit + aktuelle Aufgabe.
+setInterval(() => {
+  const el = $id("wpClock");
+  if (!el || pb.kind !== "woodpecker" || pb.state !== "move" && pb.state !== "busy" || !px.wood) return;
+  el.textContent = tp().wpTime(fmtTime((px.wood.seconds || 0) + (Date.now() - pb.started) / 1000));
+}, 1000);
+
+async function woodMove(uci, reveal) {
+  const P = tp(), item = pb.item;
+  if (!reveal) pb.moves.push(uci);
+  renderWood();
+  const secs = (Date.now() - pb.started) / 1000;
+  let res;
+  try {
+    res = await apiJson("woodpecker/move", { key: item.key, moves: reveal ? [] : pb.moves, seconds: secs, reveal: !!reveal });
+  } catch (err) {
+    pb.moves.pop(); pb.state = "move"; pb.msg = esc(err.message); pb.cls = "bad";
+    let arr = fenBoard(item.puzzle.fen); pb.moves.forEach((u) => { arr = applyUci(arr, u); }); pb.board = arr;
+    renderWood(); return;
+  }
+  if (res.result === "correct") {
+    pb.board = applyUci(pb.board, res.reply);
+    pb.moves.push(res.reply);
+    pb.last = moveSquares(res.reply);
+    pb.legal = res.legal; pb.state = "move"; pb.msg = esc(P.wpCorrect); pb.cls = "good";
+    renderWood(); return;
+  }
+  const solved = res.result === "solved";
+  if (uci) markMove(uci, solved ? "good" : "bad");
+  const sol = (res.explain && res.explain.solution_san) || res.solution_san;
+  pb.state = "done"; pb.cls = solved ? "good" : "bad";
+  pb.msg = esc(solved ? P.wpSolved : reveal ? P.wpSolution(sol || "") : P.wpWrong(res.san || ""));
+  if (!solved && sol) pb.extra = `<div class="explain"><p>${esc(P.wpSolution(sol))}</p></div>`;
+  if (res.counted !== false) {
+    item.result = solved ? "solved" : "failed";
+    px.wood.seconds = (px.wood.seconds || 0) + secs;
+  }
+  renderWood();
+}
+
+document.addEventListener("click", async (e) => {
+  const sq = e.target.closest("[data-pi]");
+  if (sq && pb.state === "move") {
+    const i = Number(sq.dataset.pi);
+    if (pb.sel != null && pb.sel !== i && pb.legal.some((u) => u.startsWith(sqName(pb.sel) + sqName(i)))) { practiceMove(pb.sel, i); return; }
+    pb.sel = myPiece(pb.board[i]) && pb.sel !== i ? i : null;
+    if (pb.kind === "woodpecker") renderWood(); else drawPractice();
+    return;
+  }
+  const el = e.target.closest("[data-trmode],[data-pxi],[data-pxnext],[data-pxretry],[data-pxgive],[data-pxreveal],[data-wpstart],[data-wpnext],[data-wpreveal]");
+  if (!el) return;
+  const ds = el.dataset;
+  if (ds.trmode) { setTrMode(ds.trmode); return; }
+  if (ds.pxi) { startItem(pb.kind, Number(ds.pxi)); return; }
+  if (ds.pxretry) { startItem(pb.kind, px.idx[pb.kind]); return; }
+  if (ds.pxnext) {
+    const d = px.data[pb.kind];
+    const next = (px.idx[pb.kind] + 1) % d.items.length;
+    startItem(pb.kind, next); return;
+  }
+  if (ds.pxgive) {
+    try { const res = await apiJson("practice/convert/giveup", { key: pb.item.key }); finishConvert(res); }
+    catch (err) { pb.msg = esc(err.message); pb.cls = "bad"; }
+    drawPractice(); return;
+  }
+  if (ds.pxreveal) {
+    pb.state = "busy"; drawPractice();
+    try { finishThreat(await apiJson("practice/threat/check", { key: pb.item.key, uci: "", reveal: true }), null); }
+    catch (err) { pb.state = "move"; pb.msg = esc(err.message); pb.cls = "bad"; }
+    drawPractice(); return;
+  }
+  if (ds.wpstart) {
+    try { px.wood = await apiJson("woodpecker/start", { new_cycle: ds.wpstart === "new" }); pb.state = "idle"; }
+    catch (err) { toast(err.message); }
+    renderWood(); return;
+  }
+  if (ds.wpnext) { pb.state = "idle"; renderWood(); return; }
+  if (ds.wpreveal) { pb.state = "busy"; woodMove(null, true); return; }
+});
+
+// --------------------------------------------------------------------------
+// Fortschritt ueber Monate (Analyse-Reiter)
+// --------------------------------------------------------------------------
+const I18N_G = {
+  en: {
+    title: "Progress over the months",
+    intro: "Is the practice working? Accuracy per phase month by month, plus how often you converted won positions and fell back into an opening habit. Months with fewer than five games stay empty.",
+    empty: "Not enough analysed games yet — at least two months with five games each.",
+    head: ["Month", "Games", "Score", "Accuracy", "Blunders/game", "Won positions converted", "Opening habits"],
+    habits: (r, a) => (r + a ? `${r}× repeated · ${a}× avoided` : "–"),
+    conv: (c, n, p) => (p == null ? (n ? `${c}/${n}` : "–") : `${p}% (${c}/${n})`),
+    trend: (ph, a, b) => `${ph}: ${a}% → ${b}%`,
+    trendIntro: "First vs. latest month with enough games:",
+    tip: (m, g) => `${m} · ${g} games`,
+    showTable: "Show as table",
+  },
+  de: {
+    title: "Fortschritt über die Monate",
+    intro: "Wirkt das Üben? Genauigkeit pro Phase Monat für Monat, dazu wie oft du gewonnene Stellungen verwertet hast und wie oft du in eine Eröffnungs-Gewohnheit zurückgefallen bist. Monate mit weniger als fünf Partien bleiben leer.",
+    empty: "Noch zu wenige analysierte Partien – mindestens zwei Monate mit je fünf Partien.",
+    head: ["Monat", "Partien", "Ergebnis", "Genauigkeit", "Patzer/Partie", "Gewinnstellungen verwertet", "Eröffnungs-Gewohnheiten"],
+    habits: (r, a) => (r + a ? `${r}× wiederholt · ${a}× vermieden` : "–"),
+    conv: (c, n, p) => (p == null ? (n ? `${c}/${n}` : "–") : `${p} % (${c}/${n})`),
+    trend: (ph, a, b) => `${ph}: ${a} % → ${b} %`,
+    trendIntro: "Erster gegen letzten Monat mit genug Partien:",
+    tip: (m, g) => `${m} · ${g} Partien`,
+    showTable: "Als Tabelle zeigen",
+  },
+};
+const tg = () => I18N_G[lang];
+const prog = { sig: null, data: null, loading: false, table: false };
+const PHASE_SERIES = ["opening", "middlegame", "endgame"];
+
+function monthLabel(m) {
+  const [y, mo] = m.split("-").map(Number);
+  try {
+    return new Date(y, mo - 1, 1).toLocaleDateString(lang === "de" ? "de-CH" : "en-GB", { month: "short", year: "2-digit" });
+  } catch { return m; }
+}
+
+async function loadProgress() {
+  prog.loading = true;
+  const parts = [];
+  if (timeClass !== "all") parts.push("time_class=" + timeClass);
+  if (platform !== "all") parts.push("platform=" + platform);
+  try { prog.data = await api("progress" + (parts.length ? "?" + parts.join("&") : "")); }
+  catch { prog.data = null; }
+  prog.loading = false;
+  renderProgress();
+}
+
+function renderProgress() {
+  const el = $id("progBody");
+  if (!el) return;
+  const G = tg();
+  $id("progTitle").textContent = G.title;
+  $id("progIntro").textContent = G.intro;
+  const sig = [timeClass, platform].join("|");
+  if (prog.sig !== sig && !prog.loading) { prog.sig = sig; loadProgress(); }
+  const d = prog.data;
+  if (!d) { el.innerHTML = `<p class="muted">${esc(t().loading)}</p>`; return; }
+  const months = d.months.filter((m) => m.enough);
+  if (months.length < 2) { el.innerHTML = `<p class="muted">${esc(G.empty)}</p>`; return; }
+  const first = months[0], last = months[months.length - 1];
+  const trends = PHASE_SERIES.filter((p) => first[p] != null && last[p] != null)
+    .map((p) => {
+      const diff = last[p] - first[p];
+      return `<span class="pg-trend">${esc(G.trend(phaseName(p), num(first[p], 0), num(last[p], 0)))} ${delta(diff, 0, "", true)}</span>`;
+    }).join("");
+  el.innerHTML = `${progressChart(d.months)}
+    <p class="muted pg-trends">${esc(G.trendIntro)} ${trends}</p>
+    <details class="pg-table"${prog.table ? " open" : ""}><summary>${esc(G.showTable)}</summary>
+    <div class="tbl-wrap"><table class="tt"><thead><tr>${G.head.map((h, i) => `<th${i && i < 5 ? ' class="num"' : ""}>${esc(h)}</th>`).join("")}</tr></thead><tbody>
+    ${d.months.slice().reverse().map((m) => `<tr${m.enough ? "" : ' class="thin"'}>
+      <td>${esc(monthLabel(m.month))}</td><td class="num">${m.games}</td><td class="num">${num(m.score, 0, "%")}</td>
+      <td class="num">${num(m.accuracy, 0, "%")}</td><td class="num">${num(m.blunders_per_game, 2)}</td>
+      <td>${esc(G.conv(m.converted, m.won_positions, m.conversion == null ? null : num(m.conversion, 0)))}</td>
+      <td>${esc(G.habits(m.habit_repeated, m.habit_avoided))}</td></tr>`).join("")}
+    </tbody></table></div></details>`;
+}
+
+function progressChart(months) {
+  const W = 640, H = 220, padL = 34, padR = 96, padT = 12, padB = 26;
+  const n = months.length;
+  const vals = [];
+  months.forEach((m) => PHASE_SERIES.forEach((p) => { if (m[p] != null) vals.push(m[p]); }));
+  if (!vals.length) return "";
+  // Achse eng um die Werte, aber auf 5er gerundet - Genauigkeiten liegen dicht beieinander.
+  let lo = Math.floor((Math.min(...vals) - 2) / 5) * 5, hi = Math.ceil((Math.max(...vals) + 2) / 5) * 5;
+  lo = Math.max(0, lo); hi = Math.min(100, Math.max(hi, lo + 10));
+  const x = (i) => padL + (n === 1 ? 0.5 : i / (n - 1)) * (W - padL - padR);
+  const y = (v) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
+  let grid = "";
+  for (let v = lo; v <= hi; v += (hi - lo) > 20 ? 10 : 5)
+    grid += `<line class="grid-ln" x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"/><text class="ax" x="${padL - 6}" y="${(y(v) + 4).toFixed(1)}">${v}</text>`;
+  const step = Math.ceil(n / 8);
+  const xl = months.map((m, i) => (i % step === 0 || i === n - 1)
+    ? `<text class="ax mid" x="${x(i).toFixed(1)}" y="${H - 6}">${esc(monthLabel(m.month))}</text>` : "").join("");
+  let lines = "", labels = "";
+  const ends = [];
+  PHASE_SERIES.forEach((p, k) => {
+    let path = "", pen = false, lastPt = null;
+    months.forEach((m, i) => {
+      if (m[p] == null) { pen = false; return; }
+      path += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(m[p]).toFixed(1)} `;
+      pen = true; lastPt = [x(i), y(m[p]), m[p]];
+      lines += `<circle class="pg-pt s${k + 1}" cx="${x(i).toFixed(1)}" cy="${y(m[p]).toFixed(1)}" r="4"/>`;
+    });
+    lines = `<path class="pg-ln s${k + 1}" d="${path}"/>` + lines;
+    if (lastPt) ends.push({ k, p, y: lastPt[1], x: lastPt[0], v: lastPt[2] });
+  });
+  // Direkte Beschriftung am Linienende, ueberlappungsfrei gestapelt.
+  ends.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+  ends.forEach((e) => { labels += `<text class="pg-lbl" x="${(W - padR + 8).toFixed(1)}" y="${(e.y + 4).toFixed(1)}">${esc(phaseName(e.p))} ${num(e.v, 0)}</text>`; });
+  // Unsichtbare Spalten fuer den Hover: eine pro Monat.
+  const colW = n > 1 ? (W - padL - padR) / (n - 1) : W - padL - padR;
+  const hits = months.map((m, i) => `<rect class="pg-hit" data-pgm="${i}" x="${(x(i) - colW / 2).toFixed(1)}" y="${padT}" width="${colW.toFixed(1)}" height="${H - padT - padB}"/>`).join("");
+  const legend = PHASE_SERIES.map((p, k) => `<span><i class="pg-key s${k + 1}"></i>${esc(phaseName(p))}</span>`).join("");
+  return `<div class="pg-wrap"><svg class="pg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(tg().title)}">
+    ${grid}${xl}<line class="pg-cross" id="pgCross" x1="0" x2="0" y1="${padT}" y2="${H - padB}" visibility="hidden"/>${lines}${labels}${hits}</svg>
+    <div class="pg-tip" id="pgTip" hidden></div></div>
+    <div class="evc-key">${legend}</div>`;
+}
+
+document.addEventListener("pointermove", (e) => {
+  const tip = $id("pgTip"), cross = $id("pgCross");
+  if (!tip || !cross) return;
+  const hit = e.target.closest && e.target.closest("[data-pgm]");
+  if (!hit || !prog.data) { tip.hidden = true; cross.setAttribute("visibility", "hidden"); return; }
+  const m = prog.data.months[Number(hit.dataset.pgm)];
+  const G = tg();
+  const cx = Number(hit.getAttribute("x")) + Number(hit.getAttribute("width")) / 2;
+  cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
+  tip.innerHTML = `<strong>${esc(G.tip(monthLabel(m.month), m.games))}</strong>` +
+    PHASE_SERIES.map((p, k) => `<div><i class="pg-key s${k + 1}"></i>${esc(phaseName(p))} <b>${num(m[p], 0, "%")}</b></div>`).join("") +
+    `<div class="muted">${esc(G.head[5])}: ${esc(G.conv(m.converted, m.won_positions, m.conversion == null ? null : num(m.conversion, 0)))}</div>`;
+  const wrap = tip.parentElement.getBoundingClientRect();
+  tip.hidden = false;
+  const left = Math.min(Math.max(8, e.clientX - wrap.left + 12), wrap.width - tip.offsetWidth - 8);
+  tip.style.left = left + "px";
+  tip.style.top = Math.max(0, e.clientY - wrap.top - tip.offsetHeight - 10) + "px";
+});
+document.addEventListener("toggle", (e) => {
+  if (e.target.classList && e.target.classList.contains("pg-table")) prog.table = e.target.open;
+}, true);
 
 // Waehrend ein Durchgang laeuft, den Status nachziehen.
 setInterval(() => {

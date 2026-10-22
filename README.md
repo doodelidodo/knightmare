@@ -141,6 +141,30 @@ matter how each site names the opening.
   your moves you see how accurately you played them; at your opponent's,
   how you score afterwards.
 
+## More ways to practise
+
+Next to the daily puzzles, the training tab has three more modes — all built
+from your own games:
+
+- **Opening habits in the daily set.** Every repeated opening mistake becomes
+  a puzzle in the same spaced repetition (at most three new ones a day), so
+  the habit gets retrained, not just reported.
+- **Convert the win.** Positions from games you lost or drew although you
+  were clearly winning (70%+ before your costliest move). You play them out
+  against Stockfish. Fail if you drop more than 20 points below the start
+  (never below 60%); succeed with mate, a decisive advantage, or by keeping
+  85%+ for 15 moves.
+- **What's the threat?** The position right before one of your mistakes —
+  but you move your *opponent's* piece: what do they want to play next? The
+  question to ask before every move, trained on the moves you actually missed.
+- **Woodpecker.** A fixed set of up to 24 of your own puzzles, solved in
+  rounds; the clock only runs while you solve. Each round shows the target:
+  half the previous time.
+
+And on the analysis tab, **progress over the months**: accuracy per phase,
+how often you converted won positions, and how often you fell back into an
+opening habit — so you can see whether the practice works.
+
 ## And where to start: the focus card
 
 A dozen statistics still leave you guessing which one matters. The card at the
@@ -330,6 +354,10 @@ GET  /api/review/games  /api/review/games/{id} # games with phase grades, one ga
 GET  /api/repertoire/leaks?color=black        # opening mistakes you repeat
 GET  /api/repertoire/tree?color=white&key=... # explorer over your own games
 POST /api/repertoire/check                    # drill: is this move good enough here?
+GET  /api/progress                            # month by month: accuracy, conversion, habits
+GET  /api/practice/convert  /api/practice/threat
+POST /api/practice/convert/move  /api/practice/threat/check
+GET  /api/woodpecker   POST /api/woodpecker/start  /api/woodpecker/move
 GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze
 GET  /api/tactics/today?day=2026-10-01       # today's puzzles (solutions stay on the server)

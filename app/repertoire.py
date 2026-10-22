@@ -426,7 +426,7 @@ def _leak_row(
         "legal": _legal(node.key),
         "score": _score(games),
         "others": others[:4],
-        "history": history[-8:],
+        "history": history,
         "since_last": since_last,
         "last_played": max(g.played_at for g in games).isoformat(),
         "example_id": error_moves[-1].id,
