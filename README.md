@@ -308,10 +308,26 @@ least one of the two platforms.
 | `CHESS_TACTICS_SECONDS` | `0.4` | Engine time per position when preparing and checking puzzles. |
 | `CHESS_TACTICS_MIN_CP` | `-300` | Skip positions that were already lost before the mistake. |
 | `DATABASE_URL` | SQLite in `/app/data` | Postgres works too. |
+| `LICHESS_STUDY_TOKEN` | – | Optional. Copies your games into Lichess studies (see below). Needs the scopes `study:read` and `study:write`. |
+| `CHESS_STUDY_PLATFORMS` / `CHESS_STUDY_TIME_CLASSES` | `chesscom` / `rapid` | Which games go into the studies. |
+| `CHESS_STUDY_NAME` | `Games {month}` | One study per month, `{month}` becomes `2026-10`. A full study (64 chapters) continues in `… (2)`. |
+| `CHESS_STUDY_FROM` | month of the first export | `YYYY-MM`. Without it, the first run starts with the current month instead of copying your whole archive. |
+| `CHESS_STUDY_LANG` | `en` | Language of the move comments (`en`, `de`). |
+| `TZ` | `UTC` | Decides which month a game played around midnight belongs to. |
 
 Changed the scale or a threshold? Just restart. Every move already stores both
 its centipawn loss and its win-probability loss, so regrading is a pass over the
 database — seconds, no engine.
+
+### Your games in a Lichess study
+
+Knightmare finds the mistakes; for your own variations and notes, a Lichess
+study is the better tool, on any device. With `LICHESS_STUDY_TOKEN` set,
+every run copies new, analysed games into a private study per month, creating
+it if needed. Each of your mistakes arrives marked: `?!`, `?` or `??` on the
+move, plus a comment with what went wrong, the better move and the reply you
+missed. Chess.com clock times stay in the game. Games already copied are
+remembered and never sent twice.
 
 ### Why win probability is the default
 

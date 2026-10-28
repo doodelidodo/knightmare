@@ -17,6 +17,7 @@ Rueckgabecode 0 = alles gut, 1 = mindestens ein Test fehlgeschlagen.
 
 from __future__ import annotations
 
+import io
 import sys
 from typing import Optional
 
@@ -1459,6 +1460,157 @@ def test_practice() -> bool:
     return bool(ok)
 
 
+# --------------------------------------------------------------------------
+# 14) Lichess-Studien (ohne Netz: ein nachgebauter Client)
+# --------------------------------------------------------------------------
+class _FakeStudyClient:
+    """Verhaelt sich wie LichessStudyClient: jede Studie fasst `capacity`
+    Kapitel, danach "Too many chapters"."""
+
+    def __init__(self, existing=None, capacity=64, reject=()):
+        self.store = dict(existing or {})  # Name -> ID
+        self.chapters = {}  # ID -> [(name, pgn, orientation)]
+        self.capacity = capacity
+        self.reject = set(reject)
+        self.created = []
+
+    def username(self):
+        return "abetterdodo"
+
+    def studies(self, _user):
+        return dict(self.store)
+
+    def create_study(self, name):
+        study_id = f"S{len(self.store) + 1:07d}"
+        self.store[name] = study_id
+        self.created.append(name)
+        return study_id
+
+    def import_chapter(self, study_id, pgn, name, orientation):
+        from .lichess_study import GameRejected, StudyFull
+
+        if any(marker in pgn for marker in self.reject):
+            raise GameRejected("Invalid PGN")
+        items = self.chapters.setdefault(study_id, [])
+        if len(items) >= self.capacity:
+            raise StudyFull(study_id)
+        items.append((name, pgn, orientation))
+        return f"C{len(items):07d}"
+
+    def close(self):
+        pass
+
+
+def test_lichess_study() -> bool:
+    import dataclasses
+    from datetime import datetime
+
+    from sqlmodel import Session, select
+
+    from .lichess_study import (
+        annotated_pgn,
+        chapter_name,
+        export_games,
+        month_key,
+        move_comment,
+        parse_month,
+        pending_games,
+        study_names,
+    )
+    from .models import ChessGame, ChessMove, ChessStudyChapter
+
+    ok = True
+    names = study_names("Partien {month}", "2026-10")
+    ok &= _check("Studienname pro Monat", names[0] == "Partien 2026-10", names[0])
+    ok &= _check("Ueberlauf heisst (2)", names[1] == "Partien 2026-10 (2)", names[1])
+    ok &= _check("Name ohne {month} bekommt den Monat angehaengt",
+                 study_names("Meine Partien", "2026-10")[0] == "Meine Partien 2026-10")
+    ok &= _check("Monat nach Ortszeit (31.10. 23:30 UTC ist in Zuerich November)",
+                 month_key(datetime(2026, 10, 31, 23, 30), "Europe/Zurich") == "2026-11")
+    ok &= _check("Unbekannte Zeitzone faellt auf UTC zurueck",
+                 month_key(datetime(2026, 10, 31, 23, 30), "Mars/Olympus") == "2026-10")
+    ok &= _check("CHESS_STUDY_FROM wird gelesen", parse_month("2026-10") == datetime(2026, 10, 1))
+    ok &= _check("Unlesbarer Monat ergibt None", parse_month("Oktober") is None)
+
+    # Kommentar und Symbol am richtigen Zug, Uhrzeiten bleiben stehen
+    blunder = ChessMove(game_id=1, ply=6, san="Nf6", category="blunder", error_type="allowed_mate",
+                        best_move_san="Qe7", refutation_san="Qxf7#", played_at=datetime(2026, 1, 1))
+    text = annotated_pgn(SAMPLE_PGN, [blunder], "de")
+    game = chess.pgn.read_game(io.StringIO(text))
+    nodes = list(game.mainline())
+    sixth = nodes[5]
+    ok &= _check("Patzer bekommt ?? am sechsten Halbzug", chess.pgn.NAG_BLUNDER in sixth.nags, str(sixth.nags))
+    ok &= _check("Kommentar nennt Fehlerart, besseren Zug und Antwort",
+                 "Matt zugelassen" in sixth.comment and "Besser Qe7" in sixth.comment
+                 and "Antwort Qxf7#" in sixth.comment, sixth.comment)
+    ok &= _check("Uhrzeit-Kommentar bleibt erhalten", "%clk" in sixth.comment)
+    ok &= _check("Andere Zuege bleiben ohne Symbol", not any(n.nags for n in nodes[:5]))
+    ok &= _check("Englischer Kommentar", "Blunder: Allowed mate" in move_comment(blunder, "en"))
+    ok &= _check("Kaputtes PGN geht unveraendert durch", annotated_pgn("kein pgn", [blunder], "de") is not None)
+
+    engine = _temp_db()
+    settings = dataclasses.replace(
+        load_settings(), study_token="test", study_name="Partien {month}", study_from="2026-10",
+        study_lang="de", study_timezone="Europe/Zurich", online_mode=False,
+    )
+    with Session(engine) as s:
+        def add(uuid, platform="chesscom", time_class="rapid", when=datetime(2026, 10, 5, 18, 0),
+                analyzed=True, pgn=SAMPLE_PGN):
+            g = ChessGame(platform=platform, uuid=uuid, played_at=when, time_class=time_class, color="black",
+                          result="loss", opponent="Gegner", pgn=pgn,
+                          analyzed_at=when if analyzed else None)
+            s.add(g)
+            s.commit()
+            return g
+
+        a = add("cc:1")
+        add("cc:2", when=datetime(2026, 10, 6, 18, 0))
+        add("cc:3", when=datetime(2026, 10, 7, 18, 0), pgn=SAMPLE_PGN.replace("Selbsttest", "KAPUTT"))
+        add("cc:blitz", time_class="blitz")
+        add("li:rapid", platform="lichess")
+        add("cc:offen", analyzed=False)
+        add("cc:sept", when=datetime(2026, 9, 30, 12, 0))
+        s.add(ChessMove(game_id=a.id, ply=6, san="Nf6", category="blunder", error_type="allowed_mate",
+                        best_move_san="Qe7", played_at=a.played_at))
+        s.commit()
+
+        pending = {g.uuid for g in pending_games(s, settings)}
+        ok &= _check("Nur Chess.com, nur Rapid, nur analysiert, ab Oktober",
+                     pending == {"cc:1", "cc:2", "cc:3"}, str(sorted(pending)))
+        ok &= _check("Kapitelname mit Datum, Gegner und Ergebnis",
+                     chapter_name(a, "de", "Europe/Zurich") == "05.10.2026 gegen Gegner · Niederlage",
+                     chapter_name(a, "de", "Europe/Zurich"))
+
+        fake = _FakeStudyClient(existing={"Partien 2026-10": "4wdGZUsz"}, capacity=1, reject=("KAPUTT",))
+        result = export_games(s, settings, client=fake, pause_seconds=0)
+        ok &= _check("Zwei Partien exportiert, eine abgelehnt",
+                     result["exported"] == 2 and result["rejected"] == 1, str(result))
+        ok &= _check("Bestehende Studie wird benutzt, volle laeuft in (2) ueber",
+                     fake.created == ["Partien 2026-10 (2)"] and len(fake.chapters.get("4wdGZUsz", [])) == 1,
+                     str(fake.created))
+        first_pgn = fake.chapters["4wdGZUsz"][0][1]
+        ok &= _check("Exportierte Partie traegt Knightmares Kommentar", "Matt zugelassen" in first_pgn)
+        ok &= _check("Brett aus eigener Sicht", fake.chapters["4wdGZUsz"][0][2] == "black")
+        rows = s.exec(select(ChessStudyChapter)).all()
+        ok &= _check("Drei Zeilen gemerkt (zwei Kapitel, eine Ablehnung)",
+                     len(rows) == 3 and sum(1 for r in rows if r.error) == 1, str(len(rows)))
+        again = export_games(s, settings, client=fake, pause_seconds=0)
+        ok &= _check("Zweiter Lauf schickt nichts doppelt", again["exported"] == 0 and again["rejected"] == 0,
+                     str(again))
+
+        # Ohne CHESS_STUDY_FROM: ab dem Monat der ersten exportierten Partie
+        loose = dataclasses.replace(settings, study_from="")
+        late = add("cc:4", when=datetime(2026, 10, 20, 9, 0))
+        ok &= _check("Ohne Startmonat zaehlt der Monat des ersten Exports",
+                     {g.uuid for g in pending_games(s, loose)} == {late.uuid})
+
+        off = dataclasses.replace(settings, study_token="")
+        ok &= _check("Ohne Token passiert nichts", export_games(s, off, client=fake) is None)
+        online = dataclasses.replace(settings, online_mode=True)
+        ok &= _check("In der Online-Fassung aus", export_games(s, online, client=fake) is None)
+    return ok
+
+
 def select_games():
     from sqlmodel import select
 
@@ -1511,8 +1663,11 @@ def main() -> int:
     print("\n13) Uebungen und Fortschritt")
     practice_ok = test_practice()
 
+    print("\n14) Lichess-Studien")
+    study_ok = test_lichess_study()
+
     print("\n" + "=" * 66)
-    if (practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")

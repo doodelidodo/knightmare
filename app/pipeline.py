@@ -44,6 +44,8 @@ from .config import (
 )
 from .db import new_session
 from .lichess import LichessClient, LichessError
+from .lichess_study import export_games as export_to_studies
+from .lichess_study import summary_text as study_summary_text
 from .models import ChessGame, ChessMove, ChessSyncState, utc_now
 from .tactics import get_trainer
 
@@ -1223,6 +1225,17 @@ def run_once(
         except Exception as exc:  # noqa: BLE001 - darf den Lauf nicht kippen
             log.error("Vorbereiten der Aufgaben fehlgeschlagen: %s", exc)
 
+        # Neue Partien als Kapitel in Lichess-Studien (nur mit Token). Nach der
+        # Analyse, damit Knightmares Fehler gleich als Kommentar am Zug stehen.
+        study_result = None
+        try:
+            if settings.study_enabled:
+                _set_status(phase="Lichess-Studien")
+                study_result = export_to_studies(session, settings)
+        except Exception as exc:  # noqa: BLE001 - darf den Lauf nicht kippen
+            session.rollback()
+            log.error("Export in Lichess-Studien fehlgeschlagen: %s", exc)
+
         message = (
             f"{fetch_result['added']} neue Partien, "
             f"{analysis_result['analyzed']} analysiert, "
@@ -1235,7 +1248,13 @@ def run_once(
         # sich, warum von einer Plattform nichts ankommt.
         for problem in fetch_result.get("problems") or []:
             message += f" · {problem}"
-        summary.update(fetch=fetch_result, analysis=analysis_result, tactics=tactics_result, message=message)
+        study_note = study_summary_text(study_result)
+        if study_note:
+            message += f" · {study_note}"
+        summary.update(
+            fetch=fetch_result, analysis=analysis_result, tactics=tactics_result,
+            study=study_result, message=message,
+        )
         _store_state(
             session, settings, "ok", message, fetch_result.get("last_archive"), fetch_result["added"]
         )

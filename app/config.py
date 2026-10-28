@@ -242,6 +242,27 @@ class Settings:
     # die Oberflaeche blendet dann Abholen, Neu analysieren und das Training aus.
     online_mode: bool = False
 
+    # Eigene Partien als Kapitel in Lichess-Studien ablegen (app/lichess_study.py).
+    # Aus, solange kein Token gesetzt ist. Der Token braucht study:read und
+    # study:write - bewusst ein eigener, nicht LICHESS_TOKEN.
+    study_token: str = ""
+    study_platforms: tuple[str, ...] = (PLATFORM_CHESSCOM,)
+    study_time_classes: tuple[str, ...] = ("rapid",)
+    # {month} wird durch JJJJ-MM ersetzt. Pro Monat eine Studie; ist sie voll
+    # (64 Kapitel), geht es in "<Name> (2)" weiter.
+    study_name: str = "Games {month}"
+    # Ab welchem Monat (JJJJ-MM). Leer: ab dem Monat der ersten exportierten
+    # Partie, beim allerersten Mal ab dem laufenden Monat - sonst landete das
+    # ganze Archiv auf einen Schlag in Lichess.
+    study_from: str = ""
+    study_lang: str = "en"
+    study_max_per_run: int = 30
+    study_timezone: str = "UTC"
+
+    @property
+    def study_enabled(self) -> bool:
+        return bool(self.study_token) and not self.online_mode
+
     @property
     def configured(self) -> bool:
         return bool(self.chesscom_username or self.lichess_username)
@@ -312,6 +333,14 @@ def load_settings() -> Settings:
         # gewesen" hat keine Antwort, wenn ohnehin alles verliert.
         tactics_min_cp=_env_int("CHESS_TACTICS_MIN_CP", -300),
         fetch_max_games=max(0, _env_int("CHESS_FETCH_MAX_GAMES", 0)),
+        study_token=_env_str("LICHESS_STUDY_TOKEN"),
+        study_platforms=_env_tuple("CHESS_STUDY_PLATFORMS", (PLATFORM_CHESSCOM,)),
+        study_time_classes=_env_tuple("CHESS_STUDY_TIME_CLASSES", ("rapid",)),
+        study_name=_env_str("CHESS_STUDY_NAME", "Games {month}") or "Games {month}",
+        study_from=_env_str("CHESS_STUDY_FROM"),
+        study_lang=(_env_str("CHESS_STUDY_LANG", "en") or "en").lower()[:2],
+        study_max_per_run=max(1, min(200, _env_int("CHESS_STUDY_MAX_PER_RUN", 30))),
+        study_timezone=_env_str("TZ", "UTC") or "UTC",
     )
 
 

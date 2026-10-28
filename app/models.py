@@ -153,6 +153,25 @@ class ChessSyncState(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
+class ChessStudyChapter(SQLModel, table=True):
+    """Welche Partie schon als Kapitel in einer Lichess-Studie liegt.
+
+    Eine Zeile pro Partie. Ohne `chapter_id`, aber mit `error`: Lichess hat die
+    Partie abgelehnt (etwa ein PGN, das es nicht lesen kann) - sie wird dann
+    nicht bei jedem Lauf erneut geschickt.
+    """
+
+    __tablename__ = "chess_study_chapters"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    game_id: int = Field(index=True, unique=True, foreign_key="chess_games.id")
+    study_id: str = Field(default="", max_length=12)
+    study_name: str = Field(default="", max_length=100)
+    chapter_id: Optional[str] = Field(default=None, max_length=12)
+    error: Optional[str] = Field(default=None, max_length=300)
+    exported_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
 class ChessTactic(SQLModel, table=True):
     """Eine Taktikaufgabe aus einem eigenen Fehler (oder der Grund, warum der
     Fehler keine taugliche Aufgabe ist - dann wird er nicht jedes Mal neu
