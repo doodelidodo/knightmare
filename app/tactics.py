@@ -39,7 +39,7 @@ from typing import Any, Optional
 import chess
 import chess.engine
 import chess.pgn
-from sqlalchemy import func, inspect, select, text, update
+from sqlalchemy import and_, func, inspect, or_, select, text, true, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.engine import Connection, Engine as DbEngine
@@ -71,6 +71,14 @@ class TacticSettings:
     max_moves: int = 3          # eigene Zuege in einer Loesung (Matt: bis 5)
     alt_tolerance: float = 4.0
     max_per_game: int = 2       # nicht fuenf Aufgaben aus derselben Partie am Tag
+    # Nur aus diesen Partien trainieren (leer = alle). Gilt fuer den ganzen
+    # Reiter Training: Tagesaufgaben, Gewinn verwerten, Was droht?, Woodpecker.
+    platforms: tuple[str, ...] = ()
+    time_classes: tuple[str, ...] = ()
+
+    @property
+    def scoped(self) -> bool:
+        return bool(self.platforms or self.time_classes)
 
 
 def settings_from(app_settings) -> TacticSettings:
@@ -78,7 +86,30 @@ def settings_from(app_settings) -> TacticSettings:
         per_day=app_settings.tactics_per_day,
         engine_seconds=app_settings.tactics_engine_seconds,
         min_cp_before=app_settings.tactics_min_cp,
+        platforms=tuple(getattr(app_settings, "training_platforms", ()) or ()),
+        time_classes=tuple(getattr(app_settings, "training_time_classes", ()) or ()),
     )
+
+
+# Eroeffnungs-Gewohnheiten stammen aus vielen Partien. Ist der Trainingsbereich
+# mehr als eine Plattform oder Partieart, tragen sie diese Markierung statt einer
+# Plattform und gelten ueberall.
+ANY_SCOPE = "any"
+
+
+def scope_where(platform_col, time_class_col, settings: Optional[TacticSettings], allow_any: bool = True):
+    """SQL-Bedingung fuer den Trainingsbereich. Ohne Einschraenkung: immer wahr.
+    Aufgaben ohne Plattform (alte Gewohnheiten) fallen bei aktiver
+    Einschraenkung heraus - woher sie stammen, laesst sich nicht sagen."""
+    if settings is None or not settings.scoped:
+        return true()
+    parts = []
+    if settings.platforms:
+        parts.append(platform_col.in_(settings.platforms))
+    if settings.time_classes:
+        parts.append(time_class_col.in_(settings.time_classes))
+    cond = and_(*parts)
+    return or_(cond, platform_col == ANY_SCOPE) if allow_any else cond
 
 
 def engine_available(path: Optional[str]) -> bool:
@@ -221,6 +252,7 @@ def find_candidates(conn: Connection, settings: TacticSettings, today: date, lim
             (m.category.in_(("mistake", "blunder"))) | (m.mate_in > 0),
             m.best_move_san.is_not(None),
             m.cp_before >= settings.min_cp_before,
+            scope_where(g.platform, g.time_class, settings, allow_any=False),
         )
         .order_by(m.played_at.desc())
         .limit(5000)
@@ -381,7 +413,8 @@ def ensure_pool(engine: DbEngine, eng: Engine, settings: TacticSettings, today: 
     with engine.connect() as conn:
         have = conn.execute(
             select(func.count()).select_from(TACTICS)
-            .where(TACTICS.c.status == "ready", TACTICS.c.box == 0)
+            .where(TACTICS.c.status == "ready", TACTICS.c.box == 0,
+                   scope_where(TACTICS.c.platform, TACTICS.c.time_class, settings))
         ).scalar_one()
     need = target_new - have
     if need <= 0:
@@ -434,22 +467,49 @@ def is_habit(key: Optional[str]) -> bool:
     return bool(key) and key.startswith(HABIT_PREFIX)
 
 
-def sync_habits(engine: DbEngine) -> int:
+def habit_scope(settings: Optional[TacticSettings]) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    """(platform, time_class) fuer repertoire.leaks und die Markierung der
+    Gewohnheit. Genau eine Plattform und eine Partieart: danach filtern und
+    so markieren. Mehrere: alle Partien, Markierung ANY_SCOPE."""
+    if settings is None or not settings.scoped:
+        return None, None, None, None
+    platform = settings.platforms[0] if len(settings.platforms) == 1 else None
+    time_class = settings.time_classes[0] if len(settings.time_classes) == 1 else None
+    exact = (not settings.platforms or platform) and (not settings.time_classes or time_class)
+    if not exact:
+        return None, None, ANY_SCOPE, ANY_SCOPE
+    return platform, time_class, platform or ANY_SCOPE, time_class or ANY_SCOPE
+
+
+def sync_habits(engine: DbEngine, settings: Optional[TacticSettings] = None) -> int:
     """Neue Gewohnheiten in den Vorrat. Bestehende bleiben samt Lernstand
     unangetastet - auch wenn die Gewohnheit inzwischen abgelegt ist, ist sie
-    eine gute Wiederholung. Gibt die Zahl der neuen zurueck."""
+    eine gute Wiederholung. Gibt die Zahl der neuen zurueck.
+
+    Mit Trainingsbereich (CHESS_TRAINING_*) zaehlen nur Gewohnheiten aus
+    diesen Partien; bestehende, unmarkierte bekommen die Markierung, wenn sie
+    darin wieder auftauchen."""
     from sqlmodel import Session
 
     from . import repertoire
 
+    leak_platform, leak_time_class, tag_platform, tag_time_class = habit_scope(settings)
     with Session(engine) as session:
-        found = repertoire.leaks(session, limit=500)["leaks"]
+        found = repertoire.leaks(session, limit=500, time_class=leak_time_class,
+                                 platform=leak_platform)["leaks"]
     if not found:
         return 0
     with engine.connect() as conn:
         known = {row[0] for row in conn.execute(select(TACTICS.c.key).where(TACTICS.c.key.like(HABIT_PREFIX + "%")))}
     added = 0
     with engine.begin() as conn:
+        if tag_platform:
+            keys = [habit_key(leak["color"], leak["key"], leak["san"]) for leak in found]
+            conn.execute(
+                update(TACTICS)
+                .where(TACTICS.c.key.in_([k for k in keys if k in known]), TACTICS.c.platform.is_(None))
+                .values(platform=tag_platform, time_class=tag_time_class)
+            )
         for leak in found:
             if not leak.get("best_uci"):
                 continue
@@ -467,7 +527,8 @@ def sync_habits(engine: DbEngine) -> int:
             upsert(conn, TACTICS, {
                 "key": key, "status": "ready", "reason": None, "priority": HABIT_PRIORITY,
                 "game_uuid": key, "ply": len(leak["path"].split()) + 1, "url": (last.get("url") or "")[:300],
-                "played_at": played_at, "platform": None, "time_class": None, "color": leak["color"],
+                "played_at": played_at, "platform": tag_platform, "time_class": tag_time_class,
+                "color": leak["color"],
                 "opponent": "", "fen": board.fen(), "last_move": leak.get("last_move"),
                 "played_uci": leak["uci"], "played_san": leak["san"], "solution": leak["best_uci"],
                 "solution_san": board.variation_san([chess.Move.from_uci(leak["best_uci"])]),
@@ -519,7 +580,8 @@ def build_day(conn: Connection, day: date, settings: TacticSettings) -> list:
     seen: set[str] = set()
     due: list[str] = []
     for r in conn.execute(
-        select(t.key, t.fen).where(t.status == "ready", t.box.between(1, LEARNED - 1), t.due <= day)
+        select(t.key, t.fen).where(t.status == "ready", t.box.between(1, LEARNED - 1), t.due <= day,
+                                   scope_where(t.platform, t.time_class, settings))
         .order_by(t.due, t.box, t.key)
     ):
         pk = position_key(r.fen)
@@ -530,10 +592,11 @@ def build_day(conn: Connection, day: date, settings: TacticSettings) -> list:
         due.append(r.key)
     # Stellungen, die schon in Wiederholung oder gelernt sind, nicht nochmal als neu.
     in_rotation = {position_key(r.fen) for r in conn.execute(
-        select(t.fen).where(t.status == "ready", t.box >= 1)
+        select(t.fen).where(t.status == "ready", t.box >= 1, scope_where(t.platform, t.time_class, settings))
     )} - {""}
     fresh = conn.execute(
-        select(t.key, t.game_uuid, t.fen).where(t.status == "ready", t.box == 0)
+        select(t.key, t.game_uuid, t.fen).where(t.status == "ready", t.box == 0,
+                                                scope_where(t.platform, t.time_class, settings))
         .order_by(t.priority.desc(), t.played_at.desc(), t.key)
     ).all()
     per_game: dict[str, int] = {}
@@ -591,10 +654,10 @@ def record(conn: Connection, day: date, key: str, solved: bool) -> bool:
     return True
 
 
-def stats(conn: Connection, today: date) -> dict:
+def stats(conn: Connection, today: date, settings: Optional[TacticSettings] = None) -> dict:
     t = TACTICS.c
     counts: dict[str, Any] = {"new": 0, "learning": 0, "learned": 0, "due": 0, "unsuitable": 0}
-    for r in conn.execute(select(t.status, t.box, t.due)):
+    for r in conn.execute(select(t.status, t.box, t.due).where(scope_where(t.platform, t.time_class, settings))):
         if r.status != "ready":
             counts["unsuitable"] += 1
         elif (r.box or 0) == 0:
@@ -797,7 +860,7 @@ class Trainer:
         self.status.update(preparing=True, last_error=None)
         try:
             try:
-                sync_habits(self.db)
+                sync_habits(self.db, self.settings)
             except Exception:  # noqa: BLE001 - Gewohnheiten sind ein Zusatz
                 log.exception("Eroeffnungs-Gewohnheiten nicht uebernommen")
             result = ensure_pool(
@@ -828,7 +891,7 @@ class Trainer:
 
     def pool_ready(self, day: date) -> bool:
         with self.db.connect() as conn:
-            st = stats(conn, day)
+            st = stats(conn, day, self.settings)
         return st["new"] + st["due"] >= self.settings.per_day
 
 

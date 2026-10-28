@@ -36,7 +36,7 @@ from sqlalchemy.engine import Engine as DbEngine
 
 from .analysis import win_percent
 from .models import ChessGame, ChessMove, ChessPractice, ChessTactic, ChessWoodpecker, utc_now
-from .tactics import Engine, MoveError, legal_moves, mate_for, upsert, win_for
+from .tactics import Engine, MoveError, TacticSettings, legal_moves, mate_for, scope_where, upsert, win_for
 
 log = logging.getLogger(__name__)
 
@@ -97,14 +97,14 @@ def _board_before(pgn_text: str, ply: int) -> tuple[Optional[chess.Board], Optio
 # ---------------------------------------------------------------------------
 # Kandidaten
 # ---------------------------------------------------------------------------
-def convert_candidates(conn) -> list[dict]:
+def convert_candidates(conn, scope: Optional[TacticSettings] = None) -> list[dict]:
     """Pro verlorener oder remisierter Partie hoechstens eine Stellung: vor dem
     teuersten eigenen Zug, solange noch >= CONVERT_MIN_WIN da waren."""
     m, g = MOVES.c, GAMES.c
     rows = conn.execute(
         select(m.game_id, m.ply, m.cp_before, m.win_loss, m.san, m.best_move_san, g.uuid, g.result)
         .select_from(MOVES.join(GAMES, g.id == m.game_id))
-        .where(g.result.in_(("loss", "draw")))
+        .where(g.result.in_(("loss", "draw")), scope_where(g.platform, g.time_class, scope, allow_any=False))
     ).all()
     by_game: dict[int, list] = {}
     for r in rows:
@@ -124,14 +124,14 @@ def convert_candidates(conn) -> list[dict]:
     return out
 
 
-def threat_candidates(conn) -> list[dict]:
+def threat_candidates(conn, scope: Optional[TacticSettings] = None) -> list[dict]:
     m, g = MOVES.c, GAMES.c
     rows = conn.execute(
         select(m.game_id, m.ply, m.cp_before, m.win_loss, m.san, m.best_move_san, m.refutation_san,
                m.error_type, g.uuid, g.result)
         .select_from(MOVES.join(GAMES, g.id == m.game_id))
         .where(m.error_type.in_(THREAT_ERRORS), m.category.in_(("mistake", "blunder")),
-               m.refutation_san.is_not(None))
+               m.refutation_san.is_not(None), scope_where(g.platform, g.time_class, scope, allow_any=False))
     ).all()
     return [{"game_id": r.game_id, "ply": r.ply, "uuid": r.uuid, "result": r.result,
              "played_san": r.san, "best_san": r.best_move_san, "refutation_san": r.refutation_san,
@@ -198,7 +198,8 @@ def prepare_threat(eng: Engine, cand: dict, game) -> dict:
             "solution_san": null.san(threat)}
 
 
-def ensure(db: DbEngine, eng: Engine, kind: str, want: int = 12, max_tries: int = 30) -> dict:
+def ensure(db: DbEngine, eng: Engine, kind: str, want: int = 12, max_tries: int = 30,
+           scope: Optional[TacticSettings] = None) -> dict:
     """Bereitet bis zu `want` neue Stellungen vor (hoechstens max_tries
     Kandidaten gerechnet). Ohne Engine passiert nichts."""
     result = {"ready": 0, "unsuitable": 0}
@@ -209,8 +210,9 @@ def ensure(db: DbEngine, eng: Engine, kind: str, want: int = 12, max_tries: int 
             known = {r[0] for r in conn.execute(select(PRACTICE.c.key).where(PRACTICE.c.kind == kind))}
             ready = conn.execute(
                 select(PRACTICE.c.key).where(PRACTICE.c.kind == kind, PRACTICE.c.status == "ready",
-                                             PRACTICE.c.attempts == 0)).all()
-            cands = convert_candidates(conn) if kind == "convert" else threat_candidates(conn)
+                                             PRACTICE.c.attempts == 0,
+                                             scope_where(PRACTICE.c.platform, PRACTICE.c.time_class, scope))).all()
+            cands = convert_candidates(conn, scope) if kind == "convert" else threat_candidates(conn, scope)
         if len(ready) >= want:
             return result
         cands = [c for c in cands if practice_key(kind, c["uuid"], c["ply"]) not in known]
@@ -234,17 +236,19 @@ def ensure(db: DbEngine, eng: Engine, kind: str, want: int = 12, max_tries: int 
         _prepare_lock.release()
 
 
-def listing(db: DbEngine, kind: str, limit: int = 40) -> dict:
+def listing(db: DbEngine, kind: str, limit: int = 40, scope: Optional[TacticSettings] = None) -> dict:
     p = PRACTICE.c
+    in_scope = scope_where(p.platform, p.time_class, scope)
     with db.connect() as conn:
         rows = conn.execute(
-            select(PRACTICE).where(p.kind == kind, p.status == "ready")
+            select(PRACTICE).where(p.kind == kind, p.status == "ready", in_scope)
             # Offene zuerst, dann die zuletzt verfehlten, gemeisterte zuletzt.
             .order_by((p.solved > 0).asc(), p.attempts.asc(), p.priority.desc())
             .limit(limit)
         ).all()
-        total = conn.execute(select(p.key).where(p.kind == kind, p.status == "ready")).all()
-        mastered = conn.execute(select(p.key).where(p.kind == kind, p.status == "ready", p.solved > 0)).all()
+        total = conn.execute(select(p.key).where(p.kind == kind, p.status == "ready", in_scope)).all()
+        mastered = conn.execute(select(p.key).where(p.kind == kind, p.status == "ready", p.solved > 0,
+                                                    in_scope)).all()
     return {"kind": kind, "items": [payload(r) for r in rows], "total": len(total), "mastered": len(mastered)}
 
 
@@ -405,12 +409,13 @@ def _current_round(conn):
     return conn.execute(select(WOOD).order_by(WOOD.c.cycle.desc(), WOOD.c.round.desc()).limit(1)).first()
 
 
-def woodpecker_state(db: DbEngine) -> dict:
+def woodpecker_state(db: DbEngine, scope: Optional[TacticSettings] = None) -> dict:
     from .tactics import puzzle_payload
 
     with db.connect() as conn:
         cur = _current_round(conn)
-        available = conn.execute(select(TACTICS.c.key).where(TACTICS.c.status == "ready")).all()
+        available = conn.execute(select(TACTICS.c.key).where(
+            TACTICS.c.status == "ready", scope_where(TACTICS.c.platform, TACTICS.c.time_class, scope))).all()
         if cur is None:
             return {"active": False, "available": len(available), "min": WOOD_MIN, "set_size": WOOD_SET,
                     "rounds": []}
@@ -430,7 +435,7 @@ def woodpecker_state(db: DbEngine) -> dict:
     }
 
 
-def woodpecker_start(db: DbEngine, new_cycle: bool) -> dict:
+def woodpecker_start(db: DbEngine, new_cycle: bool, scope: Optional[TacticSettings] = None) -> dict:
     """Neuer Satz (new_cycle) oder naechste Runde mit demselben Satz."""
     t = TACTICS.c
     with db.begin() as conn:
@@ -439,7 +444,7 @@ def woodpecker_start(db: DbEngine, new_cycle: bool) -> dict:
             # Bekannte zuerst (schon einmal gesehen), dann nach Wichtigkeit -
             # Woodpecker trainiert Wiedererkennen, nicht Erstbegegnung.
             keys = [r.key for r in conn.execute(
-                select(t.key).where(t.status == "ready")
+                select(t.key).where(t.status == "ready", scope_where(t.platform, t.time_class, scope))
                 .order_by((t.attempts > 0).desc(), t.priority.desc(), t.key).limit(WOOD_SET))]
             if len(keys) < WOOD_MIN:
                 raise MoveError("not_enough_tasks")
@@ -449,7 +454,7 @@ def woodpecker_start(db: DbEngine, new_cycle: bool) -> dict:
             cycle, rnd = cur.cycle, cur.round + 1
         conn.execute(WOOD.insert().values(cycle=cycle, round=rnd, keys=" ".join(keys), results="{}",
                                           seconds=0.0, started_at=utc_now(), finished_at=None))
-    return woodpecker_state(db)
+    return woodpecker_state(db, scope)
 
 
 def woodpecker_record(db: DbEngine, key: str, solved: bool, seconds: float) -> dict:

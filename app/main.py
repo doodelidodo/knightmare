@@ -795,7 +795,7 @@ def _tactics_payload(day: date, build: bool) -> dict[str, object]:
             if r.result:
                 item["explain"] = tactics.explanation(row)
             items.append(item)
-        st = tactics.stats(conn, day)
+        st = tactics.stats(conn, day, trainer.settings)
     return {"day": day.isoformat(), "items": items, "stats": st}
 
 
@@ -940,8 +940,9 @@ def get_practice(kind: str) -> dict[str, object]:
     if current_settings().online_mode:
         return {"kind": kind, "items": [], "total": 0, "mastered": 0, "online": True}
     eng = tactics.get_trainer().engine
-    prepared = practice.ensure(db_engine, eng, kind, want=8, max_tries=12) if eng.available else None
-    out = practice.listing(db_engine, kind)
+    scope = tactics.get_trainer().settings
+    prepared = practice.ensure(db_engine, eng, kind, want=8, max_tries=12, scope=scope) if eng.available else None
+    out = practice.listing(db_engine, kind, scope=scope)
     out["engine"] = eng.available
     out["prepared"] = prepared
     return out
@@ -990,7 +991,7 @@ def practice_threat_check(body: ThreatBody) -> dict[str, object]:
 
 @api.get("/woodpecker")
 def get_woodpecker() -> dict[str, object]:
-    return practice.woodpecker_state(db_engine)
+    return practice.woodpecker_state(db_engine, tactics.get_trainer().settings)
 
 
 class WoodStartBody(BaseModel):
@@ -1000,7 +1001,7 @@ class WoodStartBody(BaseModel):
 @api.post("/woodpecker/start")
 def woodpecker_start(body: WoodStartBody) -> dict[str, object]:
     try:
-        return practice.woodpecker_start(db_engine, body.new_cycle)
+        return practice.woodpecker_start(db_engine, body.new_cycle, tactics.get_trainer().settings)
     except tactics.MoveError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
 

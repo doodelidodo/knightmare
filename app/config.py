@@ -259,6 +259,10 @@ class Settings:
     study_max_per_run: int = 30
     study_timezone: str = "UTC"
 
+    # Reiter Training nur aus diesen Partien (leer = alle).
+    training_platforms: tuple[str, ...] = ()
+    training_time_classes: tuple[str, ...] = ()
+
     @property
     def study_enabled(self) -> bool:
         return bool(self.study_token) and not self.online_mode
@@ -341,6 +345,8 @@ def load_settings() -> Settings:
         study_lang=(_env_str("CHESS_STUDY_LANG", "en") or "en").lower()[:2],
         study_max_per_run=max(1, min(200, _env_int("CHESS_STUDY_MAX_PER_RUN", 30))),
         study_timezone=_env_str("TZ", "UTC") or "UTC",
+        training_platforms=_env_tuple("CHESS_TRAINING_PLATFORMS", ()),
+        training_time_classes=_env_tuple("CHESS_TRAINING_TIME_CLASSES", ()),
     )
 
 

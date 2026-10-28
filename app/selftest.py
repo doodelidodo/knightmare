@@ -1611,6 +1611,76 @@ def test_lichess_study() -> bool:
     return ok
 
 
+# --------------------------------------------------------------------------
+# 15) Trainingsbereich (CHESS_TRAINING_PLATFORMS / _TIME_CLASSES)
+# --------------------------------------------------------------------------
+def test_training_scope() -> bool:
+    import dataclasses
+    from datetime import date, datetime, timedelta
+
+    from sqlmodel import Session
+
+    from . import practice
+    from . import tactics as tx
+    from .models import ChessGame, ChessMove
+
+    ok = True
+    d = date(2026, 10, 28)
+    scope = tx.TacticSettings(per_day=10, platforms=("chesscom",), time_classes=("rapid",))
+    ok &= _check("Ohne Einstellung ist nichts eingeschraenkt", not tx.TacticSettings().scoped)
+    ok &= _check("Aus der Umgebung gelesen",
+                 tx.settings_from(dataclasses.replace(load_settings(), training_platforms=("chesscom",),
+                                                      training_time_classes=("rapid",))).platforms == ("chesscom",))
+    ok &= _check("Gewohnheiten: genau eine Plattform und Partieart wird gefiltert und markiert",
+                 tx.habit_scope(scope) == ("chesscom", "rapid", "chesscom", "rapid"))
+    ok &= _check("Gewohnheiten: mehrere Partiearten gelten ueberall",
+                 tx.habit_scope(dataclasses.replace(scope, time_classes=("rapid", "blitz")))
+                 == (None, None, tx.ANY_SCOPE, tx.ANY_SCOPE))
+
+    T = tx.TACTICS
+    eng = _temp_db()
+    base = {"status": "ready", "attempts": 0, "solved": 0, "box": 0}
+    rows = [("cc-rapid", "chesscom", "rapid"), ("cc-blitz", "chesscom", "blitz"),
+            ("li-rapid", "lichess", "rapid"), ("habit-alt", None, None), ("habit-any", tx.ANY_SCOPE, tx.ANY_SCOPE)]
+    with eng.begin() as conn:
+        for i, (key, platform, time_class) in enumerate(rows):
+            conn.execute(T.insert().values(key=f"{key}#1", game_uuid=key, priority=5, fen=f"s{i} w - - 0 1",
+                                           platform=platform, time_class=time_class, **base))
+        conn.execute(T.insert().values(key="li-due#1", game_uuid="li-due", priority=5, fen="due w - - 0 1",
+                                       platform="lichess", time_class="rapid",
+                                       **{**base, "box": 2, "due": d - timedelta(days=1)}))
+        picked = {r.key for r in tx.build_day(conn, d, scope)}
+        st = tx.stats(conn, d, scope)
+    ok &= _check("Tagesauswahl nur Chess.com-Rapid (plus markierte Gewohnheiten)",
+                 picked == {"cc-rapid#1", "habit-any#1"}, str(sorted(picked)))
+    ok &= _check("Faellige Lichess-Wiederholung bleibt draussen", st["due"] == 0 and st["new"] == 2, str(st))
+
+    with Session(eng) as s:
+        when = datetime(2026, 10, 20, 18, 0)
+        games = {}
+        for uuid, platform, time_class in (("g-cc", "chesscom", "rapid"), ("g-li", "lichess", "rapid"),
+                                           ("g-bl", "chesscom", "blitz")):
+            g = ChessGame(platform=platform, uuid=uuid, played_at=when, time_class=time_class, color="white",
+                          result="loss", pgn=SAMPLE_PGN, analyzed_at=when)
+            s.add(g)
+            s.commit()
+            games[uuid] = g.id
+            s.add(ChessMove(game_id=g.id, ply=5, san="Qh5", category="blunder", error_type="missed_threat",
+                            best_move_san="Nf3", refutation_san="Nf6", cp_before=0, cp_after=-400,
+                            win_loss=40.0, played_at=when))
+            s.commit()
+    with eng.connect() as conn:
+        cands = {c["game_id"] for c in tx.find_candidates(conn, scope, d, 50)}
+        threats = {c["uuid"] for c in practice.threat_candidates(conn, scope)}
+        unscoped = {c["uuid"] for c in practice.threat_candidates(conn)}
+    ok &= _check("Neue Aufgaben nur aus Chess.com-Rapid", cands == {games["g-cc"]}, str(cands))
+    ok &= _check("Was droht? nur aus Chess.com-Rapid", threats == {"g-cc"}, str(threats))
+    ok &= _check("Ohne Einschraenkung alle drei", len(unscoped) == 3, str(unscoped))
+    wood = practice.woodpecker_state(eng, scope)
+    ok &= _check("Woodpecker zaehlt nur den Bereich", wood["available"] == 2, str(wood["available"]))
+    return ok
+
+
 def select_games():
     from sqlmodel import select
 
@@ -1666,8 +1736,11 @@ def main() -> int:
     print("\n14) Lichess-Studien")
     study_ok = test_lichess_study()
 
+    print("\n15) Trainingsbereich")
+    scope_ok = test_training_scope()
+
     print("\n" + "=" * 66)
-    if (study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")

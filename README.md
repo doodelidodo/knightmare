@@ -307,6 +307,7 @@ least one of the two platforms.
 | `CHESS_TACTICS_PER_DAY` | `10` | Puzzles per day. |
 | `CHESS_TACTICS_SECONDS` | `0.4` | Engine time per position when preparing and checking puzzles. |
 | `CHESS_TACTICS_MIN_CP` | `-300` | Skip positions that were already lost before the mistake. |
+| `CHESS_TRAINING_PLATFORMS` / `CHESS_TRAINING_TIME_CLASSES` | all | Train only from these games, e.g. `chesscom` / `rapid`. Applies to the whole Training tab: daily puzzles, convert, "what's the threat?", Woodpecker. Puzzles already prepared from other games simply stop showing up. |
 | `DATABASE_URL` | SQLite in `/app/data` | Postgres works too. |
 | `LICHESS_STUDY_TOKEN` | – | Optional. Copies your games into Lichess studies (see below). Needs the scopes `study:read` and `study:write`. |
 | `CHESS_STUDY_PLATFORMS` / `CHESS_STUDY_TIME_CLASSES` | `chesscom` / `rapid` | Which games go into the studies. |
