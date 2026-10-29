@@ -130,6 +130,11 @@ first 20 plies of every game and works on *positions*, not names or move
 orders — so transpositions merge, and Chess.com and Lichess games meet no
 matter how each site names the opening.
 
+- **Every opening mistake**: first a table per opening *and colour* — games,
+  mistakes, how many games had at least one, the most common kind — then each
+  mistake on its own with the moves that led there, the better move, the
+  opponent's answer, a board and a link to the game report. Click an opening
+  to see only its mistakes; repeated ones are marked as a habit.
 - **Repeated mistakes**: the same position, the same weak move, at least
   twice. Each comes with the better move, what else you have played there and
   whether it went better, a timeline of every time the position came up, a

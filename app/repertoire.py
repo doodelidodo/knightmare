@@ -434,6 +434,134 @@ def _leak_row(
 
 
 # --------------------------------------------------------------------------
+# Jeder Fehler in der Eroeffnung - nicht nur die wiederholten
+# --------------------------------------------------------------------------
+UNKNOWN_OPENING = "?"
+
+
+def _opening_of(game: ChessGame) -> str:
+    return game.opening_family or game.opening_name or UNKNOWN_OPENING
+
+
+def opening_mistakes(
+    session: Session,
+    color: Optional[str] = None,
+    days: Optional[int] = None,
+    time_class: Optional[str] = None,
+    platform: Optional[str] = None,
+    include_inaccuracies: bool = False,
+    limit: int = 300,
+) -> dict[str, Any]:
+    """Alle eigenen Fehler in der Eroeffnungsphase, mit Stellung, besserem Zug
+    und Eroeffnung - plus eine Uebersicht, in welcher Eroeffnung es am meisten
+    kostet. Die wiederholten (leaks) sind eine Teilmenge davon; hier steht jeder
+    einzelne, damit sichtbar wird, *wo* es in der Eroeffnung hakt."""
+    wanted = {"mistake", "blunder"} | ({"inaccuracy"} if include_inaccuracies else set())
+    colors = [color] if color in {"white", "black"} else ["white", "black"]
+    items: list[dict[str, Any]] = []
+    games_seen: dict[int, ChessGame] = {}
+    for side in colors:
+        nodes = _load(session, side, days, time_class, platform)
+        for node in nodes.values():
+            for play in node.plays:
+                if play.own and play.game.analyzed_at is not None and play.game.id is not None:
+                    games_seen[play.game.id] = play.game
+            if not node.own_to_move:
+                continue
+            # Wie oft stand die Stellung auf dem Brett und wurde derselbe Zug
+            # als Fehler gespielt - dann ist es eine Gewohnheit, kein Ausrutscher.
+            error_count: Counter = Counter(
+                p.san for p in node.plays if p.move is not None and p.move.category != "ok"
+            )
+            for play in node.plays:
+                move = play.move
+                if move is None or move.category not in wanted or move.phase != "opening":
+                    continue
+                game = play.game
+                sequence = _sequence(game)[: play.ply - 1]
+                path = " ".join(san for _key, san, _uci in sequence)
+                items.append(
+                    {
+                        "id": move.id,
+                        "game_id": game.id,
+                        "color": side,
+                        "opening": _opening_of(game),
+                        "move_number": (play.ply + 1) // 2,
+                        "san": play.san,
+                        "uci": play.uci,
+                        "category": move.category,
+                        "error_type": move.error_type,
+                        "missed_motif": move.missed_motif,
+                        "best_san": move.best_move_san,
+                        "best_uci": _uci_of(node.key, move.best_move_san),
+                        "refutation_san": move.refutation_san,
+                        "loss": round(move.win_loss or 0.0, 1),
+                        "fen": _fen(node.key),
+                        "last_move": sequence[-1][2] if sequence else None,
+                        "path_text": format_path(path),
+                        "repeated": error_count.get(play.san, 0),
+                        "leak_id": f"{side}:{node.key}:{play.san}"
+                        if error_count.get(play.san, 0) >= MIN_REPEAT else None,
+                        "played_at": game.played_at.isoformat(),
+                        "opponent": game.opponent,
+                        "result": game.result,
+                        "time_class": game.time_class,
+                        "platform": game.platform,
+                        "url": game.url,
+                    }
+                )
+
+    # Uebersicht pro Eroeffnung und Farbe
+    by_opening: dict[tuple[str, str], dict[str, Any]] = {}
+    for game in games_seen.values():
+        entry = by_opening.setdefault(
+            (_opening_of(game), game.color),
+            {"opening": _opening_of(game), "color": game.color, "games": 0, "errors": 0,
+             "blunders": 0, "cost": 0.0, "games_with_error": set(), "types": Counter()},
+        )
+        entry["games"] += 1
+    for item in items:
+        entry = by_opening.get((item["opening"], item["color"]))
+        if entry is None:
+            continue
+        entry["errors"] += 1
+        entry["blunders"] += item["category"] == "blunder"
+        entry["cost"] += item["loss"]
+        entry["games_with_error"].add(item["game_id"])
+        if item["error_type"]:
+            entry["types"][item["error_type"]] += 1
+    openings = []
+    for entry in by_opening.values():
+        if not entry["errors"]:
+            continue
+        top = entry["types"].most_common(1)
+        openings.append({
+            "opening": entry["opening"], "color": entry["color"], "games": entry["games"],
+            "errors": entry["errors"], "blunders": entry["blunders"],
+            "per_game": round(entry["errors"] / entry["games"], 2) if entry["games"] else None,
+            "games_with_error": len(entry["games_with_error"]),
+            "cost": round(entry["cost"], 1),
+            "top_type": top[0][0] if top else None,
+        })
+    openings.sort(key=lambda o: (-o["cost"], -o["errors"]))
+
+    items.sort(key=lambda i: i["played_at"], reverse=True)
+    games_with_error = {i["game_id"] for i in items}
+    return {
+        "color": color or "all",
+        "games": len(games_seen),
+        "games_with_error": len(games_with_error),
+        "errors": len(items),
+        "blunders": sum(1 for i in items if i["category"] == "blunder"),
+        "repeated": sum(1 for i in items if i["leak_id"]),
+        "types": dict(Counter(i["error_type"] for i in items if i["error_type"]).most_common()),
+        "openings": openings,
+        "items": items[:limit],
+        "include_inaccuracies": include_inaccuracies,
+    }
+
+
+# --------------------------------------------------------------------------
 # Ueben: ist dieser Zug in dieser Stellung gut genug?
 # --------------------------------------------------------------------------
 def check_drill(eng, fen: str, uci: str, tolerance: float = 4.0, seconds: float = 0.5) -> dict[str, Any]:

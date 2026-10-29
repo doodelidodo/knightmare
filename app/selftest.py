@@ -1681,6 +1681,65 @@ def test_training_scope() -> bool:
     return ok
 
 
+# --------------------------------------------------------------------------
+# 16) Jeder Fehler in der Eroeffnung
+# --------------------------------------------------------------------------
+def test_opening_mistakes() -> bool:
+    from datetime import datetime, timedelta
+
+    from sqlmodel import Session
+
+    from . import repertoire
+
+    ok = True
+    eng = _temp_db()
+    base = datetime(2026, 10, 1)
+    trap = "e4 e5 Nf3 Nc6 Bc4 Nd4 Nxe5".split()
+    caro = "e4 c6 d4 d5 e5 Bf5 Nf3 e6 Be2 Nd7".split()
+    with Session(eng) as s:
+        games = []
+        for i in range(2):
+            games.append(_add_game(s, f"lichess:om{i}", trap, "white", "loss", base + timedelta(days=i),
+                                   {7: {"category": "mistake", "win_loss": 18.0, "best_move_san": "Nxd4",
+                                        "refutation_san": "Qg5", "error_type": "positional"}}))
+        games.append(_add_game(s, "lichess:caro", caro, "black", "loss", base + timedelta(days=3),
+                               {6: {"category": "blunder", "win_loss": 35.0, "best_move_san": "Bg4",
+                                    "error_type": "hanging_piece"},
+                                8: {"category": "inaccuracy", "win_loss": 6.0, "best_move_san": "c5"}}))
+        games.append(_add_game(s, "lichess:clean", caro, "black", "win", base + timedelta(days=4), {}))
+        games.append(_add_game(s, "lichess:mid", trap, "white", "draw", base + timedelta(days=5),
+                               {7: {"category": "blunder", "win_loss": 40.0, "phase": "middlegame"}}))
+        for g, name in zip(games, ["Italian Game", "Italian Game", "Caro-Kann Defense", "Caro-Kann Defense",
+                                   "Italian Game"]):
+            g.opening_family = name
+            s.add(g)
+        s.commit()
+        d = repertoire.opening_mistakes(s)
+        withi = repertoire.opening_mistakes(s, include_inaccuracies=True)
+        black = repertoire.opening_mistakes(s, color="black")
+    ok &= _check("Drei Fehler in der Eroeffnung (Mittelspiel und Ungenauigkeit nicht)",
+                 d["errors"] == 3 and d["blunders"] == 1, str((d["errors"], d["blunders"])))
+    ok &= _check("Mit Ungenauigkeiten einer mehr", withi["errors"] == 4)
+    ok &= _check("Partien gezaehlt: 5 analysiert, 3 mit Fehler",
+                 d["games"] == 5 and d["games_with_error"] == 3, str((d["games"], d["games_with_error"])))
+    first = {(o["opening"], o["color"]): o for o in d["openings"]}
+    caro_row = first.get(("Caro-Kann Defense", "black"))
+    ok &= _check("Pro Eroeffnung und Farbe: Caro-Kann mit Schwarz, 2 Partien, 1 Fehler",
+                 caro_row is not None and caro_row["games"] == 2 and caro_row["errors"] == 1
+                 and caro_row["top_type"] == "hanging_piece", str(caro_row))
+    ok &= _check("Teuerste Eroeffnung zuerst", d["openings"][0]["opening"] == "Italian Game", str(d["openings"][0]))
+    habit = [i for i in d["items"] if i["san"] == "Nxe5"]
+    ok &= _check("Zweimal derselbe Zug ist als Gewohnheit markiert",
+                 len(habit) == 2 and all(i["leak_id"] and i["repeated"] >= 2 for i in habit))
+    bf5 = next((i for i in d["items"] if i["san"] == "Bf5"), None)
+    ok &= _check("Stellung, Weg und besserer Zug stimmen",
+                 bf5 is not None and bf5["move_number"] == 3 and bf5["path_text"] == "1.e4 c6 2.d4 d5 3.e5"
+                 and bf5["best_uci"] == "c8g4" and bf5["last_move"] == "e4e5" and not bf5["leak_id"], str(bf5))
+    ok &= _check("Neueste zuerst", d["items"][0]["san"] == "Bf5")
+    ok &= _check("Farbfilter", black["errors"] == 1 and black["items"][0]["color"] == "black")
+    return ok
+
+
 def select_games():
     from sqlmodel import select
 
@@ -1739,8 +1798,11 @@ def main() -> int:
     print("\n15) Trainingsbereich")
     scope_ok = test_training_scope()
 
+    print("\n16) Fehler in der Eroeffnung")
+    om_ok = test_opening_mistakes()
+
     print("\n" + "=" * 66)
-    if (scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (om_ok and scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")

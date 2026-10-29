@@ -723,6 +723,24 @@ def get_repertoire_leaks(
     )
 
 
+@api.get("/repertoire/mistakes")
+def get_repertoire_mistakes(
+    color: Optional[str] = ColorParam,
+    days: Optional[int] = DaysParam,
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    inaccuracies: bool = Query(default=False),
+    limit: int = Query(default=300, ge=1, le=1000),
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Jeder eigene Fehler in der Eroeffnung, mit Uebersicht pro Eroeffnung."""
+    return repertoire.opening_mistakes(
+        session, color=None if color in (None, "all") else color, days=days,
+        time_class=_clean_time_class(time_class), platform=_clean_platform(platform),
+        include_inaccuracies=inaccuracies, limit=limit,
+    )
+
+
 class DrillBody(BaseModel):
     fen: str = Field(max_length=100)
     uci: str = Field(min_length=4, max_length=5)

@@ -376,6 +376,15 @@
   .tt .mv { font-weight: 700; white-space: nowrap; }
   .tt .sc { min-width: 110px; } .tt .sc .bar { display: inline-block; width: 60px; vertical-align: middle; margin-right: 6px; }
   .tt .note .tag { white-space: normal; }
+  .tt tr.pick { cursor: pointer; }
+  .tt tr.pick:hover td { background: var(--surface-soft); }
+  .tt tr.pick.sel td { background: var(--surface-soft); font-weight: 600; }
+  .om-sub { margin: 14px 0 6px; font-size: 0.95rem; }
+  .om-pct { display: inline-block; width: 56px; vertical-align: middle; margin-right: 6px; }
+  @media (max-width: 600px) {
+    .om-tt .om-type, .om-tt .om-pct { display: none; }
+    .om-tt td, .om-tt th { padding: 6px 4px; }
+  }
   @media (max-width: 900px) {
     .gv-layout { grid-template-columns: 1fr; }
     .gv-list { position: static; max-height: none; }
@@ -519,6 +528,14 @@
 
   <div id="viewOpenings" hidden>
     <div class="chips" id="colorChips"></div>
+    <div class="card" id="omCard">
+      <h2 id="omTitle"></h2>
+      <p class="muted" id="omIntro"></p>
+      <div class="chips" id="omChips"></div>
+      <p id="omSummary"></p>
+      <div id="omOpenings"></div>
+      <div class="rows" id="omRows"></div>
+    </div>
     <div class="card" id="leakCard">
       <div class="toolbar">
         <div>
@@ -2628,6 +2645,24 @@ const I18N_X = {
     gvReply: (m) => ` · their answer ${m}`,
     gvSpent: (t) => ` · thought ${t}`,
     gvOpenOn: (p) => `open on ${p}`,
+    omTitle: "Your mistakes in the opening",
+    omIntro: "Every mistake in the opening phase, not just the repeated ones. First where it costs you most, then each one with the board and the better move.",
+    omOnly: "Mistakes & blunders", omWithInacc: "+ inaccuracies",
+    omRecent: "Newest first", omCost: "Most expensive first",
+    omSummary: (n, g, all, b) => `<strong>${n} opening mistakes</strong>${b ? ` (${b} of them blunders)` : ""} — in ${g} of your ${all} games at least one.`,
+    omTop: (label, n) => ` Most common: <strong>${label}</strong> (${n}×).`,
+    omNone: "No opening mistake in this selection. Either your openings are solid, or there are not enough analysed games yet.",
+    omByOpening: "Where it happens",
+    omHead: { opening: "Opening", games: "Games", errors: "Mistakes", share: "Games with one", type: "Most common" },
+    omBlunders: (n) => `${n} of them blunders`,
+    omAll: "Show all openings", omFiltered: (o) => `Only ${o}`,
+    omList: (n) => `Each mistake (${n})`,
+    omBetter: (m) => `better <strong>${m}</strong>`,
+    omReply: (m) => `their answer ${m}`,
+    omLoss: (p) => `−${p} points win chance`,
+    omHabit: (n) => `habit: ${n}× in this position`,
+    omMore: (n) => `Show ${n} more`,
+    omVs: (o, d) => `vs ${o} · ${d}`,
     leakTitle: "Mistakes you keep repeating",
     leakIntro: "Same position, same weak move — at least twice. In the opening that is a habit, not chance, and the cheapest points in chess.",
     leakNone: "No repeated opening mistake in this selection. Either your openings are solid, or there are not enough games yet.",
@@ -2710,6 +2745,24 @@ const I18N_X = {
     gvReply: (m) => ` · Antwort ${m}`,
     gvSpent: (t) => ` · ${t} nachgedacht`,
     gvOpenOn: (p) => `auf ${p} öffnen`,
+    omTitle: "Deine Fehler in der Eröffnung",
+    omIntro: "Jeder Fehler in der Eröffnungsphase, nicht nur die wiederholten. Oben, wo es dich am meisten kostet; darunter jeder einzelne mit Brett und besserem Zug.",
+    omOnly: "Fehler & Patzer", omWithInacc: "+ Ungenauigkeiten",
+    omRecent: "Neueste zuerst", omCost: "Teuerste zuerst",
+    omSummary: (n, g, all, b) => `<strong>${n} Fehler in der Eröffnung</strong>${b ? ` (davon ${b} Patzer)` : ""} – in ${g} von ${all} Partien mindestens einer.`,
+    omTop: (label, n) => ` Am häufigsten: <strong>${label}</strong> (${n}×).`,
+    omNone: "Kein Fehler in der Eröffnung in dieser Auswahl. Entweder sitzen deine Eröffnungen, oder es sind noch zu wenige analysierte Partien.",
+    omByOpening: "Wo es passiert",
+    omHead: { opening: "Eröffnung", games: "Partien", errors: "Fehler", share: "Partien mit Fehler", type: "Häufigste Art" },
+    omBlunders: (n) => `davon ${n} Patzer`,
+    omAll: "Alle Eröffnungen zeigen", omFiltered: (o) => `Nur ${o}`,
+    omList: (n) => `Jeder einzelne Fehler (${n})`,
+    omBetter: (m) => `besser <strong>${m}</strong>`,
+    omReply: (m) => `Antwort des Gegners ${m}`,
+    omLoss: (p) => `−${p} Punkte Gewinnchance`,
+    omHabit: (n) => `Gewohnheit: ${n}× in dieser Stellung`,
+    omMore: (n) => `${n} weitere zeigen`,
+    omVs: (o, d) => `gegen ${o} · ${d}`,
     leakTitle: "Fehler, die du immer wieder machst",
     leakIntro: "Gleiche Stellung, gleicher schwacher Zug – mindestens zweimal. In der Eröffnung ist das kein Zufall, sondern eine Gewohnheit, und die billigsten Punkte im Schach.",
     leakNone: "Kein wiederholter Eröffnungsfehler in dieser Auswahl. Entweder sitzen deine Eröffnungen, oder es sind noch zu wenige Partien.",
@@ -2984,10 +3037,101 @@ async function loadTree(key) {
   renderTree();
 }
 
+// --------------------------------------------------------------------------
+// Jeder Fehler in der Eroeffnung, mit Uebersicht pro Eroeffnung und Farbe
+// --------------------------------------------------------------------------
+const om = { sig: null, data: null, loading: false, error: null, inacc: false, sort: "recent",
+             pick: null, open: new Set(), shown: 15 };
+const omKey = (o) => o.opening + "|" + o.color;
+
+async function loadOpeningMistakes() {
+  om.loading = true;
+  const parts = filterParts();
+  if (color !== "all") parts.push("color=" + color);
+  if (om.inacc) parts.push("inaccuracies=true");
+  try { om.data = await api("repertoire/mistakes?" + parts.join("&")); om.error = null; }
+  catch (err) { om.error = err.message; }
+  finally { om.loading = false; }
+  renderOpeningMistakes();
+}
+
+function renderOpeningMistakes() {
+  if (view !== "openings") return;
+  const L = t(), X = tx(), d = om.data;
+  $id("omTitle").textContent = X.omTitle;
+  $id("omIntro").textContent = X.omIntro;
+  $id("omChips").innerHTML =
+    [["0", X.omOnly], ["1", X.omWithInacc]].map(([k, label]) =>
+      `<button class="chip ${(om.inacc ? "1" : "0") === k ? "on" : ""}" type="button" data-ominacc="${k}">${esc(label)}</button>`).join("") +
+    " " + [["recent", X.omRecent], ["cost", X.omCost]].map(([k, label]) =>
+      `<button class="chip ${om.sort === k ? "on" : ""}" type="button" data-omsort="${k}">${esc(label)}</button>`).join("");
+  if (om.error) { $id("omSummary").innerHTML = `<span class="note err">${esc(L.noData(om.error))}</span>`; $id("omOpenings").innerHTML = ""; $id("omRows").innerHTML = ""; return; }
+  if (!d) { $id("omSummary").innerHTML = `<span class="muted">${esc(L.loading)}</span>`; $id("omOpenings").innerHTML = ""; $id("omRows").innerHTML = ""; return; }
+  if (!d.errors) { $id("omSummary").innerHTML = `<span class="muted">${esc(X.omNone)}</span>`; $id("omOpenings").innerHTML = ""; $id("omRows").innerHTML = ""; return; }
+
+  const types = Object.entries(d.types || {});
+  $id("omSummary").innerHTML = X.omSummary(d.errors, d.games_with_error, d.games, d.blunders) +
+    (types.length ? X.omTop(esc((L.errors || {})[types[0][0]] || types[0][0]), types[0][1]) : "");
+
+  const head = X.omHead;
+  const rows = (d.openings || []).slice(0, 12).map((o) => {
+    const share = o.games ? Math.round(o.games_with_error / o.games * 100) : 0;
+    const tone = share >= 50 ? "bad" : share >= 25 ? "" : "good";
+    return `<tr class="pick ${om.pick === omKey(o) ? "sel" : ""}" data-ompick="${esc(omKey(o))}">
+      <td>${esc(o.opening === "?" ? "–" : o.opening)} <span class="muted">· ${esc(sideName(o.color))}</span></td>
+      <td class="num">${o.games}</td>
+      <td class="num">${o.errors}${o.blunders ? ` <span class="tag blunder" title="${esc(X.omBlunders(o.blunders))}">${o.blunders}</span>` : ""}</td>
+      <td class="sc"><span class="om-pct">${bar(share, 100, tone)}</span>${share}%</td>
+      <td class="note om-type">${o.top_type ? esc((L.errors || {})[o.top_type] || o.top_type) : ""}</td></tr>`;
+  }).join("");
+  $id("omOpenings").innerHTML = `<h3 class="om-sub">${esc(X.omByOpening)}</h3>
+    <table class="tt om-tt"><thead><tr><th>${esc(head.opening)}</th><th class="num">${esc(head.games)}</th>
+    <th class="num">${esc(head.errors)}</th><th>${esc(head.share)}</th><th class="om-type">${esc(head.type)}</th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+
+  let items = (d.items || []).slice();
+  if (om.pick) items = items.filter((i) => omKey(i) === om.pick);
+  if (om.sort === "cost") items.sort((a, b) => b.loss - a.loss);
+  const pickName = om.pick ? om.pick.split("|")[0] : null;
+  const filterLine = om.pick
+    ? ` <span class="muted">· ${esc(X.omFiltered(pickName === "?" ? "–" : pickName))} · <button class="linkbtn" type="button" data-ompick="">${esc(X.omAll)}</button></span>` : "";
+  const shown = items.slice(0, om.shown);
+  $id("omRows").innerHTML = `<h3 class="om-sub">${esc(X.omList(items.length))}${filterLine}</h3>` + shown.map((i) => {
+    const open = om.open.has(String(i.id));
+    const kind = i.error_type && (L.errors || {})[i.error_type] ? (L.errors || {})[i.error_type] : "";
+    const facts = [i.best_san ? X.omBetter(esc(i.best_san)) : "", i.refutation_san ? esc(X.omReply(i.refutation_san)) : "",
+                   i.loss ? esc(X.omLoss(num(i.loss, 0))) : ""].filter(Boolean).join(" · ");
+    return `<div class="row leak">
+      <div class="row-top"><span><strong>${esc(moveLabel(i.move_number, i.color, i.san))}</strong>
+        <span class="tag ${i.category}">${esc(L[i.category] || i.category)}</span>${kind ? ` ${esc(kind)}` : ""}</span>
+        <span class="muted">${esc(i.opening === "?" ? "–" : i.opening)} · ${esc(sideName(i.color))}</span></div>
+      <p class="path">${esc(i.path_text)} <strong>${esc(moveLabel(i.move_number, i.color, i.san))}</strong></p>
+      <p class="rp-p">${facts}</p>
+      <p class="muted">${esc(X.omVs(i.opponent || "?", date(i.played_at)))}${i.leak_id ? ` · <span class="tag mistake">${esc(X.omHabit(i.repeated))}</span>` : ""}</p>
+      <p class="acts">
+        <button class="linkbtn" type="button" data-omboard="${i.id}">${esc(open ? X.actHide : X.actBoard)}</button>
+        · <a href="#games" data-report="${i.game_id}">${esc(X.gvOpenReport)}</a>
+        · <a href="${esc(lichessUrl(i.fen, i.color))}" target="_blank" rel="noreferrer">${esc(X.actLichess)}</a>
+      </p>
+      ${open ? `<div class="mb">${miniBoard({ fen: i.fen, orientation: i.color, last: i.last_move, played: i.uci, best: i.best_uci }, "om" + i.id)}<ul class="mb-key">
+        <li><i class="k played"></i>${esc(L.boardYou)} <strong>${esc(i.san)}</strong></li>
+        ${i.best_san ? `<li><i class="k best"></i>${esc(L.boardBest)} <strong>${esc(i.best_san)}</strong></li>` : ""}</ul></div>` : ""}
+    </div>`;
+  }).join("") + (items.length > shown.length
+    ? `<p><button class="btn" type="button" data-ommore="1">${esc(X.omMore(Math.min(15, items.length - shown.length)))}</button></p>` : "");
+}
+
 function renderOpeningsView() {
   if (view !== "openings") return;
   const X = tx();
   const sig = filterSig(color);
+  const osig = sig + "|" + om.inacc;
+  if (om.sig !== osig && !om.loading) {
+    om.sig = osig;
+    om.pick = null; om.shown = 15;
+    loadOpeningMistakes();
+  }
+  renderOpeningMistakes();
   if (rp.sig !== sig && !rp.loading) {
     rp.sig = sig;
     loadLeaks();
@@ -3213,10 +3357,15 @@ document.addEventListener("click", (e) => {
     renderDrill();
     return;
   }
-  const el = e.target.closest("[data-game],[data-gmore],[data-report],[data-lboard],[data-ldrill],[data-ltree],[data-tkey],[data-dnext],[data-dretry],[data-dclose],#drillAllBtn");
+  const el = e.target.closest("[data-ompick],[data-omboard],[data-ominacc],[data-omsort],[data-ommore],[data-game],[data-gmore],[data-report],[data-lboard],[data-ldrill],[data-ltree],[data-tkey],[data-dnext],[data-dretry],[data-dclose],#drillAllBtn");
   if (!el) return;
   if (el.id === "drillAllBtn") { startDrill(null); return; }
   const ds = el.dataset;
+  if ("ompick" in ds) { om.pick = ds.ompick && om.pick !== ds.ompick ? ds.ompick : null; om.shown = 15; renderOpeningMistakes(); return; }
+  if (ds.omboard) { om.open.has(ds.omboard) ? om.open.delete(ds.omboard) : om.open.add(ds.omboard); renderOpeningMistakes(); return; }
+  if ("ominacc" in ds) { om.inacc = ds.ominacc === "1"; renderOpeningsView(); return; }
+  if (ds.omsort) { om.sort = ds.omsort; renderOpeningMistakes(); return; }
+  if (ds.ommore) { om.shown += 15; renderOpeningMistakes(); return; }
   if (ds.game) { loadReport(Number(ds.game), true); return; }
   if (ds.gmore) { loadGameList(true); return; }
   if (ds.report) { e.preventDefault(); gv.sel = Number(ds.report); gv.reportFor = null; setView("games"); loadReport(gv.sel); window.scrollTo(0, 0); return; }
