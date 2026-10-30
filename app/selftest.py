@@ -1740,6 +1740,99 @@ def test_opening_mistakes() -> bool:
     return ok
 
 
+# --------------------------------------------------------------------------
+# 17) Mein Weg: Checkliste, Prozess-Zahlen, Wochenbrief
+# --------------------------------------------------------------------------
+def test_journey() -> bool:
+    import dataclasses
+    import json as _json
+    from datetime import date, datetime
+
+    import httpx
+    from sqlmodel import Session
+
+    from . import journey as jy
+    from .models import ChessGame, ChessMove
+
+    ok = True
+    ok &= _check("Fehlerart -> Checkliste",
+                 [jy.checklist_point(t) for t in ("missed_threat", "missed_win", "hanging_piece", "fork",
+                                                  "positional")] == ["threat", "chance", "safe", "reply", None])
+    ok &= _check("Stellungsfehler mit verpasster Taktik gehoert zu 'Was kann ich?'",
+                 jy.checklist_point("positional", "fork") == "chance")
+    run = [ChessMove(ply=p, category=c, played_at=datetime(2026, 1, 1)) for p, c in
+           [(1, "ok"), (3, "inaccuracy"), (5, "ok"), (7, "blunder"), (9, "ok"), (11, "ok")]]
+    ok &= _check("Saubere Serie: Ungenauigkeit unterbricht nicht, Patzer schon", jy.longest_clean_run(run) == 3)
+    ok &= _check("Woche beginnt am Montag", jy.week_start(date(2026, 11, 1)) == date(2026, 10, 26))
+
+    settings = dataclasses.replace(load_settings(), study_timezone="Europe/Zurich", study_lang="de",
+                                   ntfy_url="http://ntfy:80", ntfy_topic="schach", ntfy_token="tk",
+                                   brief_hour=18, online_mode=False)
+    tz = jy._zone("Europe/Zurich")
+    ok &= _check("Brief faellig Sonntag ab 18 Uhr", jy.brief_due(settings, datetime(2026, 11, 1, 18, 5, tzinfo=tz), None) == "2026-10-26")
+    ok &= _check("Sonntag frueher nicht", jy.brief_due(settings, datetime(2026, 11, 1, 17, 0, tzinfo=tz), None) is None)
+    ok &= _check("Montagmorgen wird nachgeholt", jy.brief_due(settings, datetime(2026, 11, 2, 9, 0, tzinfo=tz), None) == "2026-10-26")
+    ok &= _check("... aber nur einmal", jy.brief_due(settings, datetime(2026, 11, 2, 9, 0, tzinfo=tz), "2026-10-26") is None)
+    ok &= _check("Mittwoch nichts", jy.brief_due(settings, datetime(2026, 10, 28, 20, 0, tzinfo=tz), None) is None)
+
+    eng = _temp_db()
+    with Session(eng) as s:
+        def game(uuid, when, result, cats):
+            g = ChessGame(platform="chesscom", uuid=uuid, played_at=when, time_class="rapid", color="white",
+                          result=result, opponent="Gegner-" + uuid, pgn="", analyzed_at=when)
+            s.add(g); s.commit()
+            for i, (cat, et) in enumerate(cats):
+                s.add(ChessMove(game_id=g.id, ply=2 * i + 1, move_number=i + 1, san=f"Z{i}", category=cat,
+                                error_type=et, win_loss=35.0 if cat == "blunder" else (18.0 if cat == "mistake" else 1.0),
+                                played_at=when, color="white", time_class="rapid", platform="chesscom"))
+            s.commit()
+        # Vorwoche (19.-25.10.): 2 Partien, keine ohne Patzer
+        game("p1", datetime(2026, 10, 20, 18), "loss", [("ok", None)] * 3 + [("blunder", "hanging_piece")])
+        game("p2", datetime(2026, 10, 22, 18), "loss", [("blunder", "missed_threat"), ("ok", None)])
+        # Diese Woche (ab 26.10.): 3 Partien, 2 ohne Patzer, 1 ganz sauber
+        game("c1", datetime(2026, 10, 26, 18), "win", [("ok", None)] * 20)
+        game("c2", datetime(2026, 10, 27, 18), "draw", [("ok", None)] * 5 + [("mistake", "missed_threat")] + [("ok", None)] * 4)
+        game("c3", datetime(2026, 10, 28, 18), "loss", [("ok", None)] * 2 + [("blunder", "fork"), ("mistake", "positional")])
+        d = jy.journey(s, settings, today=date(2026, 10, 29))
+        cur, prev = d["current"], d["previous"]
+        ok &= _check("Diese Woche: 3 Partien, 2 ohne Patzer, 1 sauber",
+                     (cur["games"], cur["blunder_free"], cur["clean"]) == (3, 2, 1), str(cur))
+        ok &= _check("Vorwoche: 2 Partien, 0 ohne Patzer", (prev["games"], prev["blunder_free"]) == (2, 0))
+        ok &= _check("Checkliste: Was will er? 1x, Seine Antwort 1x, Stellungsfehler zaehlt nicht",
+                     cur["points"] == {"threat": 1, "chance": 0, "safe": 0, "reply": 1} and cur["preventable"] == 2,
+                     str(cur["points"]))
+        ok &= _check("Laengste Serie 20", cur["longest_run"] == 20)
+        ok &= _check("Ziel: eine mehr als letzte Woche, mindestens 2", d["goal"] == {"target": 2, "done": 2})
+        ok &= _check("Fokus aus vier Wochen: Was will er?", d["focus"] == "threat", str(d["focus"]))
+        keys = [h["key"] for h in d["highlights"]]
+        ok &= _check("Positive Punkte: ohne Patzer (+2), sauber, Serie, weniger vermeidbar",
+                     keys == ["blunder_free", "clean", "run", "fewer"] and d["highlights"][0]["more"] == 2, str(d["highlights"]))
+        ok &= _check("Lehrreich = teuerster Fehler (Gabel), gut = saubere Partie",
+                     d["lesson"]["opponent"] == "Gegner-c3" and d["best"]["opponent"] == "Gegner-c1")
+        ok &= _check("Acht Wochen Verlauf", len(d["weeks"]) == 8 and d["weeks"][-1]["blunder_free_pct"] == 67)
+        ok &= _check("Beispiele pro Frage", set(d["examples"]) == {"threat", "safe", "reply"}, str(set(d["examples"])))
+        title, body = jy.brief_text(d, "de")
+        ok &= _check("Brieftitel", title == "Schachwoche: 3 Partien, 2 ohne Patzer", title)
+        ok &= _check("Brief nennt Checkliste und Video-Partien",
+                     "Was will er?" in body and "gegen Gegner-c3" in body and "gegen Gegner-c1" in body, body)
+
+        sent = []
+
+        def handler(request):
+            sent.append((request.headers.get("authorization"), _json.loads(request.content)))
+            return httpx.Response(200, json={"id": "x"})
+
+        client = httpx.Client(transport=httpx.MockTransport(handler))
+        week = jy.maybe_send_brief(s, settings, now=datetime(2026, 11, 1, 17, 30), client=client)  # 18:30 Zuerich
+        again = jy.maybe_send_brief(s, settings, now=datetime(2026, 11, 1, 19, 30), client=client)
+        ok &= _check("Brief geht einmal raus, an das Topic, mit Token",
+                     week == "2026-10-26" and again is None and len(sent) == 1
+                     and sent[0][0] == "Bearer tk" and sent[0][1]["topic"] == "schach", str(sent))
+        off = dataclasses.replace(settings, ntfy_url="")
+        ok &= _check("Ohne URL kein Brief", jy.maybe_send_brief(s, off, now=datetime(2026, 11, 8, 18, 30)) is None)
+    return ok
+
+
 def select_games():
     from sqlmodel import select
 
@@ -1801,8 +1894,11 @@ def main() -> int:
     print("\n16) Fehler in der Eroeffnung")
     om_ok = test_opening_mistakes()
 
+    print("\n17) Mein Weg")
+    journey_ok = test_journey()
+
     print("\n" + "=" * 66)
-    if (om_ok and scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (journey_ok and om_ok and scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")

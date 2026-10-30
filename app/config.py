@@ -259,6 +259,17 @@ class Settings:
     study_max_per_run: int = 30
     study_timezone: str = "UTC"
 
+    # Wochenbrief per ntfy (app/journey.py). Aus, solange keine URL gesetzt ist.
+    ntfy_url: str = ""
+    ntfy_topic: str = "knightmare"
+    ntfy_token: str = ""
+    brief_hour: int = 18
+    brief_click_url: str = ""
+
+    @property
+    def brief_enabled(self) -> bool:
+        return bool(self.ntfy_url and self.ntfy_topic) and not self.online_mode
+
     # Reiter Training nur aus diesen Partien (leer = alle).
     training_platforms: tuple[str, ...] = ()
     training_time_classes: tuple[str, ...] = ()
@@ -345,6 +356,11 @@ def load_settings() -> Settings:
         study_lang=(_env_str("CHESS_STUDY_LANG", "en") or "en").lower()[:2],
         study_max_per_run=max(1, min(200, _env_int("CHESS_STUDY_MAX_PER_RUN", 30))),
         study_timezone=_env_str("TZ", "UTC") or "UTC",
+        ntfy_url=_env_str("CHESS_NTFY_URL"),
+        ntfy_topic=_env_str("CHESS_NTFY_TOPIC", "knightmare") or "knightmare",
+        ntfy_token=_env_str("CHESS_NTFY_TOKEN"),
+        brief_hour=max(0, min(23, _env_int("CHESS_BRIEF_HOUR", 18))),
+        brief_click_url=_env_str("CHESS_BRIEF_CLICK_URL"),
         training_platforms=_env_tuple("CHESS_TRAINING_PLATFORMS", ()),
         training_time_classes=_env_tuple("CHESS_TRAINING_TIME_CLASSES", ()),
     )

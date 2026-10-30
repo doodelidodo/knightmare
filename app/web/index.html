@@ -380,6 +380,22 @@
   .tt tr.pick:hover td { background: var(--surface-soft); }
   .tt tr.pick.sel td { background: var(--surface-soft); font-weight: 600; }
   .om-sub { margin: 14px 0 6px; font-size: 0.95rem; }
+  .jr-steps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); margin: 14px 0 10px; }
+  .jr-step { border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; background: var(--surface-soft); position: relative; }
+  .jr-step.focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .jr-step .n { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 50%;
+                background: var(--accent); color: #fff; font-weight: 700; margin-right: 8px; }
+  .jr-step h3 { display: flex; align-items: center; margin: 0 0 6px; font-size: 1.08rem; color: var(--heading); }
+  .jr-step p { margin: 4px 0; font-size: 0.9rem; }
+  .jr-step .flag { display: block; margin-bottom: 6px; font-size: 0.72rem; color: var(--accent); font-weight: 700;
+                   text-transform: uppercase; letter-spacing: 0.04em; }
+  .jr-ok { color: var(--good); }
+  .jr-hl { list-style: none; padding: 0; margin: 4px 0 14px; }
+  .jr-hl li { margin: 6px 0; font-size: 1rem; }
+  .jr-hl li::before { content: "✓"; color: var(--good); font-weight: 700; margin-right: 8px; }
+  .jr-goal { margin: 14px 0 4px; }
+  .jr-goal .bar { margin: 6px 0; }
+  .jr-weeks .row-top { font-size: 0.86rem; }
   .om-pct { display: inline-block; width: 56px; vertical-align: middle; margin-right: 6px; }
   @media (max-width: 600px) {
     .om-tt .om-type, .om-tt .om-pct { display: none; }
@@ -431,6 +447,7 @@
   </header>
 
   <nav class="tabs" id="tabs">
+    <button class="tab" type="button" data-view="journey" id="tabJourney"></button>
     <button class="tab" type="button" data-view="analyse" id="tabAnalyse"></button>
     <button class="tab" type="button" data-view="games" id="tabGames"></button>
     <button class="tab" type="button" data-view="openings" id="tabOpenings"></button>
@@ -443,6 +460,23 @@
   <div class="chips" id="platformChips"></div>
   <div class="chips" id="classChips"></div>
   <div class="chips" id="rangeChips"></div>
+
+  <div id="viewJourney" hidden>
+    <div class="card jr-hero">
+      <h2 id="jrCheckTitle"></h2>
+      <p class="muted" id="jrCheckIntro"></p>
+      <div class="jr-steps" id="jrSteps"></div>
+      <p class="muted" id="jrCheckNote"></p>
+    </div>
+    <div class="card">
+      <h2 id="jrWeekTitle"></h2>
+      <div id="jrWeek"></div>
+    </div>
+    <div class="two">
+      <div class="card"><h2 id="jrTrendTitle"></h2><p class="muted" id="jrTrendIntro"></p><div id="jrTrend"></div></div>
+      <div class="card"><h2 id="jrVideoTitle"></h2><p class="muted" id="jrVideoIntro"></p><div id="jrVideo"></div></div>
+    </div>
+  </div>
 
   <div id="viewAnalyse">
 
@@ -1137,6 +1171,7 @@ function render() {
   renderGames();
   renderGamesView();
   renderOpeningsView();
+  renderJourney();
   renderProgress();
   renderFooter();
   renderTabs();
@@ -1812,15 +1847,17 @@ I18N.de.tr = {
 };
 const tr = () => I18N[lang].tr;
 
-const VIEWS = ["analyse", "games", "openings", "train"];
-let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get("knightmare.view", "analyse");
-if (!VIEWS.includes(view)) view = "analyse";
+const VIEWS = ["journey", "analyse", "games", "openings", "train"];
+let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get("knightmare.view", "journey");
+if (!VIEWS.includes(view)) view = "journey";
 
 function renderTabs() {
   const L = tr();
   const items = tac.data ? tac.data.items : [];
   const done = items.filter((i) => i.result).length;
   document.getElementById("tabAnalyse").textContent = L.tabAnalyse;
+  document.getElementById("tabJourney").textContent = tj().tab;
+  document.getElementById("viewJourney").hidden = view !== "journey";
   document.getElementById("tabGames").textContent = tx().tabGames;
   document.getElementById("tabOpenings").textContent = tx().tabOpenings;
   document.getElementById("tabTrain").innerHTML = esc(L.tabTrain) +
@@ -1833,19 +1870,20 @@ function renderTabs() {
   // Filter gehoeren zu den Auswertungen - im Training nur Laerm.
   ["platformChips", "classChips", "rangeChips"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.hidden = view === "train";
+    if (el) el.hidden = view === "train" || (view === "journey" && id === "rangeChips");
   });
 }
 
 function setView(v) {
   view = v;
   store.set("knightmare.view", v);
-  history.replaceState(null, "", v === "analyse" ? location.pathname + location.search : "#" + v);
+  history.replaceState(null, "", v === "journey" ? location.pathname + location.search : "#" + v);
   renderTabs();
   if (v === "train") renderTraining();
   else cancelDrag();
   if (v === "games") renderGamesView();
   if (v === "openings") renderOpeningsView();
+  if (v === "journey") renderJourney();
 }
 
 document.getElementById("tabs").addEventListener("click", (e) => {
@@ -2944,7 +2982,7 @@ function reportHtml() {
         const kind = e.error_type && L.errors[e.error_type] ? L.errors[e.error_type] : "";
         const missed = e.missed_motif && L.missed[e.missed_motif] ? L.missed[e.missed_motif] : "";
         return `<div class="item">
-          <p><span class="tag ${e.category}">${esc(L[e.category] || e.category)}</span> <strong>${esc(moveLabel(e.move_number, e.color, e.san))}</strong>${kind ? " · " + esc(kind) : ""}${missed ? " · " + esc(missed) : ""} · ${esc(phaseName(e.phase))}</p>
+          <p><span class="tag ${e.category}">${esc(L[e.category] || e.category)}</span> <strong>${esc(moveLabel(e.move_number, e.color, e.san))}</strong>${kind ? " · " + esc(kind) : ""}${missed ? " · " + esc(missed) : ""} · ${esc(phaseName(e.phase))}${e.category !== "inaccuracy" ? checklistTag(e.error_type, e.missed_motif) : ""}</p>
           <p>${esc(X.gvWin(num(e.win_before, 0), num(e.win_after, 0)))}${e.best_move_san ? esc(X.gvBestWas(e.best_move_san)) : ""}${e.refutation_san ? esc(X.gvReply(e.refutation_san)) : ""}${e.seconds_spent != null && g.time_class !== "daily" ? esc(X.gvSpent(secs(e.seconds_spent))) : ""}${boardButton(e.id)}</p>
           ${boardSlot(e.id)}</div>`;
       }).join("") + `</div>`
@@ -3038,6 +3076,212 @@ async function loadTree(key) {
 }
 
 // --------------------------------------------------------------------------
+// Reiter "Mein Weg": Checkliste vor jedem Zug und Fortschritt ohne Elo
+// --------------------------------------------------------------------------
+const I18N_J = {
+  en: {
+    tab: "My path",
+    checkTitle: "Before every move",
+    checkIntro: "Four questions, a few seconds. Most mistakes at club level are not a lack of understanding — just one look too few.",
+    checkNote: "Positional slips belong to none of the questions — a checklist is not made for them, and that is fine.",
+    steps: {
+      threat: { q: "What does he want?", how: "What does his last move attack? Checks, captures, threats." },
+      chance: { q: "What can I do?", how: "Do I have a check, a capture, an attack? Is something there to win?" },
+      safe: { q: "Is it safe?", how: "Where my piece lands: attacked, defended? Does the trade win or lose?" },
+      reply: { q: "His best answer?", how: "Before you click: his best check, capture or fork after my move." },
+    },
+    focusFlag: "Your focus",
+    weekHelped: (n) => `This week it would have helped ${n}×.`,
+    weekNever: "Not needed once this week.",
+    example: "Example from your games",
+    exampleText: (d, o, mv) => `${d} vs ${o}: ${mv}`,
+    weekTitle: "Your week",
+    weekEmpty: "No analysed game this week yet. No pressure — one good game is enough.",
+    hl: {
+      blunder_free: (h) => `${h.n} of ${h.games} games without a blunder` + (h.more > 0 ? ` — ${h.more} more than last week` : ""),
+      clean: (h) => `${h.n} completely clean ${h.n === 1 ? "game" : "games"}: not a single mistake`,
+      run: (h) => `Longest clean run: ${h.n} moves in a row` + (h.record ? " — longer than last week" : ""),
+      fewer: (h) => `Fewer preventable mistakes per game: ${num(h.now, 1)} instead of ${num(h.before, 1)}`,
+      played: (h) => `${h.n} ${h.n === 1 ? "game" : "games"} played and analysed — every one is material to learn from`,
+    },
+    kpi: {
+      bf: "Games without a blunder", bfSub: (p) => `last week ${p}`,
+      clean: "Clean games", cleanSub: "no mistake, no blunder",
+      run: "Longest clean run", runSub: "moves in a row",
+      daily: "Daily puzzles", dailySub: "days in a row",
+    },
+    goal: (d, t) => `This week's goal: ${t} games without a blunder — ${d} done.`,
+    goalDone: "Goal reached. That is exactly how it works.",
+    trendTitle: "The last 8 weeks",
+    trendIntro: "Share of games without a blunder. No Elo — this is the part you control.",
+    trendRow: (w) => `week of ${w}`,
+    trendGames: (n) => `${n} ${n === 1 ? "game" : "games"}`,
+    videoTitle: "For your video",
+    videoIntro: "The two games of this week worth talking about.",
+    lesson: "Most instructive", best: "Best played",
+    lessonText: (o, mv, q) => `vs ${o} — ${mv}` + (q ? `; question “${q}” would have caught it` : ""),
+    bestText: (o, a) => `vs ${o} — ${a}% accuracy`,
+    videoNone: "No game this week yet.",
+    brief: (h) => `The weekly brief comes to your phone every Sunday from ${h}:00.`,
+    briefSend: "Send the brief now",
+    briefSent: "Sent.", briefFail: "Could not send — check CHESS_NTFY_URL and the token.",
+    checklistTag: (n, q) => `checklist ${n}: ${q}`,
+  },
+  de: {
+    tab: "Mein Weg",
+    checkTitle: "Vor jedem Zug",
+    checkIntro: "Vier Fragen, ein paar Sekunden. Die meisten Fehler auf Vereinsniveau sind kein fehlendes Verständnis, sondern ein Blick zu wenig.",
+    checkNote: "Stellungsfehler gehören zu keiner Frage – dafür ist eine Checkliste nicht da, und das ist in Ordnung.",
+    steps: {
+      threat: { q: "Was will er?", how: "Was greift sein letzter Zug an? Schach, Schlagen, Drohungen." },
+      chance: { q: "Was kann ich?", how: "Habe ich ein Schach, kann ich schlagen, angreifen? Liegt etwas zum Gewinnen bereit?" },
+      safe: { q: "Ist es sicher?", how: "Wo meine Figur landet: angegriffen, gedeckt? Gewinnt oder verliert der Abtausch?" },
+      reply: { q: "Seine beste Antwort?", how: "Bevor du klickst: sein bestes Schach, Schlagen oder seine Gabel nach meinem Zug." },
+    },
+    focusFlag: "Dein Fokus",
+    weekHelped: (n) => `Diese Woche hätte sie ${n}× geholfen.`,
+    weekNever: "Diese Woche kein einziges Mal nötig.",
+    example: "Beispiel aus deinen Partien",
+    exampleText: (d, o, mv) => `${d} gegen ${o}: ${mv}`,
+    weekTitle: "Deine Woche",
+    weekEmpty: "Diese Woche noch keine analysierte Partie. Kein Druck – eine gute Partie reicht.",
+    hl: {
+      blunder_free: (h) => `${h.n} von ${h.games} Partien ohne Patzer` + (h.more > 0 ? ` – ${h.more} mehr als letzte Woche` : ""),
+      clean: (h) => `${h.n} ganz ${h.n === 1 ? "saubere Partie" : "saubere Partien"}: kein einziger Fehler`,
+      run: (h) => `Längste saubere Serie: ${h.n} Züge am Stück` + (h.record ? " – länger als letzte Woche" : ""),
+      fewer: (h) => `Weniger vermeidbare Fehler pro Partie: ${num(h.now, 1)} statt ${num(h.before, 1)}`,
+      played: (h) => `${h.n} ${h.n === 1 ? "Partie" : "Partien"} gespielt und ausgewertet – aus jeder lässt sich lernen`,
+    },
+    kpi: {
+      bf: "Partien ohne Patzer", bfSub: (p) => `Vorwoche ${p}`,
+      clean: "Saubere Partien", cleanSub: "kein Fehler, kein Patzer",
+      run: "Längste saubere Serie", runSub: "Züge am Stück",
+      daily: "Tagesaufgaben", dailySub: "Tage in Folge",
+    },
+    goal: (d, t) => `Ziel der Woche: ${t} Partien ohne Patzer – ${d} geschafft.`,
+    goalDone: "Ziel erreicht. Genau so geht das.",
+    trendTitle: "Die letzten 8 Wochen",
+    trendIntro: "Anteil der Partien ohne Patzer. Keine Elo – das hier hast du selbst in der Hand.",
+    trendRow: (w) => `Woche ab ${w}`,
+    trendGames: (n) => `${n} ${n === 1 ? "Partie" : "Partien"}`,
+    videoTitle: "Fürs Video",
+    videoIntro: "Die zwei Partien dieser Woche, über die sich reden lässt.",
+    lesson: "Am lehrreichsten", best: "Am besten gespielt",
+    lessonText: (o, mv, q) => `gegen ${o} – ${mv}` + (q ? `; die Frage „${q}“ hätte es verhindert` : ""),
+    bestText: (o, a) => `gegen ${o} – ${a} % Genauigkeit`,
+    videoNone: "Diese Woche noch keine Partie.",
+    brief: (h) => `Der Wochenbrief kommt jeden Sonntag ab ${h} Uhr aufs Handy.`,
+    briefSend: "Brief jetzt schicken",
+    briefSent: "Verschickt.", briefFail: "Nicht verschickt – CHESS_NTFY_URL und Token prüfen.",
+    checklistTag: (n, q) => `Checkliste ${n}: ${q}`,
+  },
+};
+const tj = () => I18N_J[lang];
+const POINTS = ["threat", "chance", "safe", "reply"];
+const POINT_FOR_ERROR = { missed_threat: "threat", missed_win: "chance", missed_mate: "chance",
+  hanging_piece: "safe", bad_trade: "safe", fork: "reply", allowed_mate: "reply" };
+function checklistTag(errorType, motif) {
+  const p = POINT_FOR_ERROR[errorType] || (motif ? "chance" : null);
+  if (!p) return "";
+  const J = tj();
+  return ` <span class="tag" title="${esc(J.steps[p].how)}">${esc(J.checklistTag(POINTS.indexOf(p) + 1, J.steps[p].q))}</span>`;
+}
+
+const jr = { sig: null, data: null, loading: false, error: null, briefMsg: "" };
+async function loadJourney() {
+  jr.loading = true;
+  const parts = [];
+  if (timeClass !== "all") parts.push("time_class=" + timeClass);
+  if (platform !== "all") parts.push("platform=" + platform);
+  try { jr.data = await api("journey?" + parts.join("&")); jr.error = null; }
+  catch (err) { jr.error = err.message; }
+  finally { jr.loading = false; }
+  renderJourney();
+}
+
+function renderJourney() {
+  if (view !== "journey") return;
+  const J = tj(), L = t();
+  const sig = [timeClass, platform].join("|");
+  if (jr.sig !== sig && !jr.loading) { jr.sig = sig; loadJourney(); }
+  const d = jr.data;
+  $id("jrCheckTitle").textContent = J.checkTitle;
+  $id("jrCheckIntro").textContent = J.checkIntro;
+  $id("jrCheckNote").textContent = J.checkNote;
+  $id("jrWeekTitle").textContent = J.weekTitle;
+  $id("jrTrendTitle").textContent = J.trendTitle;
+  $id("jrTrendIntro").textContent = J.trendIntro;
+  $id("jrVideoTitle").textContent = J.videoTitle;
+  $id("jrVideoIntro").textContent = J.videoIntro;
+
+  // Die Checkliste steht immer da, auch ohne Daten.
+  const cur = d && d.current;
+  $id("jrSteps").innerHTML = POINTS.map((p, i) => {
+    const step = J.steps[p];
+    const n = cur ? cur.points[p] || 0 : null;
+    const ex = d && d.examples && d.examples[p];
+    const week = n == null || !cur.games ? "" : n ? `<p><strong>${esc(J.weekHelped(n))}</strong></p>` : `<p class="jr-ok">${esc(J.weekNever)}</p>`;
+    const example = ex ? `<p class="muted">${esc(J.example)}: ${esc(J.exampleText(date(ex.played_at), ex.opponent || "?", moveLabel(ex.move_number, ex.color, ex.san)))}${boardButton(ex.move_id)}</p>${boardSlot(ex.move_id)}` : "";
+    return `<div class="jr-step ${d && d.focus === p ? "focus" : ""}">
+      ${d && d.focus === p ? `<span class="flag">${esc(J.focusFlag)}</span>` : ""}
+      <h3><span class="n">${i + 1}</span>${esc(step.q)}</h3>
+      <p>${esc(step.how)}</p>${week}${example}</div>`;
+  }).join("");
+
+  if (jr.error) { $id("jrWeek").innerHTML = `<p class="note err">${esc(L.noData(jr.error))}</p>`; return; }
+  if (!d) { $id("jrWeek").innerHTML = `<p class="muted">${esc(L.loading)}</p>`; $id("jrTrend").innerHTML = ""; $id("jrVideo").innerHTML = ""; return; }
+
+  const prev = d.previous;
+  if (!cur.games) {
+    $id("jrWeek").innerHTML = `<p class="muted">${esc(J.weekEmpty)}</p>`;
+  } else {
+    const hl = (d.highlights || []).map((h) => `<li>${esc(J.hl[h.key](h))}</li>`).join("");
+    const kpi = (num_, title, sub) => `<div class="kpi"><div class="num">${num_}</div><h3>${esc(title)}</h3><p>${esc(sub)}</p></div>`;
+    const goal = d.goal;
+    const pct = Math.min(100, Math.round(goal.done / goal.target * 100));
+    $id("jrWeek").innerHTML = `<ul class="jr-hl">${hl}</ul>
+      <div class="grid">
+        ${kpi(`${cur.blunder_free}<span class="muted">/${cur.games}</span>`, J.kpi.bf, J.kpi.bfSub(`${prev.blunder_free}/${prev.games}`))}
+        ${kpi(cur.clean, J.kpi.clean, J.kpi.cleanSub)}
+        ${kpi(cur.longest_run, J.kpi.run, J.kpi.runSub)}
+        ${d.daily_streak ? kpi(d.daily_streak, J.kpi.daily, J.kpi.dailySub) : ""}
+      </div>
+      <div class="jr-goal"><p>${esc(J.goal(goal.done, goal.target))}</p>${bar(pct, 100, "good")}
+        ${goal.done >= goal.target ? `<p class="jr-ok"><strong>${esc(J.goalDone)}</strong></p>` : ""}</div>`;
+  }
+
+  $id("jrTrend").innerHTML = `<div class="rows jr-weeks">` + d.weeks.slice().reverse().map((w) =>
+    `<div class="row"><div class="row-top"><span>${esc(J.trendRow(date(w.start)))}</span>
+      <span class="muted">${w.games ? `${w.blunder_free_pct}% · ${esc(J.trendGames(w.games))}` : "–"}</span></div>
+      ${bar(w.blunder_free_pct || 0, 100, "good")}</div>`).join("") + `</div>`;
+
+  const parts = [];
+  if (d.lesson && d.lesson.worst) {
+    const w = d.lesson.worst, q = w.point ? J.steps[w.point].q : null;
+    parts.push(`<div class="item"><p><strong>${esc(J.lesson)}</strong></p>
+      <p>${esc(J.lessonText(d.lesson.opponent || "?", moveLabel(w.move_number, d.lesson.color, w.san), q))}
+       · <a href="#games" data-report="${d.lesson.id}">${esc(tx().gvOpenReport)}</a></p></div>`);
+  }
+  if (d.best && d.best.accuracy != null) {
+    parts.push(`<div class="item"><p><strong>${esc(J.best)}</strong></p>
+      <p>${esc(J.bestText(d.best.opponent || "?", Math.round(d.best.accuracy)))}
+       · <a href="#games" data-report="${d.best.id}">${esc(tx().gvOpenReport)}</a></p></div>`);
+  }
+  const brief = d.brief && d.brief.enabled
+    ? `<p class="muted">${esc(J.brief(d.brief.hour))} <button class="linkbtn" type="button" data-jrbrief="1">${esc(J.briefSend)}</button> ${esc(jr.briefMsg)}</p>` : "";
+  $id("jrVideo").innerHTML = (parts.length ? `<div class="items" style="max-height:none">${parts.join("")}</div>` : `<p class="muted">${esc(J.videoNone)}</p>`) + brief;
+}
+
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-jrbrief]");
+  if (!b) return;
+  b.disabled = true;
+  try { const r = await apiJson("journey/brief", {}); jr.briefMsg = r.sent ? tj().briefSent : tj().briefFail; }
+  catch { jr.briefMsg = tj().briefFail; }
+  renderJourney();
+});
+
+// --------------------------------------------------------------------------
 // Jeder Fehler in der Eroeffnung, mit Uebersicht pro Eroeffnung und Farbe
 // --------------------------------------------------------------------------
 const om = { sig: null, data: null, loading: false, error: null, inacc: false, sort: "recent",
@@ -3103,7 +3347,7 @@ function renderOpeningMistakes() {
                    i.loss ? esc(X.omLoss(num(i.loss, 0))) : ""].filter(Boolean).join(" · ");
     return `<div class="row leak">
       <div class="row-top"><span><strong>${esc(moveLabel(i.move_number, i.color, i.san))}</strong>
-        <span class="tag ${i.category}">${esc(L[i.category] || i.category)}</span>${kind ? ` ${esc(kind)}` : ""}</span>
+        <span class="tag ${i.category}">${esc(L[i.category] || i.category)}</span>${kind ? ` ${esc(kind)}` : ""}${checklistTag(i.error_type, i.missed_motif)}</span>
         <span class="muted">${esc(i.opening === "?" ? "–" : i.opening)} · ${esc(sideName(i.color))}</span></div>
       <p class="path">${esc(i.path_text)} <strong>${esc(moveLabel(i.move_number, i.color, i.san))}</strong></p>
       <p class="rp-p">${facts}</p>

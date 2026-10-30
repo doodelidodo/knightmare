@@ -172,6 +172,17 @@ class ChessStudyChapter(SQLModel, table=True):
     exported_at: datetime = Field(default_factory=utc_now, nullable=False)
 
 
+class ChessState(SQLModel, table=True):
+    """Kleine Schluessel-Wert-Ablage fuer Zustaende, die einen Neustart
+    ueberleben muessen (etwa: fuer welche Woche der Wochenbrief schon raus ist)."""
+
+    __tablename__ = "chess_state"
+
+    key: str = Field(primary_key=True, max_length=60)
+    value: str = Field(default="", max_length=400)
+    updated_at: datetime = Field(default_factory=utc_now, nullable=False)
+
+
 class ChessTactic(SQLModel, table=True):
     """Eine Taktikaufgabe aus einem eigenen Fehler (oder der Grund, warum der
     Fehler keine taugliche Aufgabe ist - dann wird er nicht jedes Mal neu

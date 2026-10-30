@@ -123,6 +123,30 @@ middlegame, endgame. Pick one and you get:
   kept it.
 - **Every mistake** of the game, each with its board.
 
+## My path: progress you control
+
+Rating moves up and down by fifty points without your play changing, and
+treating every game as an exam makes you play tense. The **My path** tab (the
+start page) measures the process instead:
+
+- **Before every move**: four questions — *What does he want? What can I do?
+  Is it safe? His best answer?* Each of your mistakes is mapped to the one
+  question that would have caught it (a missed threat to the first, a hung
+  piece to the third, a fork to the fourth …). You see how often each one
+  would have helped this week, an example from your own games on the board,
+  and your focus: the question that would have saved most in the last four
+  weeks. Positional slips belong to none — a checklist isn't made for them.
+- **Your week**: games without a blunder, completely clean games, the longest
+  run of moves without a mistake, a small goal (one blunder-free game more
+  than last week), and only the things that genuinely went well.
+- **The last 8 weeks**: share of games without a blunder. No Elo.
+- **For your video**: the most instructive game and the best one of the week.
+- **Weekly brief**: with `CHESS_NTFY_URL` set, the same summary arrives as a
+  push notification ([ntfy](https://ntfy.sh)) every Sunday evening.
+
+The checklist question also shows next to every mistake in the game report
+and the openings tab.
+
 ## Openings: the mistakes you keep repeating
 
 Openings are the part of chess that repeats. The **Openings** tab replays the
@@ -312,6 +336,8 @@ least one of the two platforms.
 | `CHESS_TACTICS_PER_DAY` | `10` | Puzzles per day. |
 | `CHESS_TACTICS_SECONDS` | `0.4` | Engine time per position when preparing and checking puzzles. |
 | `CHESS_TACTICS_MIN_CP` | `-300` | Skip positions that were already lost before the mistake. |
+| `CHESS_NTFY_URL` / `CHESS_NTFY_TOPIC` / `CHESS_NTFY_TOKEN` | – / `knightmare` / – | Weekly brief via ntfy, e.g. `https://ntfy.sh` or your own server. Off without a URL. |
+| `CHESS_BRIEF_HOUR` / `CHESS_BRIEF_CLICK_URL` | `18` / – | Sunday from this hour (local `TZ`); the link opened when you tap the notification. The brief follows `CHESS_TRAINING_*` if those name one platform and one time control. |
 | `CHESS_TRAINING_PLATFORMS` / `CHESS_TRAINING_TIME_CLASSES` | all | Train only from these games, e.g. `chesscom` / `rapid`. Applies to the whole Training tab: daily puzzles, convert, "what's the threat?", Woodpecker. Puzzles already prepared from other games simply stop showing up. |
 | `DATABASE_URL` | SQLite in `/app/data` | Postgres works too. |
 | `LICHESS_STUDY_TOKEN` | – | Optional. Copies your games into Lichess studies (see below). Needs the scopes `study:read` and `study:write`. |

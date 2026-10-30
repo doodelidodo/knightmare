@@ -29,7 +29,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import __version__, focus, practice, progress, repertoire, review, stats, tactics
+from . import __version__, focus, journey, practice, progress, repertoire, review, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import (
     SETUP_KEYS,
@@ -160,6 +160,10 @@ async def lifespan(_app: FastAPI):
         log.warning(
             "CHESSCOM_USERNAME ist nicht gesetzt - es werden keine Partien geholt."
         )
+    try:
+        journey.start_brief_loop(settings, _stop_scheduler)
+    except Exception as exc:  # noqa: BLE001
+        log.error("Wochenbrief nicht gestartet: %s", exc)
     yield
     _stop_scheduler.set()
     tactics.get_trainer().engine.close()
@@ -721,6 +725,39 @@ def get_repertoire_leaks(
         session, color=None if color in (None, "all") else color, days=days,
         time_class=_clean_time_class(time_class), platform=_clean_platform(platform), limit=limit,
     )
+
+
+@api.get("/journey")
+def get_journey(
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    """Mein Weg: Prozess statt Elo - Partien ohne Patzer, saubere Serien und
+    welche Frage der Checkliste welchen Fehler verhindert haette."""
+    data = journey.journey(session, current_settings(), time_class=_clean_time_class(time_class),
+                           platform=_clean_platform(platform))
+    data["brief"] = {"enabled": current_settings().brief_enabled, "hour": current_settings().brief_hour}
+    data["daily_streak"] = None
+    try:
+        if not current_settings().online_mode:
+            with db_engine.connect() as conn:
+                data["daily_streak"] = tactics.stats(conn, date.today(), tactics.get_trainer().settings)["streak"]
+    except Exception:  # noqa: BLE001 - Zusatz
+        pass
+    return data
+
+
+@api.post("/journey/brief")
+def post_journey_brief(session: Session = Depends(get_session)) -> dict[str, object]:
+    """Wochenbrief sofort schicken (zum Ausprobieren). Zaehlt nicht als der
+    regulaere Sonntagsbrief."""
+    cfg = current_settings()
+    if not cfg.brief_enabled:
+        raise HTTPException(status_code=400, detail="brief_disabled")
+    tc, pf = journey.scope_of(cfg)
+    title, body = journey.brief_text(journey.journey(session, cfg, time_class=tc, platform=pf), cfg.study_lang)
+    return {"sent": journey.send_brief(cfg, title, body), "title": title, "body": body}
 
 
 @api.get("/repertoire/mistakes")
