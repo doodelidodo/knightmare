@@ -217,6 +217,11 @@ def _win_after(eng: Engine, board: chess.Board, us: chess.Color) -> tuple[float,
 # Kandidaten
 # ---------------------------------------------------------------------------
 TACTICAL_ERRORS = {"fork", "hanging_piece", "missed_threat", "allowed_mate", "missed_win", "missed_mate", "bad_trade"}
+# Fehler, bei denen die Widerlegung die Pointe ist. Gibt es dazu keinen
+# eindeutig besten Zug ("irgendwas ausser dem Partiezug"), wird daraus seit
+# 1.18 eine *offene* Aufgabe: Schritt 1 die Widerlegung finden, Schritt 2 ein
+# Zug, der haelt - jeder, der nicht mehr als alt_tolerance verschenkt.
+OPEN_ERRORS = {"hanging_piece", "fork", "missed_threat", "allowed_mate", "bad_trade"}
 
 
 def priority(category: str, mate_in: Optional[int], missed_motif: Optional[str], error_type: Optional[str],
@@ -340,13 +345,19 @@ def prepare(eng: Engine, cand: dict, settings: TacticSettings) -> dict:
     win_played, _, punish_pv = _win_after(eng, after_played, us)
     if win_best - win_played < settings.min_drop:
         return bad(f"small_drop ({win_best - win_played:.1f})")
+    open_task = False
     if root_mate is None and gap < settings.min_gap:
-        return bad(f"ambiguous (gap {gap:.1f})")
+        if cand.get("error_type") in OPEN_ERRORS and punish_pv and not after_played.is_game_over():
+            open_task = True
+        else:
+            return bad(f"ambiguous (gap {gap:.1f})")
 
     line = [best]
     b = board.copy()
     b.push(best)
     limit = min(5, max(settings.max_moves, root_mate or 0)) if root_mate else settings.max_moves
+    if open_task:
+        limit = 1  # ein Zug, der haelt - keine Folge
     while len(line) // 2 + 1 < limit and not b.is_game_over():
         rep = eng.analyse(b)
         if not rep or not rep[0].get("pv"):
@@ -386,6 +397,8 @@ def prepare(eng: Engine, cand: dict, settings: TacticSettings) -> dict:
         "solution": " ".join(m.uci() for m in line),
         "solution_san": board.variation_san(line),
         "punish_san": punish_san[:40],
+        "punish_uci": punish_pv[0].uci() if punish_pv else None,
+        "open": open_task,
         "win_best": round(win_best, 1),
         "win_played": round(win_played, 1),
         "gap": round(gap, 1),
@@ -399,6 +412,31 @@ def upsert(conn: Connection, table, values: dict, keys: list[str]) -> None:
     stmt = insert(table).values(**values)
     changes = {k: stmt.excluded[k] for k in values if k not in keys}
     conn.execute(stmt.on_conflict_do_update(index_elements=keys, set_=changes))
+
+
+REQUEUE_STATE_KEY = "tactics_requeue_open_v1"
+
+
+def requeue_ambiguous(engine: DbEngine) -> int:
+    """Einmalig nach 1.18: Fehler, die frueher als "ambiguous" abgelehnt wurden
+    und eine Widerlegung haben, noch einmal als Kandidaten freigeben - sie
+    werden jetzt offene Aufgaben. Liefert die Zahl der freigegebenen."""
+    from .models import ChessState
+
+    S = ChessState.__table__
+    t = TACTICS.c
+    with engine.begin() as conn:
+        if conn.execute(select(S.c.key).where(S.c.key == REQUEUE_STATE_KEY)).first() is not None:
+            return 0
+        rows = conn.execute(select(t.key).where(t.status == "unsuitable", t.reason.like("ambiguous%"),
+                                                 t.error_type.in_(tuple(OPEN_ERRORS)))).all()
+        keys = [r.key for r in rows]
+        if keys:
+            conn.execute(TACTICS.delete().where(t.key.in_(keys)))
+        conn.execute(S.insert().values(key=REQUEUE_STATE_KEY, value=str(len(keys)), updated_at=utc_now()))
+    if keys:
+        log.info("Taktik: %s frueher abgelehnte Fehler werden als offene Aufgaben neu gerechnet", len(keys))
+    return len(keys)
 
 
 def ensure_pool(engine: DbEngine, eng: Engine, settings: TacticSettings, today: date,
@@ -722,6 +760,7 @@ def puzzle_payload(row) -> dict:
         "review": (row.box or 0) > 0,
         "box": row.box or 0,
         "habit": is_habit(row.key),
+        "open": bool(row.open),
         "hint": {"missed_motif": row.missed_motif, "error_type": row.error_type,
                  "mate_in": row.mate_in if row.mate_in and 0 < row.mate_in <= 5 else None},
         "game": {"opponent": row.opponent, "played_at": row.played_at.date().isoformat() if row.played_at else None,
@@ -735,6 +774,7 @@ def explanation(row) -> dict:
         "played_san": row.played_san,
         "played_uci": row.played_uci,
         "punish_san": row.punish_san,
+        "punish_uci": row.punish_uci,
         "solution": (row.solution or "").split(),
         "solution_san": row.solution_san,
         "win_best": row.win_best,
@@ -863,6 +903,10 @@ class Trainer:
                 sync_habits(self.db, self.settings)
             except Exception:  # noqa: BLE001 - Gewohnheiten sind ein Zusatz
                 log.exception("Eroeffnungs-Gewohnheiten nicht uebernommen")
+            try:
+                requeue_ambiguous(self.db)
+            except Exception:  # noqa: BLE001 - nur ein Nachholschritt
+                log.exception("Offene Aufgaben nicht freigegeben")
             result = ensure_pool(
                 self.db, self.engine, self.settings, today or date.today(),
                 target_new or self.target_new, max_tries or self.settings.per_day * 12,

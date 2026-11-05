@@ -1833,6 +1833,188 @@ def test_journey() -> bool:
     return ok
 
 
+# --------------------------------------------------------------------------
+# 18) "Was droht?" nur mit echten Drohungen
+# --------------------------------------------------------------------------
+def test_real_threats() -> bool:
+    from datetime import datetime
+
+    from . import practice
+
+    ok = True
+    # Aus einer echten Partie: Weiss haette Nb6+ (Gabel Kd7/Ra8). Schwarzes
+    # bester Zug "am Zug" waere ...Ra7 - eine Rettung, keine Drohung.
+    fen = "r4b1r/3k4/p3ppn1/3p3p/N2p3P/5PB1/PP3P2/1R3RK1 w - - 0 1"
+    null = practice.null_board(chess.Board(fen))
+    ok &= _check("...Ra7 (Turm aus der Gabel) ist keine Drohung",
+                 not practice.is_real_threat(null, chess.Move.from_uci("a8a7")))
+    ok &= _check("...Nxh4 (Schlagen) ist eine", practice.is_real_threat(null, chess.Move.from_uci("g6h4")))
+    ok &= _check("...Ne5 greift den ungedeckten Bauern f3 an: Drohung",
+                 practice.is_real_threat(null, chess.Move.from_uci("g6e5")))
+    ok &= _check("...Kc7 (Koenigszug ohne Angriff): keine",
+                 not practice.is_real_threat(null, chess.Move.from_uci("d7c7")))
+    ok &= _check("Bauer greift Springer an (billiger als die Figur): Drohung",
+                 practice.is_real_threat(practice.null_board(chess.Board("4k3/8/2p5/8/3N4/8/8/4K3 w - - 0 1")),
+                                         chess.Move.from_uci("c6c5")))
+    # Grundreihe: ...Re7 bereitet Re1# vor (der Springer a3 kann nicht dazwischen).
+    back = practice.null_board(chess.Board("6k1/r7/8/8/8/N7/5PPP/6K1 w - - 0 1"))
+    ok &= _check("Zug, der Matt im naechsten Zug vorbereitet: Drohung",
+                 practice.is_real_threat(back, chess.Move.from_uci("a7e7")))
+    ok &= _check("...Kf8 bereitet kein Matt vor (Ra1+ Nb1)",
+                 not practice.is_real_threat(back, chess.Move.from_uci("g8f8")))
+
+    eng = _temp_db()
+    with eng.begin() as conn:
+        base = {"kind": "threat", "status": "ready", "attempts": 0, "solved": 0, "game_uuid": "g", "ply": 1}
+        conn.execute(practice.PRACTICE.insert().values(key="t:ra7", fen=fen, solution="a8a7", **base))
+        conn.execute(practice.PRACTICE.insert().values(key="t:nxh4", fen=fen, solution="g6h4", **base))
+    dropped = practice.recheck_threats(eng)
+    listed = practice.listing(eng, "threat")
+    ok &= _check("Vorbereitete Stellung ohne echte Drohung wird aussortiert",
+                 dropped == 1 and [i["key"] for i in listed["items"]] == ["t:nxh4"] and listed["total"] == 1,
+                 str((dropped, [i["key"] for i in listed["items"]])))
+    return ok
+
+
+# --------------------------------------------------------------------------
+# 19) Coach: Fakten aus der Geometrie, Widerlegung finden, offene Aufgaben
+# --------------------------------------------------------------------------
+def test_coach() -> bool:
+    from datetime import date, datetime
+    from types import SimpleNamespace
+
+    from sqlalchemy import select
+
+    from . import coach, tactics as tx
+
+    ok = True
+    kinds = lambda facts: [f["kind"] for f in facts]  # noqa: E731
+    # Springergabel mit Schach: c7 greift Ke8 und Ta8 an.
+    facts = coach.describe_move(chess.Board("r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1"), chess.Move.from_uci("d5c7"))
+    fork = next((f for f in facts if f["kind"] == "fork"), None)
+    ok &= _check("Gabel: Schach + zwei Ziele", "check" in kinds(facts) and fork is not None
+                 and sorted(t["square"] for t in fork["targets"]) == ["a8", "e8"], str(facts))
+    # Turm schlaegt ungedeckten Springer - "umsonst".
+    facts = coach.describe_move(chess.Board("4k3/8/8/3n4/8/8/8/3RK3 w - - 0 1"), chess.Move.from_uci("d1d5"))
+    ok &= _check("Schlagen einer ungedeckten Figur", kinds(facts) == ["capture"] and facts[0]["free"], str(facts))
+    # Fesselung: Lb5 fesselt Sc6 an Ke8 (Laeufer von f1 nach b5).
+    facts = coach.describe_move(chess.Board("4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1"), chess.Move.from_uci("f1b5"))
+    ok &= _check("Fesselung erkannt", "pin" in kinds(facts) and next(f for f in facts if f["kind"] == "pin")["front"] == "c6", str(facts))
+    # Mattdrohung: Dh5 im Schaefermatt-Aufbau droht Dxf7#.
+    facts = coach.describe_move(chess.Board("r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3"),
+                                chess.Move.from_uci("d1h5"))
+    ok &= _check("Mattdrohung erkannt", any(f["kind"] == "mate_threat" and f["move"] == "h5f7" for f in facts), str(facts))
+    # Ein Bauer als Ziel ist keine Meldung wert.
+    facts = coach.describe_move(chess.Board("4k3/8/8/8/8/8/p7/R3K3 w - - 0 1"), chess.Move.from_uci("a1a2"))
+    ok &= _check("Bauer schlagen bleibt ein Schlagzug, Bauern-Angriff keine Meldung",
+                 kinds(facts) == ["capture"], str(facts))
+    # Ruhiger Zug ohne alles.
+    facts = coach.describe_move(chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 0 1"), chess.Move.from_uci("e1d1"))
+    ok &= _check("ruhiger Zug", kinds(facts) == ["quiet"], str(facts))
+
+    # Warum der eigene Zug schlecht war: Springer nach c6, wo der Springer d4 ihn nimmt.
+    before = chess.Board("1r2r1k1/p1p2ppp/5b2/4n3/3NP3/P2P4/1PP3PP/R1B2RK1 b - - 4 20")
+    why = coach.why_played_is_bad(before, chess.Move.from_uci("e5c6"), chess.Move.from_uci("d4c6"))
+    ok &= _check("gezogene Figur im Schlag", any(f["kind"] == "moved_into_capture" and f["to"] == "c6" for f in why), str(why))
+
+    # Widerlegung pruefen (ohne Engine): nur der gespeicherte Zug zaehlt.
+    row = SimpleNamespace(key="k", fen=before.fen(), played_uci="e5c6", punish_uci="d4c6", punish_san="21. Nxc6",
+                          error_type="hanging_piece", missed_motif=None, solution="e5d3", solution_san="20...Nxd3",
+                          played_san="Nc6", win_best=41.6, win_played=14.0, mate_in=None, open=True, category="mistake",
+                          url="", color="black", platform="pgn", time_class="rapid", opponent="x", played_at=None,
+                          box=0, last_move=None)
+    no_engine = tx.Engine(None, 0.1)
+    res = coach.check_refutation(no_engine, row, "d4c6")
+    ok &= _check("Widerlegung gefunden", res["result"] == "good" and res["san"] == "Nxc6" and "capture" in kinds(res["facts"]), str(res))
+    res = coach.check_refutation(no_engine, row, "d4e6")
+    ok &= _check("anderer Zug ohne Engine: falsch, Loesung nicht verraten",
+                 res["result"] == "bad" and "facts" not in res and "punish_uci" not in res, str(res))
+    for bad, code in (("zzzz", "unknown_move"), ("a1a8", "illegal_move")):
+        try:
+            coach.check_refutation(no_engine, row, bad)
+            ok &= _check(f"{code} abgelehnt", False)
+        except tx.MoveError as exc:
+            ok &= _check(f"{code} abgelehnt", exc.code == code, exc.code)
+    rev = coach.reveal_refutation(row)
+    ok &= _check("Aufdecken liefert Zug und Fakten", rev["punish_san"] == "Nxc6" and bool(rev["facts"]), str(rev))
+    ok &= _check("Schritt 1 nur bei Widerlegungs-Fehlerarten", coach.has_refute_step(row)
+                 and not coach.has_refute_step(SimpleNamespace(error_type="missed_win", played_uci="e5c6")))
+
+    # Erklaerung: Pfeile, Fakten, Checklisten-Frage.
+    eng = _temp_db()
+    xp = coach.explain(eng, no_engine, row)
+    ok &= _check("Erklaerung: Frage 3, Widerlegung, besserer Zug",
+                 xp["point"] == "safe" and xp["refutation"]["san"] == "Nxc6" and xp["best"]["san"] == "Nxd3"
+                 and xp["open"] and bool(xp["played_facts"]), str({k: xp[k] for k in ("point", "refutation", "best")}))
+
+    # Widerlegung aus punish_san nachtragen (Aufgaben von vor 1.18).
+    with eng.begin() as conn:
+        conn.execute(tx.TACTICS.insert().values(
+            key="old#1", status="ready", fen=before.fen(), played_uci="e5c6", played_san="Nc6", punish_san="21. Nxc6 Rxb2",
+            solution="e5d3", solution_san="20...Nxd3", error_type="hanging_piece", color="black", box=0, attempts=0, solved=0))
+        old = conn.execute(select(tx.TACTICS).where(tx.TACTICS.c.key == "old#1")).first()
+    ok &= _check("punish_uci aus punish_san ergaenzt", coach.ensure_punish(eng, no_engine, old) == "d4c6")
+    with eng.connect() as conn:
+        stored = conn.execute(select(tx.TACTICS.c.punish_uci).where(tx.TACTICS.c.key == "old#1")).scalar_one()
+    ok &= _check("... und gespeichert", stored == "d4c6")
+
+    # Session des Tages: Fokus festgeschrieben, Lektion, Schritt-1-Ergebnisse, Verlauf.
+    day = date(2026, 11, 5)
+    with eng.begin() as conn:
+        conn.execute(tx.DAYS.insert().values(day=day, pos=0, key="old#1", result=None))
+    payload = {"items": [{"pos": 0, "key": "old#1", "result": None}], "stats": {"streak": 0}}
+    sess = coach.session(eng, no_engine, None, day, payload)
+    item = sess["items"][0]
+    ok &= _check("Session: Aufgabe mit Schritt 1", len(sess["items"]) == 1 and item["exercise"]["refute"] is not None
+                 and item["exercise"]["point"] == "safe" and not sess["lesson_seen"], str(item["exercise"].get("refute")))
+    ok &= _check("Schritt 1: erster Ausgang zaehlt", coach.record_refute(eng, day, "old#1", "bad")
+                 and not coach.record_refute(eng, day, "old#1", "good"))
+    coach.mark_lesson(eng, day)
+    sess = coach.session(eng, no_engine, None, day, payload)
+    ok &= _check("Session: Lektion gesehen, Schritt-1-Ergebnis da",
+                 sess["lesson_seen"] and sess["items"][0]["refute_result"] == "bad" and sess["progress"]["refute_total"] == 1)
+    hist = coach.history(eng, day, days=3)
+    ok &= _check("Verlauf: heute offen", len(hist) == 3 and hist[-1]["day"] == day.isoformat() and not hist[-1]["done"])
+    # Requeue: frueher als "ambiguous" abgelehnte Widerlegungs-Fehler werden neu gerechnet, einmalig.
+    with eng.begin() as conn:
+        conn.execute(tx.TACTICS.insert().values(key="amb#1", status="unsuitable", reason="ambiguous (gap 2.0)",
+                                                error_type="hanging_piece", box=0, attempts=0, solved=0))
+        conn.execute(tx.TACTICS.insert().values(key="amb#2", status="unsuitable", reason="ambiguous (gap 2.0)",
+                                                error_type="positional", box=0, attempts=0, solved=0))
+    ok &= _check("Requeue: nur Widerlegungs-Fehlerarten, nur einmal",
+                 tx.requeue_ambiguous(eng) == 1 and tx.requeue_ambiguous(eng) == 0)
+
+    # Mit Stockfish: ein Fehler ohne eindeutig besten Zug wird eine offene Aufgabe.
+    settings = load_settings()
+    sf = tx.Engine(settings.engine_path, 0.2)
+    if not sf.available:
+        print("  (Stockfish nicht gefunden - offene Aufgabe übersprungen)")
+        return bool(ok)
+    try:
+        # Ausgeglichene Stellung, Weiss stellt den Springer ein: 1. Nc3-b5?? axb5.
+        pgn = ("[Event \"t\"]\n[Site \"?\"]\n[Date \"2026.11.05\"]\n[Round \"-\"]\n[White \"me\"]\n[Black \"x\"]\n"
+               "[Result \"0-1\"]\n\n1. e4 e5 2. Nf3 Nc6 3. Nc3 Nf6 4. Bc4 Bc5 5. d3 d6 6. O-O a6 7. Nb5 axb5 0-1\n")
+        cand = {"key": "open:test#13", "ply": 13, "color": "white", "pgn": pgn, "category": "blunder",
+                "error_type": "hanging_piece", "game_uuid": "open:test"}
+        row = tx.prepare(sf, cand, tx.TacticSettings())
+        ok &= _check("offene Aufgabe: bereit statt 'ambiguous'", row["status"] == "ready" and row.get("open") is True,
+                     f"{row['status']} {row.get('reason')} open={row.get('open')}")
+        ok &= _check("offene Aufgabe: ein Zug, Widerlegung axb5", row.get("punish_uci") == "a6b5"
+                     and len((row.get("solution") or "").split()) == 1, str((row.get("punish_uci"), row.get("solution"))))
+        # Schritt 2 einer offenen Aufgabe: irgendein Zug, der haelt, gilt.
+        stored = SimpleNamespace(**row)
+        other = next(m for m in chess.Board(row["fen"]).legal_moves if m.uci() not in (row["solution"], "c3b5") and m.uci().startswith("h2h3"))
+        res = tx.check_move(sf, stored, [other.uci()], tx.TacticSettings())
+        ok &= _check("offene Aufgabe: h3 haelt und gilt", res["result"] == "solved", str(res))
+        res = tx.check_move(sf, stored, ["c3b5"], tx.TacticSettings())
+        ok &= _check("offene Aufgabe: der Partiezug ist falsch", res["result"] == "wrong", str(res))
+        res = coach.check_refutation(sf, stored, "c6d4")
+        ok &= _check("Widerlegung mit Engine: schwaecherer Zug ist falsch", res["result"] == "bad", str(res))
+    finally:
+        sf.close()
+    return bool(ok)
+
+
 def select_games():
     from sqlmodel import select
 
@@ -1897,8 +2079,14 @@ def main() -> int:
     print("\n17) Mein Weg")
     journey_ok = test_journey()
 
+    print("\n18) Was droht? nur echte Drohungen")
+    threat_ok = test_real_threats()
+
+    print("\n19) Coach: Fakten, Widerlegung, offene Aufgaben")
+    coach_ok = test_coach()
+
     print("\n" + "=" * 66)
-    if (journey_ok and om_ok and scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (coach_ok and threat_ok and journey_ok and om_ok and scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")

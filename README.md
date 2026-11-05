@@ -70,28 +70,56 @@ deflection over several moves, zugzwang and anything positional cannot be
 decided from one reply, and a wrong label is worse than none. You would train
 the wrong thing.
 
-## Then train it: your own mistakes as puzzles
+## Then train it: one guided session a day
 
-Knowing *what* you get wrong is half of it. The **Training** tab turns your
-mistakes into daily puzzles: the position from your own game, your move on the
-clock, *what would have been better?*
+Knowing *what* you get wrong is half of it. The **Training** tab is a daily
+session built from your own games — not a list of puzzles, but a short course
+with a beginning and an end:
 
-- **Ten a day**, blunders and short mates first, at most two from the same
-  game, and never the same position twice on one day (the same opening mistake
-  in two games is one puzzle, not two).
-- **Only real puzzles.** Every candidate is re-checked by Stockfish with two
-  principal variations. It becomes a puzzle only if the best move is clearly
-  better than your move *and* clearly better than the second-best move —
-  otherwise there is no answer to find, just "anything but what you played".
-  Solutions extend over several moves as long as each move is forced, like on
-  Lichess.
+1. **Lesson.** The checklist question (*What does he want? What can I do? Is
+   it safe? His best answer?*) that would have prevented the most serious
+   mistakes in your last 28 days — with your numbers, what it looked like
+   (hung piece, bad trade, …), a three-step routine for before every move, and
+   three examples from your own games on the board.
+2. **Puzzles, in two steps.** Each one is a mistake of yours. **Step one: his
+   answer.** You see the position *after* the move you played and move the
+   opponent's piece: what punished you? That is the move you did not see in
+   the game — the refutation from the analysis, not an engine's favourite in
+   some other position. **Step two: your move.** Back to the position before:
+   what instead? **Then: understand.** Red, orange and green arrows on the
+   board, and an explanation derived from the board itself — *takes the
+   knight on c6 for free, attacks the rook on b8, your knight was simply
+   hanging* — plus the checklist question this mistake belongs to, and the
+   winning chance before and after.
+3. **Convert the win.** One position from a game you lost or drew although
+   you were clearly winning. Play it out against Stockfish without giving too
+   much back.
+4. **Done.** Puzzles solved, refutations found, the won position, your streak
+   and the last 14 days.
+
+What stays the same underneath:
+
+- **Ten puzzles a day**, blunders and short mates first, at most two from the
+  same game, and never the same position twice on one day.
+- **Real puzzles — and open ones.** Every candidate is re-checked by Stockfish
+  with two principal variations. If the best move is clearly better than your
+  move *and* clearly better than the second-best, it is a normal puzzle with a
+  unique solution (several moves when each is forced). If there is no unique
+  answer but a clear refutation of what you played — you hung a piece in an
+  otherwise equal position — it becomes an **open puzzle**: find the
+  refutation, then any move that holds. Those are most of the mistakes that
+  actually cost games, and before 1.18 they were thrown away as "ambiguous".
 - **Equal moves count.** Another move that wins just as much (or mates just as
   fast) solves it too. Wrong moves are refuted on the board.
 - **Spaced repetition.** Solved at first try: back in 3 days, then 7, 14, 30,
   then learned. Missed or revealed: back tomorrow. Only the first attempt of
-  the day counts.
-- Hint (motif or mistake type), show the solution, the move you played with
-  the winning chance before and after, and a link to the game.
+  the day counts — and only step two (your move) counts for it; step one is
+  tracked in the day's tally.
+- Hint (motif or mistake type), show the solution, and a link to the game.
+
+The explanations are plain board geometry — check, capture, fork and its
+targets, pin, skewer, discovered attack, newly hanging pieces, mate threat —
+in English and German. No language model, nothing leaves your computer.
 
 Puzzles are prepared after each run from the mistakes found, about a second of
 engine time per candidate, in a separate low-resource Stockfish process.
@@ -172,23 +200,17 @@ matter how each site names the opening.
 
 ## More ways to practise
 
-Next to the daily puzzles, the training tab has three more modes — all built
-from your own games:
-
 - **Opening habits in the daily set.** Every repeated opening mistake becomes
   a puzzle in the same spaced repetition (at most three new ones a day), so
   the habit gets retrained, not just reported.
-- **Convert the win.** Positions from games you lost or drew although you
-  were clearly winning (70%+ before your costliest move). You play them out
-  against Stockfish. Fail if you drop more than 20 points below the start
-  (never below 60%); succeed with mate, a decisive advantage, or by keeping
-  85%+ for 15 moves.
-- **What's the threat?** The position right before one of your mistakes —
-  but you move your *opponent's* piece: what do they want to play next? The
-  question to ask before every move, trained on the moves you actually missed.
-- **Woodpecker.** A fixed set of up to 24 of your own puzzles, solved in
-  rounds; the clock only runs while you solve. Each round shows the target:
-  half the previous time.
+- **Convert the win**, as part of the session: positions from games you lost
+  or drew although you were clearly winning (70%+ before your costliest
+  move). Fail if you drop more than 20 points below the start (never below
+  60%); succeed with mate, a decisive advantage, or by keeping 85%+ for 15
+  moves.
+- **Woodpecker** (a fixed set of your own puzzles in timed rounds) is still
+  in the API (`/api/woodpecker`) but no longer in the interface since 1.18;
+  the session replaced the mode switcher.
 
 And on the analysis tab, **progress over the months**: accuracy per phase,
 how often you converted won positions, and how often you fell back into an
@@ -338,7 +360,7 @@ least one of the two platforms.
 | `CHESS_TACTICS_MIN_CP` | `-300` | Skip positions that were already lost before the mistake. |
 | `CHESS_NTFY_URL` / `CHESS_NTFY_TOPIC` / `CHESS_NTFY_TOKEN` | – / `knightmare` / – | Weekly brief via ntfy, e.g. `https://ntfy.sh` or your own server. Off without a URL. |
 | `CHESS_BRIEF_HOUR` / `CHESS_BRIEF_CLICK_URL` | `18` / – | Sunday from this hour (local `TZ`); the link opened when you tap the notification. The brief follows `CHESS_TRAINING_*` if those name one platform and one time control. |
-| `CHESS_TRAINING_PLATFORMS` / `CHESS_TRAINING_TIME_CLASSES` | all | Train only from these games, e.g. `chesscom` / `rapid`. Applies to the whole Training tab: daily puzzles, convert, "what's the threat?", Woodpecker. Puzzles already prepared from other games simply stop showing up. |
+| `CHESS_TRAINING_PLATFORMS` / `CHESS_TRAINING_TIME_CLASSES` | all | Train only from these games, e.g. `chesscom` / `rapid`. Applies to the whole Training tab (session, puzzles, convert). Puzzles already prepared from other games simply stop showing up. |
 | `DATABASE_URL` | SQLite in `/app/data` | Postgres works too. |
 | `LICHESS_STUDY_TOKEN` | – | Optional. Copies your games into Lichess studies (see below). Needs the scopes `study:read` and `study:write`. |
 | `CHESS_STUDY_PLATFORMS` / `CHESS_STUDY_TIME_CLASSES` | `chesscom` / `rapid` | Which games go into the studies. |
@@ -403,8 +425,8 @@ GET  /api/repertoire/leaks?color=black        # opening mistakes you repeat
 GET  /api/repertoire/tree?color=white&key=... # explorer over your own games
 POST /api/repertoire/check                    # drill: is this move good enough here?
 GET  /api/progress                            # month by month: accuracy, conversion, habits
-GET  /api/practice/convert  /api/practice/threat
-POST /api/practice/convert/move  /api/practice/threat/check
+GET  /api/coach/today  /api/coach/explain   POST /api/coach/refute  /api/coach/lesson  /api/coach/finish
+GET  /api/practice/convert   POST /api/practice/convert/move  /api/practice/convert/giveup
 GET  /api/woodpecker   POST /api/woodpecker/start  /api/woodpecker/move
 GET  /api/phases  /api/time-pressure  /api/report/weekly
 POST /api/sync    /api/reanalyze

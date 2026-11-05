@@ -29,7 +29,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import __version__, focus, journey, practice, progress, repertoire, review, stats, tactics
+from . import __version__, coach, focus, journey, practice, progress, repertoire, review, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import (
     SETUP_KEYS,
@@ -1006,27 +1006,35 @@ def get_practice(kind: str) -> dict[str, object]:
 class ConvertBody(BaseModel):
     key: str = Field(max_length=100)
     moves: list[str] = Field(default_factory=list, max_length=200)
+    day: Optional[date] = None  # aus der Coach-Session: dann zaehlt das Ergebnis dort
 
 
 @api.post("/practice/convert/move")
 def practice_convert_move(body: ConvertBody) -> dict[str, object]:
     eng = _practice_engine()
     try:
-        return practice.convert_move(db_engine, eng, body.key, body.moves)
+        res = practice.convert_move(db_engine, eng, body.key, body.moves)
     except tactics.MoveError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
+    if body.day is not None and res.get("status") in ("success", "fail"):
+        coach.record_convert(db_engine, _tactic_day(body.day), body.key, res["status"])
+    return res
 
 
 class KeyBody(BaseModel):
     key: str = Field(max_length=100)
+    day: Optional[date] = None
 
 
 @api.post("/practice/convert/giveup")
 def practice_convert_giveup(body: KeyBody) -> dict[str, object]:
     try:
-        return practice.convert_giveup(db_engine, body.key)
+        res = practice.convert_giveup(db_engine, body.key)
     except tactics.MoveError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
+    if body.day is not None:
+        coach.record_convert(db_engine, _tactic_day(body.day), body.key, "fail")
+    return res
 
 
 class ThreatBody(BaseModel):
@@ -1088,6 +1096,84 @@ def woodpecker_move(body: WoodMoveBody) -> dict[str, object]:
             res["explain"] = tactics.explanation(row)
     return res
 
+
+
+# --------------------------------------------------------------------------
+# Coach: die gefuehrte Tages-Session (seit 1.18)
+# --------------------------------------------------------------------------
+@api.get("/coach/today")
+def coach_today(day: Optional[date] = Query(default=None)) -> dict[str, object]:
+    """Lektion, Aufgaben in zwei Schritten, Verwertung, Stand des Tages.
+    Die Aufgaben sind dieselben wie /tactics/today - mit derselben
+    Vorbereitung im Hintergrund."""
+    base = tactics_today(day)
+    d = _tactic_day(day)
+    if not base.get("enabled"):
+        return {**base, "items": [], "lesson": None, "convert": None, "focus": None}
+    trainer = tactics.get_trainer()
+    data = coach.session(db_engine, trainer.engine, trainer.settings, d, base)
+    data["history"] = coach.history(db_engine, d)
+    return {**base, **data}
+
+
+class CoachDayBody(BaseModel):
+    day: date
+
+
+@api.post("/coach/lesson")
+def coach_lesson(body: CoachDayBody) -> dict[str, object]:
+    coach.mark_lesson(db_engine, _tactic_day(body.day))
+    return {"ok": True}
+
+
+@api.post("/coach/finish")
+def coach_finish(body: CoachDayBody) -> dict[str, object]:
+    coach.finish(db_engine, _tactic_day(body.day))
+    return {"ok": True}
+
+
+class RefuteBody(BaseModel):
+    day: date
+    key: str = Field(max_length=90)
+    uci: str = Field(default="", max_length=5)
+    reveal: bool = False
+
+
+@api.post("/coach/refute")
+def coach_refute(body: RefuteBody) -> dict[str, object]:
+    """Schritt 1 einer Aufgabe: die Widerlegung des eigenen Zugs finden.
+    Der erste Ausgang zaehlt fuer die Tagesbilanz; der Lernstand (Leitner)
+    haengt weiter nur an Schritt 2."""
+    trainer = tactics.get_trainer()
+    day = _tactic_day(body.day)
+    with db_engine.connect() as conn:
+        row = _tactic_for_day(conn, day, body.key)
+    if not row.punish_uci:
+        coach.ensure_punish(db_engine, trainer.engine, row)
+        with db_engine.connect() as conn:
+            row = _tactic_for_day(conn, day, body.key)
+    try:
+        res = coach.reveal_refutation(row) if body.reveal else coach.check_refutation(trainer.engine, row, body.uci)
+    except tactics.MoveError as exc:
+        raise HTTPException(status_code=400, detail=exc.code) from exc
+    outcome = {"good": "good", "bad": "bad", "revealed": "revealed"}[res["result"]]
+    res["counted"] = coach.record_refute(db_engine, day, body.key, outcome)
+    return res
+
+
+@api.get("/coach/explain")
+def coach_explain(day: date, key: str = Query(max_length=90)) -> dict[str, object]:
+    """Die Erklaerung zu einer Aufgabe - erst, wenn sie geloest oder
+    aufgedeckt ist (sonst stuende die Loesung vorher im Netzwerk)."""
+    d = _tactic_day(day)
+    trainer = tactics.get_trainer()
+    with db_engine.connect() as conn:
+        row = _tactic_for_day(conn, d, key)
+        D = tactics.DAYS
+        state = conn.execute(sa_select(D.c.result).where(D.c.day == d, D.c.key == key)).first()
+    if state is None or state.result is None:
+        raise HTTPException(status_code=409, detail="not_finished")
+    return coach.explain(db_engine, trainer.engine, row)
 
 
 app.include_router(api)

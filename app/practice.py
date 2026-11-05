@@ -171,6 +171,82 @@ def prepare_convert(eng: Engine, cand: dict, game) -> dict:
             "last_move": last.uci() if last else None, "win_start": round(win, 1)}
 
 
+PIECE_VALUE = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 100}
+
+
+def _en_prise(board: chess.Board, victim: chess.Color) -> set[int]:
+    """Figuren von `victim`, die der Gegner mit Gewinn schlagen kann: ungedeckt
+    angegriffen, oder von einer billigeren Figur angegriffen. Der Koenig zaehlt
+    nicht - Schach wird eigens geprueft."""
+    out = set()
+    for square, piece in board.piece_map().items():
+        if piece.color != victim or piece.piece_type == chess.KING:
+            continue
+        attackers = board.attackers(not victim, square)
+        if not attackers:
+            continue
+        cheapest = min(PIECE_VALUE[board.piece_type_at(a)] for a in attackers)
+        if not board.attackers(victim, square) or cheapest < PIECE_VALUE[piece.piece_type]:
+            out.add(square)
+    return out
+
+
+def is_real_threat(null: chess.Board, move: chess.Move) -> bool:
+    """Ist der beste Zug des Gegners wirklich eine Drohung - oder nur sein bester
+    Zug, etwa eine Rettung aus einer Gabel? Gemessen wird, ob er etwas *tut*:
+    Schach, Schlagen, eine Figur neu angreifen, die er mit Gewinn nehmen koennte,
+    oder Matt im naechsten Zug vorbereiten. Ein Rueckzug wie ...Ra7, der nur den
+    eigenen Turm in Sicherheit bringt, ist keine Antwort auf "Was droht?"."""
+    if move not in null.legal_moves:
+        return False
+    if null.gives_check(move) or null.is_capture(move):
+        return True
+    them = null.turn
+    before = _en_prise(null, not them)
+    after = null.copy(stack=False)
+    after.push(move)
+    if _en_prise(after, not them) - before:
+        return True
+    # Matt-Drohung: haette er noch einen Zug, saesse er Matt.
+    again = chess.Board(after.fen())
+    again.push(chess.Move.null())
+    again = chess.Board(again.fen())
+    if not again.is_valid():
+        return False
+    for reply in again.legal_moves:
+        again.push(reply)
+        mate = again.is_checkmate()
+        again.pop()
+        if mate:
+            return True
+    return False
+
+
+def recheck_threats(db: DbEngine) -> int:
+    """Bereits vorbereitete "Was droht?"-Stellungen nachpruefen (ohne Engine).
+    Was keine echte Drohung ist, wird als unbrauchbar markiert und erscheint
+    nicht mehr. Gibt die Zahl der aussortierten zurueck."""
+    p = PRACTICE.c
+    dropped = []
+    with db.connect() as conn:
+        rows = conn.execute(select(p.key, p.fen, p.solution).where(p.kind == "threat", p.status == "ready")).all()
+    for row in rows:
+        try:
+            board = chess.Board(row.fen)
+            null = null_board(board)
+            move = chess.Move.from_uci(row.solution or "")
+        except (ValueError, TypeError):
+            dropped.append(row.key)
+            continue
+        if not is_real_threat(null, move):
+            dropped.append(row.key)
+    if dropped:
+        with db.begin() as conn:
+            conn.execute(update(PRACTICE).where(p.key.in_(dropped)).values(status="unsuitable", reason="not_a_threat"))
+        log.info("Was droht?: %s Stellungen ohne echte Drohung aussortiert", len(dropped))
+    return len(dropped)
+
+
 def prepare_threat(eng: Engine, cand: dict, game) -> dict:
     base = _base("threat", cand, game)
     board, _played, last = _board_before(game.pgn if game else "", cand["ply"])
@@ -193,6 +269,8 @@ def prepare_threat(eng: Engine, cand: dict, game) -> dict:
     gain = win_them_threat - win_them_now
     if gain < THREAT_MIN_GAIN:
         return {**base, "status": "unsuitable", "reason": f"no_threat ({gain:.0f})"}
+    if not is_real_threat(null, threat):
+        return {**base, "status": "unsuitable", "reason": "not_a_threat"}
     return {**base, "status": "ready", "reason": None, "fen": board.fen(),
             "last_move": last.uci() if last else None, "solution": threat.uci(),
             "solution_san": null.san(threat)}
@@ -237,6 +315,11 @@ def ensure(db: DbEngine, eng: Engine, kind: str, want: int = 12, max_tries: int 
 
 
 def listing(db: DbEngine, kind: str, limit: int = 40, scope: Optional[TacticSettings] = None) -> dict:
+    if kind == "threat":
+        try:
+            recheck_threats(db)
+        except Exception:  # noqa: BLE001 - die Liste darf daran nicht scheitern
+            log.exception("Was droht?: Nachpruefung fehlgeschlagen")
     p = PRACTICE.c
     in_scope = scope_where(p.platform, p.time_class, scope)
     with db.connect() as conn:

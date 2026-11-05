@@ -218,6 +218,10 @@ class ChessTactic(SQLModel, table=True):
     solution: Optional[str] = Field(default=None, sa_column=Column(Text))
     solution_san: Optional[str] = Field(default=None, sa_column=Column(Text))
     punish_san: Optional[str] = Field(default=None, max_length=40)
+    punish_uci: Optional[str] = Field(default=None, max_length=6)  # Widerlegung des Partiezugs (seit 1.18)
+    # Offene Aufgabe (seit 1.18): kein eindeutig bester Zug, aber eine klare
+    # Widerlegung des Partiezugs. Schritt 2 akzeptiert jeden Zug, der haelt.
+    open: Optional[bool] = Field(default=None)
     win_best: Optional[float] = Field(default=None)    # Gewinnchance mit Loesung (%)
     win_played: Optional[float] = Field(default=None)  # ... mit dem Partiezug
     gap: Optional[float] = Field(default=None)         # Abstand zum zweitbesten Zug
@@ -246,6 +250,25 @@ class ChessTacticDay(SQLModel, table=True):
     pos: int = Field(primary_key=True)
     key: str = Field(max_length=90)
     result: Optional[str] = Field(default=None, max_length=10)
+    updated_at: Optional[datetime] = Field(default=None)
+
+
+class ChessCoachDay(SQLModel, table=True):
+    """Die Tages-Session des Coachs (seit 1.18): welche Frage im Fokus stand,
+    ob die Lektion gelesen wurde, wie Schritt 1 (Widerlegung finden) jeder
+    Aufgabe ausging und welche Verwertungs-Stellung dran war. Die Aufgaben
+    selbst und ihr Lernstand bleiben in chess_tactic / chess_tactic_day."""
+
+    __tablename__ = "chess_coach_day"
+
+    day: date = Field(primary_key=True)
+    focus: Optional[str] = Field(default=None, max_length=12)
+    lesson_seen: bool = Field(default=False)
+    # JSON {key: "good" | "bad" | "revealed" | "skipped"}
+    refutes: Optional[str] = Field(default=None, sa_column=Column(Text))
+    convert_key: Optional[str] = Field(default=None, max_length=100)
+    convert_result: Optional[str] = Field(default=None, max_length=10)
+    finished_at: Optional[datetime] = Field(default=None)
     updated_at: Optional[datetime] = Field(default=None)
 
 

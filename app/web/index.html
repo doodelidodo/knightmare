@@ -265,6 +265,72 @@
   .explain p { margin: 4px 0; }
   .san { font-weight: 700; }
   .tac-stats { margin-top: 14px; }
+  /* --- Coach (Training, seit 1.18) ---------------------------------------- */
+  .co-rail { display: flex; gap: 6px; flex-wrap: wrap; margin: 2px 0 14px; }
+  .co-rail button { border: 1px solid var(--border); background: var(--surface-soft); color: var(--muted); border-radius: 999px;
+                    padding: 6px 12px; font-size: 0.82rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; }
+  .co-rail button .n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font-size: 0.7rem;
+                       background: var(--border); color: var(--text); }
+  .co-rail button.on { border-color: var(--accent); color: var(--accent); background: transparent; }
+  .co-rail button.on .n { background: var(--accent); color: #fff; }
+  .co-rail button.done { color: var(--good); }
+  .co-rail button.done .n { background: var(--good); color: #fff; }
+  .co-steps { display: flex; gap: 4px; align-items: center; font-size: 0.78rem; color: var(--muted); flex-wrap: wrap; }
+  .co-steps span { padding: 3px 8px; border-radius: 6px; background: var(--surface-soft); }
+  .co-steps span.on { background: var(--accent); color: #fff; }
+  .co-steps span.ok { color: var(--good); }
+  .co-ask { font-size: 1.02rem; margin: 10px 0 8px; line-height: 1.4; }
+  .co-ask .san { color: var(--heading); }
+  .co-point { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; font-weight: 700; color: var(--accent);
+              border: 1px solid var(--accent); border-radius: 999px; padding: 2px 10px; }
+  .co-point.muted { color: var(--muted); border-color: var(--border); }
+  .board-wrap { position: relative; }
+  .board-ar { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; border-radius: 10px; }
+  .board-ar .ar { opacity: 0.9; }
+  .board-ar .ar line { stroke-width: 17; stroke-linecap: round; }
+  .board-ar .ar polygon { stroke: none; }
+  .board-ar .ar.played line { stroke: #e5484d; } .board-ar .ar.played polygon { fill: #e5484d; }
+  .board-ar .ar.best line { stroke: #2fa66a; } .board-ar .ar.best polygon { fill: #2fa66a; }
+  .board-ar .ar.reply line { stroke: #f08c2e; stroke-dasharray: 16 10; stroke-linecap: butt; } .board-ar .ar.reply polygon { fill: #f08c2e; }
+  .sq.hl::before { content: ""; position: absolute; inset: 0; background: rgba(240, 140, 46, 0.5); }
+  .co-facts { list-style: none; padding: 0; margin: 8px 0; }
+  .co-facts li { margin: 5px 0; padding-left: 20px; position: relative; font-size: 0.93rem; }
+  .co-facts li::before { content: ""; position: absolute; left: 0; top: 7px; width: 10px; height: 10px; border-radius: 3px; background: var(--muted); }
+  .co-facts li.reply::before { background: #f08c2e; } .co-facts li.best::before { background: #2fa66a; } .co-facts li.played::before { background: #e5484d; }
+  .co-explain { margin-top: 12px; display: grid; gap: 10px; }
+  .co-explain .box { padding: 10px 12px; border-radius: 11px; background: var(--surface-soft); }
+  .co-explain .box h4 { margin: 0 0 4px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  .co-win { display: flex; align-items: center; gap: 10px; font-size: 0.86rem; margin: 6px 0; }
+  .co-win .track { flex: 1; height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; position: relative; }
+  .co-win .track i { position: absolute; inset: 0 auto 0 0; background: var(--good); border-radius: 4px; }
+  .co-win .track i.after { background: var(--bad); opacity: 0.85; }
+  .co-lesson h3 { margin: 14px 0 6px; font-size: 1.15rem; color: var(--heading); }
+  .co-lesson .q { font-size: 1.5rem; font-weight: 800; color: var(--heading); margin: 4px 0 2px; }
+  .co-lesson .how { color: var(--muted); margin: 0 0 12px; }
+  .co-nums { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 12px 0; }
+  .co-nums .t { padding: 10px 12px; border-radius: 11px; background: var(--surface-soft); }
+  .co-nums .t b { display: block; font-size: 1.5rem; color: var(--heading); line-height: 1.1; }
+  .co-nums .t span { font-size: 0.82rem; color: var(--muted); }
+  .co-bars { margin: 8px 0 4px; }
+  .co-bars .row { display: grid; grid-template-columns: 1fr auto; gap: 8px; font-size: 0.86rem; margin: 6px 0; align-items: center; }
+  .co-bars .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; }
+  .co-bars .bar i { display: block; height: 100%; background: var(--accent); }
+  .co-bars .row.focus .bar i { background: var(--bad); }
+  .co-ex { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin: 10px 0; }
+  .co-ex .item { padding: 10px; border-radius: 11px; border: 1px solid var(--border); font-size: 0.86rem; }
+  .co-ex .item p { margin: 4px 0; }
+  .co-ex .mini { width: 100%; }
+  .co-tip { padding: 10px 12px; border-radius: 11px; border-left: 3px solid var(--accent); background: var(--surface-soft); margin: 10px 0; font-size: 0.92rem; }
+  .co-done { text-align: center; padding: 10px 0 4px; }
+  .co-done .big { font-size: 34px; }
+  .co-done h3 { margin: 6px 0 2px; font-size: 1.3rem; color: var(--heading); }
+  .co-hist { display: flex; gap: 4px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
+  .co-hist i { width: 16px; height: 16px; border-radius: 4px; background: var(--border); display: block; }
+  .co-hist i.done { background: var(--good); }
+  .co-hist i.today { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .co-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.86rem; color: var(--muted); margin: 4px 0 8px; }
+  .co-extra { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+  @media (max-width: 480px) { .co-lesson .q { font-size: 1.25rem; } }
   .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--heading);
            color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 0.9rem; opacity: 0;
            transition: opacity 0.2s; pointer-events: none; z-index: 60; max-width: calc(100% - 32px); }
@@ -412,8 +478,6 @@
     .tree-board { max-width: 340px; }
   }
   .tabs { overflow-x: auto; scrollbar-width: none; }
-  #trModes { margin-top: 14px; }
-  #pxBody .explain + .tac-actions { margin-top: 10px; }
   .px-h3 { font-size: 0.92rem; margin: 18px 0 6px; color: var(--heading); }
   .tt.wp { max-width: 360px; }
   .wp-dots { grid-template-columns: repeat(auto-fill, minmax(26px, 30px)); }
@@ -595,21 +659,14 @@
   </div>
 
   <div id="viewTrain" hidden>
-    <div class="chips" id="trModes"></div>
-    <div class="card" id="pxCard" hidden>
-      <h2 id="pxTitle"></h2>
-      <p class="muted" id="pxIntro"></p>
-      <div id="pxBody"></div>
-    </div>
-    <div class="card" id="trDaily">
+    <div class="card" id="coCard">
       <div class="tac-top">
-        <h2 id="trTitle"></h2>
-        <span class="muted" id="tacHead"></span>
+        <h2 id="coTitle"></h2>
+        <span class="muted" id="coHead"></span>
       </div>
-      <p class="muted" id="trIntro"></p>
-      <div class="tac-dots" id="tacDots"></div>
-      <div id="tacBody"></div>
-      <p class="tac-stats muted" id="tacStats"></p>
+      <p class="muted" id="coIntro"></p>
+      <div class="co-rail" id="coRail"></div>
+      <div id="coBody"></div>
     </div>
   </div>
 
@@ -1908,7 +1965,7 @@ async function apiJson(path, body) {
   if (!res.ok) {
     let code = `HTTP ${res.status}`;
     try { const j = await res.json(); if (typeof j.detail === "string") code = j.detail; } catch { /* egal */ }
-    throw new Error(tr().errors[code] || code);
+    throw new Error(tc().errors[code] || tr().errors[code] || code);
   }
   return res.json();
 }
@@ -1928,8 +1985,6 @@ const sqName = (i) => FILES[i % 8] + (Math.floor(i / 8) + 1);
 const sqIndex = (n) => FILES.indexOf(n[0]) + (Number(n[1]) - 1) * 8;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const $id = (id) => document.getElementById(id);
-
-const tac = { data: null, idx: -1, pos: null, poll: null, error: null };
 
 function fenBoard(fen) {
   const arr = new Array(64).fill(null);
@@ -1963,491 +2018,6 @@ function applyUci(arr, uci) {
   return b;
 }
 const moveSquares = (uci) => uci ? [sqIndex(uci.slice(0, 2)), sqIndex(uci.slice(2, 4))] : null;
-
-async function loadTactics(keepIdx = false) {
-  clearTimeout(tac.poll);
-  let d;
-  try {
-    d = await api("tactics/today?day=" + localDay());
-    tac.error = null;
-  } catch (err) {
-    tac.error = err.message;
-    renderTabs();
-    if (view === "train") renderTraining();
-    return;
-  }
-  const prevKey = keepIdx && tac.pos ? tac.pos.item.key : null;
-  tac.data = d;
-  renderTabs();
-  if (!d.items.length) {
-    tac.idx = -1; tac.pos = null;
-    if (d.preparing) tac.poll = setTimeout(() => loadTactics(), 4000);
-    if (view === "train") renderTraining();
-    return;
-  }
-  let idx = prevKey ? d.items.findIndex((i) => i.key === prevKey) : -1;
-  if (idx < 0) idx = d.items.findIndex((i) => !i.result);
-  if (idx < 0) { tac.idx = -1; tac.pos = null; if (view === "train") renderTraining(); return; }
-  openItem(idx, view !== "train");
-}
-
-// Alles im Training neu zeichnen - nach Sprachwechsel oder Reiterwechsel.
-function renderTraining() {
-  renderTrModes();
-  if (trMode !== "daily") renderPractice();
-  const L = tr();
-  $id("trTitle").textContent = L.title;
-  $id("trIntro").textContent = L.intro;
-  renderTacHead();
-  if (tac.error) { $id("tacBody").innerHTML = `<div class="note err">${esc(tac.error)}</div>`; return; }
-  if (!tac.data) { $id("tacBody").innerHTML = `<div class="tac-empty">${esc(L.loading)}</div>`; return; }
-  if (!tac.data.items.length) { renderTacEmpty(); return; }
-  if (!tac.pos) { renderTacSummary(); return; }
-  openItem(tac.idx, false, true);
-}
-
-function renderTacHead() {
-  const L = tr(), d = tac.data, items = d ? d.items : [];
-  const done = items.filter((i) => i.result).length;
-  const st = d ? d.stats : null;
-  $id("tacHead").textContent = items.length ? L.done(done, items.length) + (st && st.streak ? L.streak(st.streak) : "") : "";
-  $id("tacDots").innerHTML = items.map((it, i) =>
-    `<button type="button" class="tac-dot ${it.result || ""} ${i === tac.idx ? "cur" : ""}" data-ti="${i}" title="${esc(L.taskTitle(i + 1, it.puzzle.review))}">${it.result === "solved" ? "✓" : it.result === "failed" ? "✗" : i + 1}</button>`
-  ).join("");
-  $id("tacDots").hidden = !items.length;
-  if (st) {
-    const parts = [L.pool(st.new, st.learning, st.learned)];
-    if (st.last30_done) parts.push(L.last30(Math.round((st.last30_solved / st.last30_done) * 100)));
-    $id("tacStats").textContent = parts.join(" · ");
-  } else {
-    $id("tacStats").textContent = "";
-  }
-  renderTabs();
-}
-
-function renderTacEmpty() {
-  const L = tr(), d = tac.data;
-  let html;
-  if (d.problem === "disabled") html = esc(L.disabled);
-  else if (d.problem === "no_engine") html = esc(L.noEngine);
-  else if (d.preparing) html = `${esc(L.preparing)}<br><span class="muted">${esc(L.preparingSub)}</span>`;
-  else if (d.problem === "failed") html = esc(L.failed(d.error || ""));
-  else html = esc(L.none);
-  $id("tacBody").innerHTML = `<div class="tac-empty">${html}</div>`;
-}
-
-// Stellung zu Beginn des aktuellen Schritts. Nach einem falschen Zug geht es
-// genau hierhin zurueck - nicht auf eine Kopie, die ein zweiter, gleichzeitig
-// laufender Zug schon veraendert haben koennte.
-function saveStep(P) {
-  P.step = { board: P.board.slice(), last: P.last ? P.last.slice() : null, legal: P.legal.slice(), moves: P.moves.slice() };
-}
-function restoreStep(P) {
-  const st = P.step;
-  P.board = st.board.slice();
-  P.last = st.last ? st.last.slice() : null;
-  P.legal = st.legal.slice();
-  P.moves = st.moves.slice();
-  P.sel = null;
-  P.marks = {};
-}
-
-function renderTacSummary() {
-  cancelDrag();
-  tac.idx = -1; tac.pos = null;
-  renderTacHead();
-  const L = tr(), items = tac.data.items;
-  const solved = items.filter((i) => i.result === "solved").length;
-  const again = items.filter((i) => i.result === "failed").length;
-  $id("tacBody").innerHTML = `<div class="tac-empty">
-    <div class="big">${solved === items.length ? "🏆" : "✓"}</div>
-    <p style="margin:6px 0 2px"><strong>${esc(L.summary(solved, items.length))}</strong></p>
-    <p class="muted" style="margin:0">${again ? esc(L.again(again)) : ""}${esc(L.tapNumber)}</p>
-  </div>`;
-}
-
-// keep: nur neu zeichnen (Sprachwechsel), Zustand der Aufgabe behalten.
-function openItem(i, quiet = false, keep = false) {
-  const item = tac.data.items[i];
-  if (!item) return;
-  const L = tr();
-  if (!keep || !tac.pos || tac.pos.item !== item) {
-    tac.idx = i;
-    cancelDrag();
-    const pz = item.puzzle;
-    tac.pos = {
-      item, board: fenBoard(pz.fen), legal: pz.legal, moves: [], last: moveSquares(pz.last_move),
-      sel: null, marks: {}, phase: item.result ? "done" : "solve", msg: "", msgCls: "", hint: false,
-      step: null,
-    };
-    saveStep(tac.pos);
-    if (item.result) {
-      tac.pos.msgKey = item.result === "solved" ? "alreadySolved" : "alreadyFailed";
-      tac.pos.msgCls = item.result === "solved" ? "good" : "bad";
-    }
-  }
-  if (quiet) { renderTacHead(); return; }
-  const P = tac.pos, pz = item.puzzle;
-  if (P.msgKey) P.msg = L[P.msgKey];
-  const task = pz.moves_to_find > 1 ? L.findLine(pz.moves_to_find) : L.findBest;
-  const tag = `<span>` + (pz.habit ? `<span class="tag mistake">${esc(tx().habitTag)}</span> ` : "") +
-    (pz.review ? `<span class="tag">${esc(L.tagReview(pz.box))}</span>` : `<span class="tag accent">${esc(L.tagNew)}</span>`) + `</span>`;
-  $id("tacBody").innerHTML = `
-    <div class="tac-meta"><span><b>${esc(pz.to_move === "white" ? L.white : L.black)}</b> · ${esc(task)}</span>${tag}</div>
-    <div class="board-wrap"><div class="board" id="board" aria-label="Chessboard"></div></div>
-    <div class="tac-msg" id="tacMsg"></div>
-    <div class="tac-actions" id="tacActions"></div>
-    <div id="tacExplain"></div>`;
-  renderTacHead();
-  renderBoard();
-  renderTacControls();
-}
-
-function renderBoard() {
-  const P = tac.pos, el = $id("board");
-  if (!P || !el) return;
-  const white = P.item.puzzle.orientation === "white";
-  const dests = new Set(P.sel == null ? [] :
-    P.legal.filter((u) => u.startsWith(sqName(P.sel))).map((u) => sqIndex(u.slice(2, 4))));
-  let html = "";
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const rank = white ? 7 - r : r, file = white ? c : 7 - c, i = rank * 8 + file;
-      const cls = ["sq", (rank + file) % 2 ? "l" : "d"];
-      if (P.last && P.last.includes(i)) cls.push("last");
-      if (P.sel === i) cls.push("sel");
-      if (dests.has(i)) cls.push("dest", P.board[i] ? "occ" : "");
-      if (P.marks[i]) cls.push(P.marks[i]);
-      const p = P.board[i];
-      const piece = p ? `<span class="pc ${p === p.toUpperCase() ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : "";
-      const coords = (c === 0 ? `<span class="coord r">${rank + 1}</span>` : "") + (r === 7 ? `<span class="coord f">${FILES[file]}</span>` : "");
-      html += `<div class="${cls.join(" ")}" data-i="${i}">${coords}${piece}</div>`;
-    }
-  }
-  el.innerHTML = html;
-}
-
-function hintText(pz) {
-  const L = tr(), h = pz.hint || {};
-  if (pz.habit) return tx().habitHint;
-  if (h.mate_in) return L.hintMate(h.mate_in);
-  if (h.missed_motif && L.motif[h.missed_motif]) return L.hintMotif(L.motif[h.missed_motif]);
-  return L.errHint[h.error_type] ? `${L.hintWord} ${L.errHint[h.error_type]}` : L.hintDefault;
-}
-
-function nextText(box, due) {
-  const L = tr();
-  if (box >= 6) return L.learned;
-  return due ? L.comesBack(date(due)) : "";
-}
-
-function explainHtml(item) {
-  const L = tr(), e = item.explain;
-  if (!e) return "";
-  const g = item.puzzle.game;
-  const pct = (v) => (v == null ? "?" : `${Math.round(v)} %`);
-  const who = (g.opponent ? L.vs(g.opponent) : "") + (g.played_at ? L.on(date(g.played_at)) : "");
-  const san = (s) => `<span class="san">${esc(s)}</span>`;
-  if (item.puzzle.habit) return `<div class="explain">
-    <p>${tx().habitExplain(san(e.played_san), san(e.solution_san))}</p>
-    ${g.url ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(L.openGame)}</a></p>` : ""}
-  </div>`;
-  return `<div class="explain">
-    <p>${esc(L.inGame(who, "\u0000", pct(e.win_played), pct(e.win_best))).replace("\u0000", san(e.played_san))}${e.punish_san ? esc(L.bestAfter("\u0000")).replace("\u0000", san(e.punish_san)) : ""}</p>
-    <p>${esc(L.better("\u0000")).replace("\u0000", san(e.solution_san))}</p>
-    ${g.url ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(L.openGame)}</a></p>` : ""}
-  </div>`;
-}
-
-function renderTacControls() {
-  const P = tac.pos, L = tr();
-  if (!P || !$id("tacMsg")) return;
-  const msg = $id("tacMsg");
-  msg.textContent = P.msg;
-  msg.className = "tac-msg " + (P.msgCls || "");
-  const busy = P.phase === "busy" || P.phase === "replay";
-  let html = "";
-  if (P.phase === "solve" || P.phase === "busy") {
-    html = `<button type="button" class="btn" data-ta="hint" ${busy || P.hint ? "disabled" : ""}>${esc(L.hint)}</button>
-            <button type="button" class="btn" data-ta="reveal" ${busy ? "disabled" : ""}>${esc(L.reveal)}</button>`;
-    if (P.item.result) html += `<span class="grow"></span><button type="button" class="btn" data-ta="next" ${busy ? "disabled" : ""}>${esc(L.next)}</button>`;
-  } else {
-    html = `<button type="button" class="btn" data-ta="replay" ${busy ? "disabled" : ""}>${esc(L.replay)}</button>
-            <button type="button" class="btn" data-ta="retry" ${busy ? "disabled" : ""}>${esc(L.retry)}</button>
-            <span class="grow"></span>
-            <button type="button" class="btn primary" data-ta="next" ${busy ? "disabled" : ""}>${esc(L.next)}</button>`;
-  }
-  $id("tacActions").innerHTML = html;
-  $id("tacExplain").innerHTML = P.phase === "done" || P.phase === "replay" ? explainHtml(P.item) : "";
-}
-
-// Meldungen werden als Text gespeichert; ein Sprachwechsel mitten in einer
-// Aufgabe laesst die letzte Meldung stehen - die naechste kommt neu.
-function setMsg(text, cls = "") {
-  if (!tac.pos) return;
-  tac.pos.msg = text;
-  tac.pos.msgKey = null;
-  tac.pos.msgCls = cls;
-  renderTacControls();
-}
-
-function own(piece) {
-  if (!piece || !tac.pos) return false;
-  const white = tac.pos.item.puzzle.to_move === "white";
-  return white ? piece === piece.toUpperCase() : piece === piece.toLowerCase();
-}
-function isDest(from, to) {
-  const base = sqName(from) + sqName(to);
-  return tac.pos.legal.some((u) => u.startsWith(base));
-}
-
-async function tryMove(from, to) {
-  const P = tac.pos, L = tr();
-  // Nie zwei Zuege gleichzeitig: solange einer unterwegs ist oder die
-  // Widerlegung laeuft, wird nichts angenommen.
-  if (!P || P.phase !== "solve") return;
-  const base = sqName(from) + sqName(to);
-  const cands = P.legal.filter((u) => u.startsWith(base));
-  if (!cands.length) return;
-  // Umwandlung: Dame. Eine Unterverwandlung als Loesung ist selten, und wenn
-  // die Dame genauso gewinnt, zaehlt sie ohnehin.
-  const uci = cands.find((u) => u.length === 4 || u[4] === "q") || cands[0];
-  P.sel = null;
-  P.board = applyUci(P.board, uci);
-  P.last = [from, to];
-  P.phase = "busy";
-  renderBoard();
-  setMsg("");
-  let res;
-  try {
-    res = await apiJson("tactics/move", { day: tac.data.day, key: P.item.key, moves: [...P.moves, uci] });
-  } catch (err) {
-    restoreStep(P);
-    P.phase = "solve";
-    renderBoard(); setMsg(""); toast(err.message);
-    return;
-  }
-  if (tac.pos !== P) return;
-  if (res.result === "correct") {
-    P.moves.push(uci, res.reply);
-    setMsg(L.correct(res.san), "good");
-    await sleep(420);
-    if (tac.pos !== P) return;
-    P.board = applyUci(P.board, res.reply);
-    P.last = moveSquares(res.reply);
-    P.legal = res.legal;
-    P.phase = "solve";
-    saveStep(P);
-    renderBoard();
-    setMsg(tr().correctReply(res.san, res.reply_san), "good");
-  } else if (res.result === "solved") {
-    P.moves.push(uci);
-    P.marks = { [to]: "good" };
-    P.phase = "done";
-    renderBoard();
-    finishItem(res);
-  } else {
-    P.marks = { [to]: "bad" };
-    renderBoard();
-    if (res.counted && !P.item.result) { P.item.result = "failed"; renderTacHead(); }
-    const txt = L.wrong(res.san) + (res.punish_san ? L.punish(res.punish_san) : "");
-    setMsg(txt, "bad");
-    if (res.punish) {
-      await sleep(450);
-      if (tac.pos !== P) return;
-      P.board = applyUci(P.board, res.punish);
-      P.last = moveSquares(res.punish);
-      renderBoard();
-    }
-    await sleep(900);
-    if (tac.pos !== P) return;
-    restoreStep(P);
-    P.phase = "solve";
-    renderBoard();
-    setMsg(txt + tr().tryAgain, "bad");
-  }
-}
-
-function finishItem(res) {
-  const P = tac.pos, item = P.item, L = tr();
-  if (res.counted) item.result = "solved";
-  if (res.explain) item.explain = res.explain;
-  let txt = res.alternative ? L.alt(res.san, res.main_san) : L.solved(res.san);
-  if (res.counted) txt += " " + nextText(res.box, res.due);
-  else if (item.result === "failed") txt += L.stillFailed;
-  P.phase = "done";
-  setMsg(txt, "good");
-  renderTacHead();
-  afterResult(res);
-}
-
-function afterResult(res) {
-  if (res.day_complete) toast(tr().dayComplete);
-  api("tactics/today?day=" + localDay())
-    .then((d) => { if (tac.data && d.day === tac.data.day) { tac.data.stats = d.stats; renderTacHead(); } })
-    .catch(() => {});
-}
-
-async function playLine(P, line, firstDelay = 350) {
-  P.board = fenBoard(P.item.puzzle.fen);
-  P.last = moveSquares(P.item.puzzle.last_move);
-  P.marks = {};
-  P.sel = null;
-  renderBoard();
-  await sleep(firstDelay);
-  for (const u of line) {
-    if (tac.pos !== P) return;
-    P.board = applyUci(P.board, u);
-    P.last = moveSquares(u);
-    renderBoard();
-    await sleep(750);
-  }
-}
-
-async function reveal() {
-  const P = tac.pos;
-  P.phase = "busy";
-  renderTacControls();
-  let res;
-  try {
-    res = await apiJson("tactics/reveal", { day: tac.data.day, key: P.item.key });
-  } catch (err) { P.phase = "solve"; renderTacControls(); toast(err.message); return; }
-  if (!P.item.result) P.item.result = "failed";
-  P.item.explain = res.explain;
-  renderTacHead();
-  P.phase = "replay";
-  setMsg(tr().howItGoes);
-  await playLine(P, res.explain.solution);
-  if (tac.pos !== P) return;
-  P.phase = "done";
-  setMsg(tr().solution(res.explain.solution_san) + (res.counted ? nextText(res.box, res.due) : ""), "");
-  afterResult(res);
-}
-
-function nextOpen() {
-  const items = tac.data.items;
-  for (let k = 1; k <= items.length; k++) {
-    const j = (tac.idx + k) % items.length;
-    if (!items[j].result) return j;
-  }
-  return -1;
-}
-
-$id("tacDots").addEventListener("click", (e) => {
-  const b = e.target.closest("[data-ti]");
-  if (b && (!tac.pos || tac.pos.phase !== "busy")) openItem(Number(b.dataset.ti));
-});
-
-$id("tacBody").addEventListener("click", async (e) => {
-  const b = e.target.closest("[data-ta]");
-  if (!b || !tac.pos || b.disabled) return;
-  const P = tac.pos;
-  const a = b.dataset.ta;
-  if (a === "hint") { P.hint = true; setMsg(hintText(P.item.puzzle)); }
-  else if (a === "reveal") reveal();
-  else if (a === "next") { const j = nextOpen(); if (j < 0) renderTacSummary(); else openItem(j); }
-  else if (a === "retry") {
-    openItem(tac.idx);
-    tac.pos.phase = "solve";
-    setMsg(tr().practice);
-  }
-  else if (a === "replay" && P.item.explain) {
-    P.phase = "replay"; renderTacControls();
-    await playLine(P, P.item.explain.solution);
-    if (tac.pos === P) { P.phase = "done"; renderTacControls(); }
-  }
-});
-
-// Ziehen und Tippen. Tippen: Figur, dann Zielfeld. Ziehen: Figur festhalten
-// und auf das Zielfeld fallen lassen.
-// Der Zeiger wird am Brett-Element festgehalten (setPointerCapture). Das
-// Element bleibt beim Neuzeichnen bestehen - nur sein Inhalt wechselt. Ohne
-// das gingen Loslassen-Ereignisse verloren: in Safari, weil das beruehrte
-// Feld beim Neuzeichnen verschwindet, und am PC, wenn man ausserhalb eines
-// iframes loslaesst. Dann blieb die gezogene Figur als Geist stehen.
-let drag = null;
-function cancelDrag() {
-  if (drag) {
-    const b = $id("board");
-    if (b && drag.pointerId != null && b.hasPointerCapture && b.hasPointerCapture(drag.pointerId)) {
-      try { b.releasePointerCapture(drag.pointerId); } catch { /* egal */ }
-    }
-  }
-  drag = null;
-  document.querySelectorAll(".drag-ghost").forEach((g) => g.remove());
-  document.querySelectorAll("#board .sq.dragging").forEach((q) => q.classList.remove("dragging"));
-}
-function sqFromPoint(x, y) {
-  const el = document.elementFromPoint(x, y);
-  const s = el && el.closest ? el.closest(".sq") : null;
-  return s && s.closest("#board") ? Number(s.dataset.i) : null;
-}
-$id("tacBody").addEventListener("pointerdown", (e) => {
-  const boardEl = e.target.closest("#board");
-  if (!boardEl) return;
-  cancelDrag(); // was auch immer vorher haengen blieb
-  if (e.button != null && e.button > 0) return; // nur linke Maustaste / Finger
-  const s = e.target.closest(".sq");
-  const P = tac.pos;
-  if (!s || !P || P.phase !== "solve") return;
-  const i = Number(s.dataset.i);
-  if (P.sel != null && P.sel !== i && isDest(P.sel, i)) { e.preventDefault(); tryMove(P.sel, i); return; }
-  if (!own(P.board[i])) { if (P.sel != null) { P.sel = null; renderBoard(); } return; }
-  e.preventDefault();
-  try { boardEl.setPointerCapture(e.pointerId); } catch { /* egal */ }
-  const wasSel = P.sel === i;
-  P.sel = i;
-  renderBoard();
-  const size = boardEl.clientWidth / 8;
-  const src = boardEl.querySelector(`.sq[data-i="${i}"] .pc`);
-  const ghost = src.cloneNode(true);
-  ghost.classList.add("drag-ghost");
-  ghost.style.fontSize = `${size * 0.9}px`;
-  ghost.style.display = "none";
-  document.body.appendChild(ghost);
-  drag = { from: i, ghost, moved: false, x0: e.clientX, y0: e.clientY, wasSel, pointerId: e.pointerId };
-});
-$id("tacBody").addEventListener("pointermove", (e) => {
-  if (!drag || e.pointerId !== drag.pointerId) return;
-  if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
-  if (!drag.moved) {
-    drag.moved = true;
-    drag.ghost.style.display = "";
-    const sq = document.querySelector(`#board .sq[data-i="${drag.from}"]`);
-    if (sq) sq.classList.add("dragging");
-  }
-  drag.ghost.style.left = `${e.clientX}px`;
-  drag.ghost.style.top = `${e.clientY}px`;
-});
-function endDrag(e, cancel) {
-  if (!drag || (e && e.pointerId !== drag.pointerId)) return;
-  const d = drag;
-  const to = !cancel && d.moved && e ? sqFromPoint(e.clientX, e.clientY) : null;
-  cancelDrag();
-  const P = tac.pos;
-  if (!P) return;
-  if (d.moved) {
-    if (to != null && to !== d.from && isDest(d.from, to)) { tryMove(d.from, to); return; }
-    renderBoard();
-  } else if (d.wasSel) {
-    P.sel = null; // zweiter Tipp auf dieselbe Figur hebt die Auswahl auf
-    renderBoard();
-  }
-}
-$id("tacBody").addEventListener("pointerup", (e) => endDrag(e, false));
-$id("tacBody").addEventListener("pointercancel", (e) => endDrag(e, true));
-$id("tacBody").addEventListener("lostpointercapture", (e) => { if (drag && e.pointerId === drag.pointerId) endDrag(e, true); });
-// Sicherheitsnetz: Fenster verliert den Fokus mitten im Ziehen.
-window.addEventListener("blur", () => { if (drag) { cancelDrag(); if (tac.pos && tac.pos.phase === "solve") renderBoard(); } });
-
-// Handy aus der Tasche: nach laengerer Pause oder an einem neuen Tag frische
-// Aufgaben holen - aber nie mitten in einen Zug hinein.
-let hiddenAt = 0;
-document.addEventListener("visibilitychange", () => {
-  if (document.hidden) { hiddenAt = Date.now(); if (drag) cancelDrag(); return; }
-  const newDay = tac.data && tac.data.day !== localDay();
-  if ((newDay || Date.now() - hiddenAt > 10 * 60 * 1000) && (!tac.pos || tac.pos.phase !== "busy")) loadTactics(!newDay);
-});
 
 // --------------------------------------------------------------------------
 // Klicks
@@ -3630,462 +3200,1154 @@ document.addEventListener("click", (e) => {
 });
 
 // --------------------------------------------------------------------------
-// Training: weitere Uebungen (Gewinn verwerten, Was droht?, Woodpecker)
+// Coach: die gefuehrte Tages-Session (seit 1.18). Ersetzt die vier Modi
+// Tagesaufgaben / Was droht? / Gewinn verwerten / Woodpecker durch einen Ablauf:
+// Lektion -> Aufgaben in zwei Schritten (seine Antwort, dein Zug) mit
+// Erklaerung -> Gewinn verwerten -> Abschluss.
 // --------------------------------------------------------------------------
-const I18N_P = {
+const I18N_C = {
   en: {
-    modes: { daily: "Daily puzzles", convert: "Convert the win", threat: "What's the threat?", woodpecker: "Woodpecker" },
-    intro: {
-      convert: "Positions from games you lost or drew although you were clearly winning. Play them out against Stockfish and bring them home without giving too much back.",
-      threat: "Positions right before a mistake of yours. Not your move this time: what does your opponent want to play next? Move one of their pieces.",
-      woodpecker: "The same set of your own puzzles, round after round, faster each time. Round 1 at your own pace; the goal is half the time in each following round.",
+    title: "Today's session", tabTrain: "Training",
+    intro: "One session a day from your own games: a short lesson on the question that would have saved you most, your mistakes as two-step puzzles with an explanation, and one won position to convert.",
+    loading: "Loading…", preparing: "Preparing today's positions from your games…",
+    preparingSub: "Stockfish re-checks every position. The first time takes about a minute.",
+    none: "No session yet: Knightmare has not found suitable mistakes, or everything is learned. New games are added automatically.",
+    noEngine: "Stockfish not found — the session cannot be prepared.", disabled: "Training is switched off (CHESS_TACTICS=0).",
+    failed: (e) => `Preparing failed: ${e}`,
+    rail: { lesson: "Lesson", ex: (d, n) => `Puzzles ${d}/${n}`, convert: "Convert", done: "Done" },
+    head: (d, n, s) => `${d}/${n} done` + (s ? ` · streak ${s} ${s === 1 ? "day" : "days"}` : ""),
+    side: (c) => (c === "black" ? "Black" : "White"), you: "you",
+    // Formen: s Subjekt, a Objekt, d nach "mit", y "dein(e)"
+    pieces: { k: ["the king", "the king", "the king", "your king"], q: ["the queen", "the queen", "the queen", "your queen"],
+              r: ["the rook", "the rook", "the rook", "your rook"], b: ["the bishop", "the bishop", "the bishop", "your bishop"],
+              n: ["the knight", "the knight", "the knight", "your knight"], p: ["the pawn", "the pawn", "the pawn", "your pawn"] },
+    question: (n, q) => `Question ${n}: ${q}`,
+    lesson: {
+      kicker: "Your focus for today", noFocus: "Not enough serious mistakes in the last weeks to pick a focus — straight to the puzzles.",
+      yourNumbers: (g, d) => `Your last ${d} days · ${g} games`,
+      serious: "mistakes & blunders", would: "of them this question would have caught", lost: "of those in games you lost",
+      byType: "What it looked like", examples: "From your games", start: "Start the puzzles →", later: "Skip the lesson",
+      exLine: (o, d, mv) => `vs ${o} · ${d} · you played ${mv}`, exBest: (b) => `Better: ${b}`, exReply: (r) => `Punished by ${r}`,
+      routine: "The routine before every move",
+      text: {
+        threat: {
+          what: "You missed what the opponent's last move set up. Something of yours was already attacked, or his piece was about to land somewhere — and your move ignored it. This is the most common serious mistake at every level below master, and the cheapest to fix: it costs one look, not calculation.",
+          steps: ["After his move, before you think about your own plan: what does this piece attack now that it did not attack before?",
+                  "Look along the lines it opened, too — a moved piece uncovers rooks, bishops and the queen behind it.",
+                  "Name the threat in words (“he wants Nxe5”). Only then choose your move — and check it still answers that threat."],
+        },
+        chance: {
+          what: "The winning move was on the board and you played something else. Mates, forks, free pieces: these do not announce themselves — you only find them if you look for them in every position, not just when it “feels tactical”.",
+          steps: ["Checks first: every check, even the silly ones. Then every capture. Then every move that attacks something.",
+                  "Which enemy pieces are undefended or only defended once? Those are the targets.",
+                  "When you are clearly winning, look for mate before anything else — it is usually closer than it feels."],
+        },
+        safe: {
+          what: "The piece you moved landed on a square where it could be taken, or the exchange you started lost material. Not a calculation problem: a habit problem. One check of the destination square would have caught every one of these.",
+          steps: ["Before you let go of the piece: who attacks the destination square? Who defends it?",
+                  "Count the exchange from the cheapest attacker up. If you come out behind, do not start it.",
+                  "After moving a piece, what did it stop defending? The square it left matters as much as the square it reaches."],
+        },
+        reply: {
+          what: "Your move was fine in itself — but it allowed a reply that hit two things at once, or let his pieces reach your king. The question is not “what does my move do” but “what does it allow”. Ask it before you click, not after.",
+          steps: ["Imagine the move played. Now it is his turn: what is his best check, his best capture, his best fork?",
+                  "Knights fork from a distance — look at every square a knight could jump to next move.",
+                  "If your king has few escape squares, treat every check he could give as a mate threat until you have proven it is not."],
+        },
+      },
     },
-    loading: "Loading…", preparing: "Preparing positions with Stockfish…",
-    noEngine: "No engine available — these exercises need Stockfish.",
-    none: { convert: "No position yet: none of your lost or drawn games was clearly won at some point.", threat: "No position yet: no overlooked threat in your games." },
-    mastered: (m, n) => `${m} of ${n} positions solved at least once.`,
-    pick: "Position", next: "Next position", retry: "Try again", giveup: "Give up", reveal: "Show the answer",
-    convertAsk: (side, w, opp, d, f) => `You are ${side}, win chance ${w}%. Against ${opp} on ${d} this game was not won. Win it now — and don't drop below ${f}%.`,
-    convertState: (w, n, max) => `Win chance ${w}% · move ${n} of max. ${max}`,
-    convertWin: { mate: "Checkmate — converted!", decisive: "Decisive advantage — converted!", limit: "Held the advantage — well done." },
-    convertLose: { gave_back: "Too much given back.", draw: "That is a draw — not enough.", mated: "Checkmated.", limit: "Advantage not kept until the end.", gave_up: "Given up.", no_reply: "Ended." },
-    convertBetter: (m) => ` Better at the last move: ${m}.`,
-    engineThinking: "Stockfish is thinking…",
-    threatAsk: (opp, side) => `It is your move as ${side} — but first: what is ${opp} threating? Move one of their pieces.`,
-    threatGood: (san) => `Right — ${san} was the threat.`,
-    threatBad: (san, sol) => `${san} is not it. The threat was ${sol}.`,
-    threatRevealed: (sol) => `The threat was ${sol}.`,
-    threatGame: (p, b) => `In the game you played ${p}${b ? `; ${b} was better` : ""}.`,
-    openGame: "Open the game",
-    wpNotEnough: (n, m) => `Woodpecker needs at least ${m} prepared puzzles — you have ${n}. Solve a few days of daily puzzles first.`,
-    wpStart: "Start round 1", wpNextRound: (r) => `Start round ${r}`, wpNewSet: "New set",
-    wpRound: (r, d, n) => `Round ${r} · ${d} of ${n}`,
-    wpTime: (t) => `time ${t}`,
-    wpDone: (r, s, n, t) => `Round ${r} finished: ${s} of ${n} solved in ${t}.`,
-    wpTarget: (t) => `Target for the next round: ${t}.`,
-    wpHist: "Rounds of this set",
-    wpHead: ["Round", "Solved", "Time"],
-    wpFind: (n) => (n > 1 ? `Find the best line (${n} moves).` : "Find the best move."),
-    wpCorrect: "Correct — keep going.", wpSolved: "Solved!", wpWrong: (san) => `${san} is not it.`,
-    wpSolution: (s) => `Solution: ${s}`,
-    side: (c) => (c === "black" ? "Black" : "White"),
+    ex: {
+      counter: (i, n) => `Puzzle ${i} of ${n}`, review: (b) => `Review · level ${b}/5`, fresh: "New", habit: "Opening habit",
+      steps: ["His answer", "Your move", "Understand"],
+      ask1: (opp, d, played, him) => `Against <b>${opp}</b>${d ? ` on ${d}` : ""} you played <span class="san">${played}</span>. Here is the position right after it. <b>What does ${him} answer?</b> Move one of his pieces.`,
+      ask1noDate: "What does he answer? Move one of his pieces.",
+      good1: (san) => `✓ <span class="san">${san}</span> — that is what punished you.`,
+      alt1: (san, main) => `✓ <span class="san">${san}</span> — just as strong. In the analysis it was <span class="san">${main}</span>.`,
+      bad1: (san) => `✗ <span class="san">${san}</span> — he had something stronger. Look again: what did your move leave hanging, which square did it leave?`,
+      bad1b: (san) => `✗ <span class="san">${san}</span> — not that either. Here is the answer:`,
+      revealed1: (san) => `The answer was <span class="san">${san}</span>.`,
+      ask2: (played) => `Back to the position before. <b>What do you play instead of <span class="san">${played}</span>?</b>`,
+      ask2line: (n) => ` Find the line (${n} moves).`,
+      noStep1: (played) => `In the game you played <span class="san">${played}</span> here — there was a clearly better move. <b>Find it.</b>`,
+      ask2open: (played) => `Back to the position before. <b>Find a move that holds instead of <span class="san">${played}</span>.</b> Several moves are fine — just none that gives something away.`,
+      holds: (s) => `✓ ${s} — that holds.`, again: "Practise again",
+      toStep2: "Now: what instead? →", skip1: "Skip", show1: "Show his answer",
+      hint: "Hint", reveal: "Show solution", next: "Next →", finish: "Finish →", replay: "Play solution", explain: "Explain",
+      correct: (s) => `✓ ${s} — correct, keep going.`, correctReply: (s, r) => `✓ ${s} — he answers ${r}. And now?`,
+      solved: (s) => `✓ ${s} — solved!`, alt: (s, m) => `✓ ${s} — also strong! The main move was ${m}.`,
+      wrong: (s) => `✗ ${s} is not the solution.`, punish: (p) => ` It would allow ${p}.`, tryAgain: " Try again — or show the solution.",
+      stillFailed: " It still counts as not solved today.", howItGoes: "Here is how:", solution: (s) => `Solution: ${s}. `,
+      learned: "It now counts as learned.", comesBack: (d) => `Comes back on ${d}.`,
+      alreadySolved: "✓ Solved today.", alreadyFailed: "✗ Not solved today — it comes back soon.",
+      practice: "Practice — no longer counts for today.",
+      thinking: "Checking…",
+    },
+    xp: {
+      yourMove: "Your move", hisAnswer: "What it allowed", better: "Better", betterOpen: "For example", why: "Why it matters",
+      winBefore: "before", winAfter: "after your move", chance: "Winning chance",
+      checklist: (n, q) => `Checklist · question ${n}: ${q}`, noPoint: "A positional slip — none of the four questions covers it. Those are the ones you learn by playing through, not by a checklist.",
+      openGame: "Open the game ↗", showBoard: "Show on the board", play: { played: "▶ Your move & his answer", best: "▶ The better move" },
+      f: {
+        mate: (p, to) => `${p.s} to ${to} — checkmate.`,
+        mate_in: (n) => `forces mate in ${n}.`,
+        check: (p, to) => `gives check with ${p.d} on ${to}.`,
+        capture: (p, taken, sq, free) => `takes ${taken.a} on ${sq}` + (free ? " — for free, it was not defended enough." : "."),
+        fork: (p, to, targets) => `fork: ${p.s} on ${to} attacks ${targets} at the same time.`,
+        pin: (f, fs, b, bs) => `pins ${f.a} on ${fs} against ${b.a} on ${bs}.`,
+        skewer: (f, fs, b, bs) => `skewer: ${f.s} on ${fs} has to move, then ${b.s} on ${bs} falls.`,
+        discovered: (bp, by, tp, t) => `discovered attack: ${bp.s} on ${by} now hits ${tp.a} on ${t}.`,
+        attacks: (tp, t, bp, undefended) => `attacks ${tp.a} on ${t} with ${bp.d}` + (undefended ? " — and it is undefended." : " — with a cheaper piece."),
+        mate_threat: (san) => `threatens mate next move (${san}).`,
+        promotion: (to) => `promotes on ${to}.`,
+        quiet: "a quiet move — it improves the position without a direct threat.",
+        moved_into_capture: (p, to) => `${p.Y} was simply hanging on ${to} after your move.`,
+        left_hanging: (p, sq, bp, by) => `After the reply ${p.y} on ${sq} hangs (attacked from ${by}).`,
+        was_already_attacked: (p, sq) => `${p.Y} on ${sq} was attacked before you moved — the threat was already there.`,
+      },
+      and: " and ", on: "on",
+    },
+    cv: {
+      title: "Convert the win",
+      ask: (side, w, opp, d, f) => `You are <b>${side}</b>, winning chance <b>${w} %</b>. Against ${opp}${d ? ` on ${d}` : ""} this game was not won. Win it now against Stockfish — and do not drop below ${f} %.`,
+      state: (w, n, max) => `Winning chance ${w} % · your move ${n} of max. ${max}`,
+      win: { mate: "Checkmate — converted!", decisive: "Decisive advantage — converted!", limit: "Held the advantage — well done." },
+      lose: { gave_back: "Too much given back.", draw: "That is a draw — not enough.", mated: "Checkmated.", limit: "Advantage not kept until the end.", gave_up: "Given up.", no_reply: "Ended." },
+      better: (m) => ` Better at the last move: ${m}.`, thinking: "Stockfish is thinking…", giveup: "Give up", none: "No won position to convert today.",
+      alreadyWin: "✓ Converted today.", alreadyFail: "✗ Not converted today — tomorrow there is another one.",
+    },
+    done: {
+      title: "Done for today", sub: (s, n) => `${s} of ${n} puzzles solved at first try.`,
+      refutes: (g, n) => `${g} of ${n} refutations found.`, convertOk: "Won position converted.", convertFail: "Won position not converted.",
+      streak: (n) => `Streak: ${n} ${n === 1 ? "day" : "days"}.`, lastDays: "Last 14 days",
+      tomorrow: "New puzzles tomorrow. Tap a puzzle below to look at it again.",
+      pool: (n, l, d) => `Pool: ${n} new · ${l} in review · ${d} learned`,
+      last30: (p) => `30 days: ${p} % solved at first try`,
+      allDone: "All puzzles done — see you tomorrow.",
+    },
+    errors: { expected_own_move: "That is not your move.", sequence_mismatch: "The position is out of sync — reload the page.",
+              unknown_move: "Unknown move.", illegal_move: "Illegal move.", not_in_day: "This puzzle is not part of today.",
+              not_found: "Puzzle not found.", day_out_of_range: "Date out of range — reload the page.", no_refute_step: "No reply to find here.",
+              no_engine: "No engine available.", not_finished: "Solve it first." },
   },
   de: {
-    modes: { daily: "Tagesaufgaben", convert: "Gewinn verwerten", threat: "Was droht?", woodpecker: "Woodpecker" },
-    intro: {
-      convert: "Stellungen aus Partien, die du verloren oder remis gespielt hast, obwohl du klar gewonnen standest. Spiel sie gegen Stockfish zu Ende und bring sie nach Hause, ohne zu viel herzugeben.",
-      threat: "Stellungen direkt vor einem deiner Fehler. Diesmal nicht dein Zug: was will dein Gegner als Nächstes spielen? Zieh eine seiner Figuren.",
-      woodpecker: "Derselbe Satz deiner eigenen Aufgaben, Runde um Runde, jedes Mal schneller. Runde 1 in deinem Tempo; Ziel ist in jeder weiteren Runde die halbe Zeit.",
+    title: "Deine Session heute", tabTrain: "Training",
+    intro: "Eine Session pro Tag aus deinen eigenen Partien: eine kurze Lektion zur Frage, die dir am meisten erspart hätte, deine Fehler als Aufgaben in zwei Schritten mit Erklärung, und eine gewonnene Stellung zum Verwerten.",
+    loading: "Lädt …", preparing: "Die Stellungen von heute werden aus deinen Partien vorbereitet …",
+    preparingSub: "Stockfish rechnet jede Stellung nach. Beim ersten Mal dauert das etwa eine Minute.",
+    none: "Noch keine Session: Knightmare hat keine passenden Fehler gefunden, oder alles ist gelernt. Neue Partien kommen automatisch dazu.",
+    noEngine: "Stockfish nicht gefunden – die Session kann nicht vorbereitet werden.", disabled: "Training ist ausgeschaltet (CHESS_TACTICS=0).",
+    failed: (e) => `Vorbereitung fehlgeschlagen: ${e}`,
+    rail: { lesson: "Lektion", ex: (d, n) => `Aufgaben ${d}/${n}`, convert: "Verwerten", done: "Fertig" },
+    head: (d, n, s) => `${d}/${n} erledigt` + (s ? ` · Serie ${s} ${s === 1 ? "Tag" : "Tage"}` : ""),
+    side: (c) => (c === "black" ? "Schwarz" : "Weiss"), you: "du",
+    pieces: { k: ["der König", "den König", "dem König", "dein König"], q: ["die Dame", "die Dame", "der Dame", "deine Dame"],
+              r: ["der Turm", "den Turm", "dem Turm", "dein Turm"], b: ["der Läufer", "den Läufer", "dem Läufer", "dein Läufer"],
+              n: ["der Springer", "den Springer", "dem Springer", "dein Springer"], p: ["der Bauer", "den Bauern", "dem Bauern", "dein Bauer"] },
+    question: (n, q) => `Frage ${n}: ${q}`,
+    lesson: {
+      kicker: "Dein Fokus heute", noFocus: "Zu wenige ernste Fehler in den letzten Wochen, um einen Fokus zu wählen – direkt zu den Aufgaben.",
+      yourNumbers: (g, d) => `Deine letzten ${d} Tage · ${g} Partien`,
+      serious: "Fehler & Patzer", would: "davon hätte diese Frage verhindert", lost: "davon in Partien, die du verloren hast",
+      byType: "So sah es aus", examples: "Aus deinen Partien", start: "Zu den Aufgaben →", later: "Lektion überspringen",
+      exLine: (o, d, mv) => `gegen ${o} · ${d} · du spieltest ${mv}`, exBest: (b) => `Besser: ${b}`, exReply: (r) => `Bestraft durch ${r}`,
+      routine: "Die Routine vor jedem Zug",
+      text: {
+        threat: {
+          what: "Du hast übersehen, was der letzte Zug des Gegners vorbereitet hat. Etwas von dir war schon angegriffen, oder seine Figur wollte gerade irgendwo hin – und dein Zug hat das ignoriert. Das ist auf jedem Niveau unter Meister der häufigste ernste Fehler, und der billigste zu beheben: er kostet einen Blick, keine Rechnerei.",
+          steps: ["Nach seinem Zug, bevor du an deinen eigenen Plan denkst: Was greift diese Figur jetzt an, was sie vorher nicht angegriffen hat?",
+                  "Auch die Linien anschauen, die der Zug geöffnet hat – eine gezogene Figur gibt Türme, Läufer und die Dame dahinter frei.",
+                  "Die Drohung in Worten benennen («er will Sxe5»). Erst dann den eigenen Zug wählen – und prüfen, ob er diese Drohung noch beantwortet."],
+        },
+        chance: {
+          what: "Der Gewinnzug stand auf dem Brett und du hast etwas anderes gespielt. Matts, Gabeln, freie Figuren: die melden sich nicht von selbst – man findet sie nur, wenn man sie in jeder Stellung sucht, nicht nur wenn es sich «taktisch anfühlt».",
+          steps: ["Zuerst alle Schachs, auch die dummen. Dann alle Schlagzüge. Dann jeden Zug, der etwas angreift.",
+                  "Welche gegnerischen Figuren sind ungedeckt oder nur einmal gedeckt? Das sind die Ziele.",
+                  "Wenn du klar gewonnen stehst: zuerst nach Matt suchen – es ist meist näher, als es sich anfühlt."],
+        },
+        safe: {
+          what: "Die Figur, die du gezogen hast, landete auf einem Feld, wo sie geschlagen werden konnte – oder der Abtausch, den du begonnen hast, verlor Material. Kein Rechenproblem: ein Gewohnheitsproblem. Ein Blick aufs Zielfeld hätte jeden einzelnen dieser Fehler verhindert.",
+          steps: ["Bevor du die Figur loslässt: Wer greift das Zielfeld an? Wer deckt es?",
+                  "Den Abtausch vom billigsten Angreifer aufwärts zählen. Kommst du hinten raus, fang ihn nicht an.",
+                  "Was hat die Figur aufgehört zu decken? Das Feld, das sie verlässt, zählt genauso wie das, auf dem sie landet."],
+        },
+        reply: {
+          what: "Dein Zug war an sich in Ordnung – aber er hat eine Antwort erlaubt, die zwei Dinge auf einmal trifft, oder seine Figuren an deinen König gelassen. Die Frage ist nicht «Was macht mein Zug?», sondern «Was erlaubt er?». Stell sie vor dem Klick, nicht danach.",
+          steps: ["Stell dir den Zug gespielt vor. Jetzt ist er dran: Was ist sein bestes Schach, sein bester Schlagzug, seine beste Gabel?",
+                  "Springer gabeln aus der Distanz – schau jedes Feld an, auf das ein Springer im nächsten Zug springen kann.",
+                  "Hat dein König wenig Luft, behandle jedes mögliche Schach als Mattdrohung, bis du bewiesen hast, dass es keine ist."],
+        },
+      },
     },
-    loading: "Lädt …", preparing: "Stellungen werden mit Stockfish vorbereitet …",
-    noEngine: "Keine Engine da – diese Übungen brauchen Stockfish.",
-    none: { convert: "Noch keine Stellung: keine deiner verlorenen oder remisierten Partien war irgendwann klar gewonnen.", threat: "Noch keine Stellung: keine übersehene Drohung in deinen Partien." },
-    mastered: (m, n) => `${m} von ${n} Stellungen mindestens einmal geschafft.`,
-    pick: "Stellung", next: "Nächste Stellung", retry: "Nochmal", giveup: "Aufgeben", reveal: "Lösung zeigen",
-    convertAsk: (side, w, opp, d, f) => `Du spielst ${side}, Gewinnchance ${w} %. Gegen ${opp} am ${d} ging diese Partie nicht durch. Gewinn sie jetzt – und fall nicht unter ${f} %.`,
-    convertState: (w, n, max) => `Gewinnchance ${w} % · Zug ${n} von max. ${max}`,
-    convertWin: { mate: "Matt – verwertet!", decisive: "Entscheidender Vorteil – verwertet!", limit: "Vorteil gehalten – gut gemacht." },
-    convertLose: { gave_back: "Zu viel hergegeben.", draw: "Das ist remis – reicht nicht.", mated: "Matt gesetzt worden.", limit: "Vorteil nicht bis zum Schluss gehalten.", gave_up: "Aufgegeben.", no_reply: "Beendet." },
-    convertBetter: (m) => ` Besser beim letzten Zug: ${m}.`,
-    engineThinking: "Stockfish denkt …",
-    threatAsk: (opp, side) => `Du spielst ${side} und bist am Zug – aber zuerst: was droht ${opp}? Zieh eine seiner Figuren.`,
-    threatGood: (san) => `Genau – ${san} war die Drohung.`,
-    threatBad: (san, sol) => `${san} ist es nicht. Gedroht hat ${sol}.`,
-    threatRevealed: (sol) => `Gedroht hat ${sol}.`,
-    threatGame: (p, b) => `In der Partie hast du ${p} gespielt${b ? `; besser war ${b}` : ""}.`,
-    openGame: "Partie öffnen",
-    wpNotEnough: (n, m) => `Woodpecker braucht mindestens ${m} vorbereitete Aufgaben – du hast ${n}. Erst ein paar Tage Tagesaufgaben lösen.`,
-    wpStart: "Runde 1 starten", wpNextRound: (r) => `Runde ${r} starten`, wpNewSet: "Neuer Satz",
-    wpRound: (r, d, n) => `Runde ${r} · ${d} von ${n}`,
-    wpTime: (t) => `Zeit ${t}`,
-    wpDone: (r, s, n, t) => `Runde ${r} fertig: ${s} von ${n} gelöst in ${t}.`,
-    wpTarget: (t) => `Ziel für die nächste Runde: ${t}.`,
-    wpHist: "Runden dieses Satzes",
-    wpHead: ["Runde", "Gelöst", "Zeit"],
-    wpFind: (n) => (n > 1 ? `Finde die beste Folge (${n} Züge).` : "Finde den besten Zug."),
-    wpCorrect: "Richtig – weiter.", wpSolved: "Gelöst!", wpWrong: (san) => `${san} ist es nicht.`,
-    wpSolution: (s) => `Lösung: ${s}`,
-    side: (c) => (c === "black" ? "Schwarz" : "Weiss"),
+    ex: {
+      counter: (i, n) => `Aufgabe ${i} von ${n}`, review: (b) => `Wiederholung · Stufe ${b}/5`, fresh: "Neu", habit: "Eröffnungs-Gewohnheit",
+      steps: ["Seine Antwort", "Dein Zug", "Verstehen"],
+      ask1: (opp, d, played, him) => `Gegen <b>${opp}</b>${d ? ` am ${d}` : ""} hast du <span class="san">${played}</span> gespielt. Das ist die Stellung direkt danach. <b>Was antwortet ${him}?</b> Zieh eine seiner Figuren.`,
+      ask1noDate: "Was antwortet er? Zieh eine seiner Figuren.",
+      good1: (san) => `✓ <span class="san">${san}</span> – genau das hat dich bestraft.`,
+      alt1: (san, main) => `✓ <span class="san">${san}</span> – genauso stark. In der Analyse war es <span class="san">${main}</span>.`,
+      bad1: (san) => `✗ <span class="san">${san}</span> – er hatte Stärkeres. Schau nochmal: Was hat dein Zug hängen lassen, welches Feld hat er verlassen?`,
+      bad1b: (san) => `✗ <span class="san">${san}</span> – das auch nicht. Hier die Antwort:`,
+      revealed1: (san) => `Die Antwort war <span class="san">${san}</span>.`,
+      ask2: (played) => `Zurück zur Stellung davor. <b>Was spielst du statt <span class="san">${played}</span>?</b>`,
+      ask2line: (n) => ` Finde die Folge (${n} Züge).`,
+      noStep1: (played) => `In der Partie hast du hier <span class="san">${played}</span> gespielt – es gab einen klar besseren Zug. <b>Finde ihn.</b>`,
+      ask2open: (played) => `Zurück zur Stellung davor. <b>Finde statt <span class="san">${played}</span> einen Zug, der hält.</b> Mehrere Züge sind gut – nur keiner, der etwas hergibt.`,
+      holds: (s) => `✓ ${s} – das hält.`, again: "Nochmal üben",
+      toStep2: "Jetzt: Was stattdessen? →", skip1: "Überspringen", show1: "Seine Antwort zeigen",
+      hint: "Tipp", reveal: "Lösung zeigen", next: "Weiter →", finish: "Abschliessen →", replay: "Lösung abspielen", explain: "Erklären",
+      correct: (s) => `✓ ${s} – richtig, weiter!`, correctReply: (s, r) => `✓ ${s} – er antwortet ${r}. Und jetzt?`,
+      solved: (s) => `✓ ${s} – gelöst!`, alt: (s, m) => `✓ ${s} – auch stark! Der Hauptzug war ${m}.`,
+      wrong: (s) => `✗ ${s} ist nicht die Lösung.`, punish: (p) => ` Darauf käme ${p}.`, tryAgain: " Nochmal – oder Lösung zeigen.",
+      stillFailed: " Für heute zählt sie trotzdem als nicht gelöst.", howItGoes: "So geht es:", solution: (s) => `Lösung: ${s}. `,
+      learned: "Gilt jetzt als gelernt.", comesBack: (d) => `Kommt am ${d} wieder.`,
+      alreadySolved: "✓ Heute gelöst.", alreadyFailed: "✗ Heute nicht gelöst – kommt bald wieder.",
+      practice: "Üben – zählt für heute nicht mehr.",
+      thinking: "Wird geprüft …",
+    },
+    xp: {
+      yourMove: "Dein Zug", hisAnswer: "Was er erlaubt hat", better: "Besser", betterOpen: "Zum Beispiel", why: "Warum das zählt",
+      winBefore: "vorher", winAfter: "nach deinem Zug", chance: "Gewinnchance",
+      checklist: (n, q) => `Checkliste · Frage ${n}: ${q}`, noPoint: "Ein Stellungsfehler – keine der vier Fragen deckt ihn ab. Solche lernt man durch Nachspielen, nicht durch eine Checkliste.",
+      openGame: "Partie öffnen ↗", showBoard: "Auf dem Brett zeigen", play: { played: "▶ Dein Zug & seine Antwort", best: "▶ Der bessere Zug" },
+      f: {
+        mate: (p, to) => `${p.S} nach ${to} – Matt.`,
+        mate_in: (n) => `erzwingt Matt in ${n}.`,
+        check: (p, to) => `gibt Schach mit ${p.d} auf ${to}.`,
+        capture: (p, taken, sq, free) => `schlägt ${taken.a} auf ${sq}` + (free ? " – umsonst, nicht genug gedeckt." : "."),
+        fork: (p, to, targets) => `Gabel: ${p.s} auf ${to} greift gleichzeitig ${targets} an.`,
+        pin: (f, fs, b, bs) => `fesselt ${f.a} auf ${fs} an ${b.a} auf ${bs}.`,
+        skewer: (f, fs, b, bs) => `Spiess: ${f.s} auf ${fs} muss weg, dann fällt ${b.s} auf ${bs}.`,
+        discovered: (bp, by, tp, t) => `Abzug: ${bp.s} auf ${by} trifft jetzt ${tp.a} auf ${t}.`,
+        attacks: (tp, t, bp, undefended) => `greift ${tp.a} auf ${t} mit ${bp.d} an` + (undefended ? " – ungedeckt." : " – mit einer billigeren Figur."),
+        mate_threat: (san) => `droht Matt im nächsten Zug (${san}).`,
+        promotion: (to) => `wandelt auf ${to} um.`,
+        quiet: "ein ruhiger Zug – er verbessert die Stellung ohne direkte Drohung.",
+        moved_into_capture: (p, to) => `${p.Y} stand nach deinem Zug auf ${to} einfach im Schlag.`,
+        left_hanging: (p, sq, bp, by) => `Nach der Antwort hängt ${p.y} auf ${sq} (angegriffen von ${by}).`,
+        was_already_attacked: (p, sq) => `${p.Y} auf ${sq} war schon vor deinem Zug angegriffen – die Drohung stand bereits.`,
+      },
+      and: " und ", on: "auf",
+    },
+    cv: {
+      title: "Gewinn verwerten",
+      ask: (side, w, opp, d, f) => `Du spielst <b>${side}</b>, Gewinnchance <b>${w} %</b>. Gegen ${opp}${d ? ` am ${d}` : ""} ging diese Partie nicht durch. Gewinn sie jetzt gegen Stockfish – und fall nicht unter ${f} %.`,
+      state: (w, n, max) => `Gewinnchance ${w} % · dein Zug ${n} von max. ${max}`,
+      win: { mate: "Matt – verwertet!", decisive: "Entscheidender Vorteil – verwertet!", limit: "Vorteil gehalten – gut gemacht." },
+      lose: { gave_back: "Zu viel hergegeben.", draw: "Das ist remis – reicht nicht.", mated: "Matt gesetzt worden.", limit: "Vorteil nicht bis zum Schluss gehalten.", gave_up: "Aufgegeben.", no_reply: "Beendet." },
+      better: (m) => ` Besser beim letzten Zug: ${m}.`, thinking: "Stockfish denkt …", giveup: "Aufgeben", none: "Heute keine gewonnene Stellung zum Verwerten.",
+      alreadyWin: "✓ Heute verwertet.", alreadyFail: "✗ Heute nicht verwertet – morgen gibt es eine neue.",
+    },
+    done: {
+      title: "Für heute geschafft", sub: (s, n) => `${s} von ${n} Aufgaben auf Anhieb gelöst.`,
+      refutes: (g, n) => `${g} von ${n} Widerlegungen gefunden.`, convertOk: "Gewonnene Stellung verwertet.", convertFail: "Gewonnene Stellung nicht verwertet.",
+      streak: (n) => `Serie: ${n} ${n === 1 ? "Tag" : "Tage"}.`, lastDays: "Die letzten 14 Tage",
+      tomorrow: "Morgen gibt es neue Aufgaben. Tipp unten auf eine Aufgabe, um sie nochmal anzuschauen.",
+      pool: (n, l, d) => `Vorrat: ${n} neu · ${l} in Wiederholung · ${d} gelernt`,
+      last30: (p) => `30 Tage: ${p} % auf Anhieb gelöst`,
+      allDone: "Alle Aufgaben erledigt – bis morgen.",
+    },
+    errors: { expected_own_move: "Das ist nicht dein Zug.", sequence_mismatch: "Die Stellung ist aus dem Takt – Seite neu laden.",
+              unknown_move: "Unbekannter Zug.", illegal_move: "Ungültiger Zug.", not_in_day: "Diese Aufgabe gehört nicht zu heute.",
+              not_found: "Aufgabe nicht gefunden.", day_out_of_range: "Datum ausserhalb des Bereichs – Seite neu laden.", no_refute_step: "Hier gibt es keine Antwort zu finden.",
+              no_engine: "Keine Engine da.", not_finished: "Erst lösen." },
   },
 };
-const tp = () => I18N_P[lang];
-const TR_MODES = ["daily", "convert", "threat", "woodpecker"];
-let trMode = store.get("knightmare.trMode", "daily");
-if (!TR_MODES.includes(trMode)) trMode = "daily";
+const tc = () => I18N_C[lang];
+const POINT_INDEX = { threat: 1, chance: 2, safe: 3, reply: 4 };
 
-const px = { data: {}, loading: {}, idx: {}, wood: null, woodLoading: false };
-// Ein Brett fuer alle drei Uebungen.
-const pb = { kind: null, item: null, board: null, legal: [], sel: null, marks: {}, last: null, white: true,
-             moves: [], state: "idle", msg: "", cls: "", extra: "", started: 0 };
+// Zustand der Session und des einen Bretts.
+const co = { data: null, error: null, poll: null, stage: null, idx: 0, ex: null, cv: null, boards: new Map() };
+const bd = { board: null, white: true, legal: [], sel: null, last: null, marks: {}, hl: [], arrows: [], mover: "white", active: false, onMove: null };
+// Alte Namen, die der Rest der Seite benutzt.
+const tac = { get data() { return co.data; }, get pos() { return co.ex; } };
 
-function renderTrModes() {
-  const el = $id("trModes");
-  if (!el) return;
-  el.innerHTML = TR_MODES.map((m) =>
-    `<button class="chip ${trMode === m ? "on" : ""}" type="button" data-trmode="${m}">${esc(tp().modes[m])}</button>`).join("");
-  $id("trDaily").hidden = trMode !== "daily";
-  $id("pxCard").hidden = trMode === "daily";
-}
+function loadTactics(keep = false) { return loadCoach(keep); }
 
-function setTrMode(m) {
-  trMode = m;
-  store.set("knightmare.trMode", m);
-  pb.state = "idle";
-  renderTrModes();
-  if (m === "daily") renderTraining();
-  else renderPractice();
-}
-
-async function loadPractice(kind) {
-  px.loading[kind] = true;
-  renderPractice();
-  try { px.data[kind] = await api("practice/" + kind); }
-  catch (err) { px.data[kind] = { error: err.message }; }
-  px.loading[kind] = false;
-  if (trMode === kind) {
-    pb.state = "idle";
-    renderPractice();
-  }
-}
-async function loadWood() {
-  px.woodLoading = true;
-  try { px.wood = await api("woodpecker"); } catch (err) { px.wood = { error: err.message }; }
-  px.woodLoading = false;
-  if (trMode === "woodpecker") renderPractice();
-}
-
-function renderPractice() {
-  if (view !== "train" || trMode === "daily") return;
-  const P = tp();
-  $id("pxTitle").textContent = P.modes[trMode];
-  $id("pxIntro").textContent = P.intro[trMode];
-  if (trMode === "woodpecker") { renderWood(); return; }
-  const d = px.data[trMode];
-  if (!d && !px.loading[trMode]) { loadPractice(trMode); }
-  if (!d || px.loading[trMode] && !d.items) {
-    $id("pxBody").innerHTML = `<p class="muted">${esc(P.preparing)}</p>`; return;
-  }
-  if (d.error) { $id("pxBody").innerHTML = `<p class="note err">${esc(d.error)}</p>`; return; }
-  if (!d.items.length) {
-    $id("pxBody").innerHTML = `<p class="muted">${esc(d.engine === false ? P.noEngine : P.none[trMode])}</p>`; return;
-  }
-  if (pb.kind !== trMode || pb.state === "idle") {
-    const i = Math.min(px.idx[trMode] || 0, d.items.length - 1);
-    startItem(trMode, i);
+async function loadCoach(keep = false) {
+  clearTimeout(co.poll);
+  let d;
+  try {
+    d = await api("coach/today?day=" + localDay());
+    co.error = null;
+  } catch (err) {
+    co.error = err.message;
+    renderTabs();
+    if (view === "train") renderTraining();
     return;
   }
-  drawPractice();
+  const prevKey = keep && co.ex ? co.ex.item.key : null;
+  const newDay = !co.data || co.data.day !== d.day;
+  co.data = d;
+  renderTabs();
+  if (!d.items.length) {
+    co.stage = null; co.ex = null;
+    if (d.preparing) co.poll = setTimeout(() => loadCoach(), 4000);
+    if (view === "train") renderTraining();
+    return;
+  }
+  if (prevKey && !newDay) {
+    // Die laufende Aufgabe behalten, nur Zaehler auffrischen.
+    const item = d.items.find((i) => i.key === prevKey);
+    if (item && co.ex) { co.ex.item = item; }
+    if (view === "train") renderTraining();
+    return;
+  }
+  co.stage = pickStage(d);
+  co.ex = null; co.cv = null;
+  if (co.stage === "exercise") co.idx = firstOpen(d);
+  if (view === "train") renderTraining();
 }
 
-function startItem(kind, i) {
-  const d = px.data[kind], item = d.items[i];
-  px.idx[kind] = i;
-  Object.assign(pb, {
-    kind, item, board: fenBoard(item.fen), legal: kind === "threat" ? item.legal_them : item.legal,
-    sel: null, marks: {}, last: moveSquares(item.last_move), white: item.orientation !== "black",
-    moves: [], state: "move", msg: "", cls: "", extra: "", started: Date.now(),
-  });
-  pb.msg = promptFor(item);
-  drawPractice();
+function firstOpen(d) {
+  const i = d.items.findIndex((it) => !it.result);
+  return i < 0 ? 0 : i;
 }
 
-function promptFor(item) {
-  const P = tp(), g = item.game || {};
-  const opp = g.opponent || "?";
-  if (pb.kind === "convert") return P.convertAsk(P.side(item.orientation), num(item.win_start, 0), opp, date(g.played_at), num(item.fail_below, 0));
-  if (pb.kind === "threat") return P.threatAsk(opp, P.side(item.orientation));
-  return "";
+function pickStage(d) {
+  if (!d.lesson_seen && d.lesson && d.lesson.focus) return "lesson";
+  if (d.items.some((it) => !it.result)) return "exercise";
+  if (d.convert && !d.convert.result) return "convert";
+  return "done";
 }
 
-function myPiece(p) {
-  if (!p) return false;
-  const white = p === p.toUpperCase();
-  // Bei "Was droht?" zieht man die Figuren des Gegners.
-  const mover = pb.kind === "threat" ? !pb.white : pb.white;
-  if (pb.kind === "woodpecker") return white === (pb.item.puzzle.to_move === "white");
-  return white === mover;
+function setStage(s) {
+  co.stage = s;
+  co.ex = null; co.cv = null;
+  cancelDrag();
+  if (s === "exercise") co.idx = firstOpen(co.data);
+  renderTraining();
 }
 
-function drawPractice() {
-  const P = tp(), d = px.data[pb.kind];
-  if (pb.kind === "woodpecker") { renderWood(); return; }
-  const list = d.items.map((it, i) =>
-    `<button class="tac-dot ${it.solved ? "solved" : it.last_result === "failed" ? "failed" : ""} ${i === px.idx[pb.kind] ? "cur" : ""}" type="button" data-pxi="${i}" title="${esc(P.pick)} ${i + 1}">${i + 1}</button>`).join("");
-  $id("pxBody").innerHTML = `
-    <p class="muted">${esc(P.mastered(d.mastered, d.total))}</p>
-    <div class="tac-dots">${list}</div>
-    ${boardHtml()}
-    <p class="tac-msg ${pb.cls}">${pb.msg}</p>
-    ${pb.extra}
-    <div class="tac-actions">${actionsHtml()}</div>`;
+// Alles im Training neu zeichnen - nach Sprachwechsel oder Reiterwechsel.
+function renderTraining() {
+  const L = tc(), d = co.data;
+  $id("coTitle").textContent = L.title;
+  $id("coIntro").textContent = L.intro;
+  $id("coIntro").hidden = !!(d && d.items.length && co.stage && co.stage !== "lesson");
+  renderRail();
+  renderHead();
+  const body = $id("coBody");
+  if (co.error) { body.innerHTML = `<div class="note err">${esc(co.error)}</div>`; return; }
+  if (!d) { body.innerHTML = `<div class="tac-empty">${esc(L.loading)}</div>`; return; }
+  if (!d.items.length) {
+    let html;
+    if (d.problem === "disabled") html = esc(L.disabled);
+    else if (d.problem === "no_engine") html = esc(L.noEngine);
+    else if (d.preparing) html = `${esc(L.preparing)}<br><span class="muted">${esc(L.preparingSub)}</span>`;
+    else if (d.problem === "failed") html = esc(L.failed(d.error || ""));
+    else html = esc(L.none);
+    body.innerHTML = `<div class="tac-empty">${html}</div>`;
+    return;
+  }
+  if (!co.stage) co.stage = pickStage(d);
+  if (co.stage === "lesson") renderLesson();
+  else if (co.stage === "exercise") renderExercise();
+  else if (co.stage === "convert") renderConvert();
+  else renderDone();
 }
 
+function renderHead() {
+  const L = tc(), d = co.data;
+  const el = $id("coHead");
+  if (!d || !d.items.length) { el.textContent = ""; return; }
+  const done = d.items.filter((i) => i.result).length;
+  el.textContent = L.head(done, d.items.length, d.stats ? d.stats.streak : 0);
+}
+
+function renderRail() {
+  const L = tc(), d = co.data, el = $id("coRail");
+  if (!d || !d.items.length) { el.innerHTML = ""; return; }
+  const done = d.items.filter((i) => i.result).length;
+  const steps = [];
+  if (d.lesson && d.lesson.focus) steps.push({ id: "lesson", label: L.rail.lesson, done: d.lesson_seen });
+  steps.push({ id: "exercise", label: L.rail.ex(done, d.items.length), done: done === d.items.length });
+  if (d.convert) steps.push({ id: "convert", label: L.rail.convert, done: !!d.convert.result });
+  steps.push({ id: "done", label: L.rail.done, done: d.finished });
+  el.innerHTML = steps.map((s, i) =>
+    `<button type="button" data-stage="${s.id}" class="${co.stage === s.id ? "on" : ""} ${s.done ? "done" : ""}"><span class="n">${s.done ? "✓" : i + 1}</span>${esc(s.label)}</button>`).join("");
+}
+
+// --------------------------------------------------------------------------
+// Das Brett: ein einziges, mit Pfeilen darueber
+// --------------------------------------------------------------------------
 function boardHtml() {
-  const dests = new Set(pb.sel == null ? [] : pb.legal.filter((u) => u.startsWith(sqName(pb.sel))).map((u) => sqIndex(u.slice(2, 4))));
+  return `<div class="board-wrap"><div class="board" id="board" aria-label="Chessboard"></div><svg class="board-ar" id="boardAr" viewBox="0 0 800 800"></svg></div>`;
+}
+
+function drawBoard() {
+  const el = $id("board"), ar = $id("boardAr");
+  if (!el || !bd.board) return;
+  const white = bd.white;
+  const dests = new Set(bd.sel == null ? [] : bd.legal.filter((u) => u.startsWith(sqName(bd.sel))).map((u) => sqIndex(u.slice(2, 4))));
   let html = "";
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-    const rank = pb.white ? 7 - r : r, file = pb.white ? c : 7 - c, i = rank * 8 + file;
-    const cls = ["sq", (rank + file) % 2 ? "l" : "d"];
-    if (pb.last && pb.last.includes(i)) cls.push("last");
-    if (pb.sel === i) cls.push("sel");
-    if (dests.has(i)) cls.push("dest", pb.board[i] ? "occ" : "");
-    if (pb.marks[i]) cls.push(pb.marks[i]);
-    const p = pb.board[i];
-    const piece = p ? `<span class="pc ${p === p.toUpperCase() ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : "";
-    const coords = (c === 0 ? `<span class="coord r">${rank + 1}</span>` : "") + (r === 7 ? `<span class="coord f">${FILES[file]}</span>` : "");
-    html += `<div class="${cls.join(" ")}" data-pi="${i}">${coords}${piece}</div>`;
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const rank = white ? 7 - r : r, file = white ? c : 7 - c, i = rank * 8 + file;
+      const cls = ["sq", (rank + file) % 2 ? "l" : "d"];
+      if (bd.last && bd.last.includes(i)) cls.push("last");
+      if (bd.sel === i) cls.push("sel");
+      if (dests.has(i)) cls.push("dest", bd.board[i] ? "occ" : "");
+      if (bd.marks[i]) cls.push(bd.marks[i]);
+      if (bd.hl.includes(i)) cls.push("hl");
+      const p = bd.board[i];
+      const piece = p ? `<span class="pc ${p === p.toUpperCase() ? "w" : "b"}">${GLYPH[p.toLowerCase()]}︎</span>` : "";
+      const coords = (c === 0 ? `<span class="coord r">${rank + 1}</span>` : "") + (r === 7 ? `<span class="coord f">${FILES[file]}</span>` : "");
+      html += `<div class="${cls.join(" ")}" data-i="${i}">${coords}${piece}</div>`;
+    }
   }
-  return `<div class="board-wrap"><div class="board" id="pxBoard">${html}</div></div>`;
+  el.innerHTML = html;
+  if (ar) ar.innerHTML = bd.arrows.map((a) => arrow(a.uci, a.cls, white)).join("");
 }
 
-function actionsHtml() {
-  const P = tp();
-  const b = (attr, label, primary) => `<button class="btn${primary ? " primary grow" : ""}" type="button" ${attr}="1">${esc(label)}</button>`;
-  if (pb.kind === "convert") {
-    if (pb.state === "move" || pb.state === "busy") return pb.moves.length ? b("data-pxgive", P.giveup) : "";
-    return b("data-pxretry", P.retry) + b("data-pxnext", P.next, true);
-  }
-  if (pb.kind === "threat") {
-    if (pb.state === "move") return b("data-pxreveal", P.reveal);
-    if (pb.state === "busy") return "";
-    return b("data-pxnext", P.next, true);
-  }
-  return "";
+function setBoard(fen, opts = {}) {
+  bd.board = fenBoard(fen);
+  bd.white = opts.white !== false;
+  bd.legal = opts.legal || [];
+  bd.sel = null;
+  bd.last = opts.last ? moveSquares(opts.last) : null;
+  bd.marks = {};
+  bd.hl = [];
+  bd.arrows = opts.arrows || [];
+  bd.mover = opts.mover || (fen.split(" ")[1] === "b" ? "black" : "white");
+  bd.active = !!opts.active;
+  bd.onMove = opts.onMove || null;
 }
 
+function ownPiece(p) {
+  if (!p) return false;
+  return (bd.mover === "white") === (p === p.toUpperCase());
+}
+function isDest(from, to) {
+  const base = sqName(from) + sqName(to);
+  return bd.legal.some((u) => u.startsWith(base));
+}
+function pickUci(from, to) {
+  const base = sqName(from) + sqName(to);
+  const cands = bd.legal.filter((u) => u.startsWith(base));
+  if (!cands.length) return null;
+  // Umwandlung: Dame. Eine Unterverwandlung als Loesung ist selten, und wenn
+  // die Dame genauso gewinnt, zaehlt sie ohnehin.
+  return cands.find((u) => u.length === 4 || u[4] === "q") || cands[0];
+}
+function userMove(from, to) {
+  const uci = pickUci(from, to);
+  if (!uci || !bd.active || !bd.onMove) return;
+  bd.sel = null;
+  bd.active = false;
+  bd.onMove(uci, from, to);
+}
 function markMove(uci, cls) {
   if (!uci) return;
-  pb.marks[sqIndex(uci.slice(0, 2))] = cls;
-  pb.marks[sqIndex(uci.slice(2, 4))] = cls;
+  bd.marks[sqIndex(uci.slice(0, 2))] = cls;
+  bd.marks[sqIndex(uci.slice(2, 4))] = cls;
+}
+async function animate(uciList, delay = 650) {
+  for (const u of uciList) {
+    bd.board = applyUci(bd.board, u);
+    bd.last = moveSquares(u);
+    drawBoard();
+    await sleep(delay);
+  }
 }
 
-async function practiceMove(from, to) {
-  let uci = sqName(from) + sqName(to);
-  if (!pb.legal.includes(uci)) {
-    if (pb.legal.includes(uci + "q")) uci += "q"; else return;
-  }
-  const P = tp();
-  pb.board = applyUci(pb.board, uci);
-  pb.sel = null; pb.marks = {}; pb.last = moveSquares(uci);
-  pb.state = "busy"; pb.msg = esc(P.engineThinking); pb.cls = "";
-  if (pb.kind === "woodpecker") return woodMove(uci);
-  drawPractice();
-  try {
-    if (pb.kind === "convert") {
-      pb.moves.push(uci);
-      const res = await apiJson("practice/convert/move", { key: pb.item.key, moves: pb.moves });
-      if (res.reply) {
-        pb.board = applyUci(pb.board, res.reply);
-        pb.moves.push(res.reply);
-        pb.last = moveSquares(res.reply);
-      }
-      if (res.status === "continue") {
-        pb.legal = res.legal; pb.state = "move";
-        pb.msg = esc(P.convertState(num(res.win, 0), res.own_moves + 1, 15)) + (res.reply_san ? ` · <span class="san">${esc(res.reply_san)}</span>` : "");
-      } else {
-        finishConvert(res);
-      }
-    } else {
-      const res = await apiJson("practice/threat/check", { key: pb.item.key, uci });
-      finishThreat(res, uci);
+// Ziehen und Tippen. Tippen: Figur, dann Zielfeld. Ziehen: Figur festhalten
+// und auf das Zielfeld fallen lassen. Der Zeiger wird am Brett-Element
+// festgehalten (setPointerCapture); das Element bleibt beim Neuzeichnen
+// bestehen - nur sein Inhalt wechselt.
+let drag = null;
+function cancelDrag() {
+  if (drag) {
+    const b = $id("board");
+    if (b && drag.pointerId != null && b.hasPointerCapture && b.hasPointerCapture(drag.pointerId)) {
+      try { b.releasePointerCapture(drag.pointerId); } catch { /* egal */ }
     }
-  } catch (err) {
-    pb.state = "move"; pb.msg = esc(err.message); pb.cls = "bad";
-    if (pb.kind === "convert") { pb.moves.pop(); }
-    pb.board = fenBoard(pb.kind === "convert" ? replayFen() : pb.item.fen);
   }
-  drawPractice();
+  drag = null;
+  document.querySelectorAll(".drag-ghost").forEach((g) => g.remove());
+  document.querySelectorAll("#board .sq.dragging").forEach((q) => q.classList.remove("dragging"));
 }
-
-function replayFen() {
-  // Fuer den Fehlerfall: Brett aus der Ausgangsstellung und den Zuegen neu aufbauen.
-  let arr = fenBoard(pb.item.fen);
-  pb.moves.forEach((u) => { arr = applyUci(arr, u); });
-  pb.board = arr;
-  return pb.item.fen;
+function sqFromPoint(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const s = el && el.closest ? el.closest(".sq") : null;
+  return s && s.closest("#board") ? Number(s.dataset.i) : null;
 }
-
-function finishConvert(res) {
-  const P = tp(), ok = res.status === "success";
-  pb.state = "done"; pb.cls = ok ? "good" : "bad";
-  pb.msg = esc(ok ? (P.convertWin[res.reason] || P.convertWin.limit) : (P.convertLose[res.reason] || P.convertLose.no_reply)) +
-    (res.better_san ? esc(P.convertBetter(res.better_san)) : "");
-  if (res.better_uci) markMove(res.better_uci, "good");
-  const it = pb.item;
-  it.last_result = ok ? "solved" : "failed";
-  if (ok && !it.solved) px.data[pb.kind].mastered += 1;
-  if (ok) it.solved = (it.solved || 0) + 1;
-  pb.extra = gameLink(it);
-}
-
-function finishThreat(res, uci) {
-  const P = tp(), it = pb.item;
-  pb.state = "done";
-  const sol = `<span class="san">${esc(res.solution_san)}</span>`;
-  if (res.result === "good") { pb.cls = "good"; pb.msg = P.threatGood(sol); markMove(uci, "good"); }
-  else if (res.result === "revealed") { pb.cls = "bad"; pb.msg = P.threatRevealed(sol); }
-  else { pb.cls = "bad"; pb.msg = P.threatBad(`<span class="san">${esc(res.san)}</span>`, sol); if (uci) markMove(uci, "bad"); }
-  if (res.result !== "good") {
-    pb.board = fenBoard(it.fen);
-    pb.board = applyUci(pb.board, res.solution);
-    markMove(res.solution, "good");
+$id("coBody").addEventListener("pointerdown", (e) => {
+  const boardEl = e.target.closest("#board");
+  if (!boardEl) return;
+  cancelDrag();
+  if (e.button != null && e.button > 0) return;
+  const s = e.target.closest(".sq");
+  if (!s || !bd.active) return;
+  const i = Number(s.dataset.i);
+  if (bd.sel != null && bd.sel !== i && isDest(bd.sel, i)) { e.preventDefault(); userMove(bd.sel, i); return; }
+  if (!ownPiece(bd.board[i])) { if (bd.sel != null) { bd.sel = null; drawBoard(); } return; }
+  e.preventDefault();
+  try { boardEl.setPointerCapture(e.pointerId); } catch { /* egal */ }
+  const wasSel = bd.sel === i;
+  bd.sel = i;
+  drawBoard();
+  const size = boardEl.clientWidth / 8;
+  const src = boardEl.querySelector(`.sq[data-i="${i}"] .pc`);
+  if (!src) return;
+  const ghost = src.cloneNode(true);
+  ghost.classList.add("drag-ghost");
+  ghost.style.fontSize = `${size * 0.9}px`;
+  ghost.style.display = "none";
+  document.body.appendChild(ghost);
+  drag = { from: i, ghost, moved: false, x0: e.clientX, y0: e.clientY, wasSel, pointerId: e.pointerId };
+});
+$id("coBody").addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.pointerId) return;
+  if (!drag.moved && Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) return;
+  if (!drag.moved) {
+    drag.moved = true;
+    drag.ghost.style.display = "";
+    const sq = document.querySelector(`#board .sq[data-i="${drag.from}"]`);
+    if (sq) sq.classList.add("dragging");
   }
-  it.last_result = res.result === "good" ? "solved" : "failed";
-  if (res.result === "good" && !it.solved) px.data[pb.kind].mastered += 1;
-  if (res.result === "good") it.solved = (it.solved || 0) + 1;
-  pb.extra = `<div class="explain"><p>${P.threatGame(`<span class="san">${esc(res.played_san)}</span>`, res.best_san ? `<span class="san">${esc(res.best_san)}</span>` : "")}</p>${gameLinkInner(it)}</div>`;
+  drag.ghost.style.left = `${e.clientX}px`;
+  drag.ghost.style.top = `${e.clientY}px`;
+});
+function endDrag(e, cancel) {
+  if (!drag || (e && e.pointerId !== drag.pointerId)) return;
+  const d = drag;
+  const to = !cancel && d.moved && e ? sqFromPoint(e.clientX, e.clientY) : null;
+  cancelDrag();
+  if (d.moved) {
+    if (to != null && to !== d.from && isDest(d.from, to) && bd.active) { userMove(d.from, to); return; }
+    drawBoard();
+  } else if (d.wasSel) {
+    bd.sel = null;
+    drawBoard();
+  }
+}
+$id("coBody").addEventListener("pointerup", (e) => endDrag(e, false));
+$id("coBody").addEventListener("pointercancel", (e) => endDrag(e, true));
+$id("coBody").addEventListener("lostpointercapture", (e) => { if (drag && e.pointerId === drag.pointerId) endDrag(e, true); });
+window.addEventListener("blur", () => { if (drag) { cancelDrag(); drawBoard(); } });
+
+// Handy aus der Tasche: nach laengerer Pause oder an einem neuen Tag frische
+// Aufgaben holen - aber nie mitten in einen Zug hinein.
+let hiddenAt = 0;
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) { hiddenAt = Date.now(); if (drag) cancelDrag(); return; }
+  const newDay = co.data && co.data.day !== localDay();
+  const busy = co.ex && co.ex.phase === "busy";
+  if ((newDay || Date.now() - hiddenAt > 10 * 60 * 1000) && !busy) loadCoach(!newDay);
+});
+
+// --------------------------------------------------------------------------
+// Lektion
+// --------------------------------------------------------------------------
+function pointQ(point) {
+  const S = tj().steps[point];
+  return S ? S.q : "";
+}
+function pointBadge(point, small = false) {
+  const L = tc();
+  if (!point) return `<span class="co-point muted">${esc(t().errors.positional)}</span>`;
+  return `<span class="co-point">${esc(L.question(POINT_INDEX[point], pointQ(point)))}</span>`;
 }
 
-function gameLinkInner(it) {
-  const g = it.game || {};
-  return g.url && g.platform !== "pgn" ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(tp().openGame)}</a></p>` : "";
-}
-function gameLink(it) {
-  const inner = gameLinkInner(it);
-  return inner ? `<div class="explain">${inner}</div>` : "";
-}
-
-// --- Woodpecker -----------------------------------------------------------
-function fmtTime(sec) {
-  const s = Math.round(sec || 0);
-  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
-}
-function woodCurrent() {
-  const w = px.wood;
-  if (!w || !w.active || w.finished) return -1;
-  return w.items.findIndex((it) => !it.result);
-}
-function renderWood() {
-  const P = tp(), w = px.wood;
-  if (!w && !px.woodLoading) { loadWood(); }
-  if (!w) { $id("pxBody").innerHTML = `<p class="muted">${esc(P.loading)}</p>`; return; }
-  if (w.error) { $id("pxBody").innerHTML = `<p class="note err">${esc(w.error)}</p>`; return; }
-  const hist = w.rounds && w.rounds.length
-    ? `<h3 class="px-h3">${esc(P.wpHist)}</h3><table class="tt wp"><thead><tr>${P.wpHead.map((h, i) => `<th${i ? ' class="num"' : ""}>${esc(h)}</th>`).join("")}</tr></thead><tbody>` +
-      w.rounds.map((r) => `<tr><td>${r.round}</td><td class="num">${r.solved}/${r.total}</td><td class="num">${fmtTime(r.seconds)}${r.finished ? "" : " …"}</td></tr>`).join("") + `</tbody></table>`
-    : "";
-  if (!w.active) {
-    const enough = w.available >= w.min;
-    $id("pxBody").innerHTML = enough
-      ? `<div class="tac-actions"><button class="btn primary" type="button" data-wpstart="new">${esc(P.wpStart)}</button></div>`
-      : `<p class="muted">${esc(P.wpNotEnough(w.available, w.min))}</p>`;
+function renderLesson() {
+  const L = tc(), d = co.data, ls = d.lesson;
+  const body = $id("coBody");
+  if (!ls || !ls.focus) {
+    body.innerHTML = `<p class="muted">${esc(L.lesson.noFocus)}</p>
+      <div class="tac-actions"><button type="button" class="btn primary" data-co="lessonDone">${esc(L.lesson.start)}</button></div>`;
     return;
   }
-  let idx = woodCurrent();
-  // Nach dem Loesen bleibt die Aufgabe stehen, bis "Weiter" gedrueckt ist.
-  if (pb.kind === "woodpecker" && pb.state === "done" && w.items.includes(pb.item)) idx = w.items.indexOf(pb.item);
-  if (idx < 0) {
-    const last = w.rounds[w.rounds.length - 1];
-    $id("pxBody").innerHTML = `<p class="tac-msg good">${esc(P.wpDone(w.round, last.solved, last.total, fmtTime(last.seconds)))}</p>
-      <p class="muted">${esc(P.wpTarget(fmtTime(last.seconds / 2)))}</p>
-      <div class="tac-actions"><button class="btn primary" type="button" data-wpstart="next">${esc(P.wpNextRound(w.round + 1))}</button>
-      <button class="btn" type="button" data-wpstart="new">${esc(P.wpNewSet)}</button></div>${hist}`;
-    pb.state = "idle";
-    return;
+  const point = ls.focus, T = L.lesson.text[point], S = tj().steps[point];
+  const n = ls.points[point] || 0;
+  const types = Object.entries(ls.focus_errors || {}).sort((a, b) => b[1] - a[1]);
+  const maxT = types.length ? types[0][1] : 1;
+  const bars = types.map(([k, v]) =>
+    `<div class="row"><span>${esc(t().errors[k] || k)}</span><b>${v}</b><div class="bar"><i style="width:${Math.round(100 * v / maxT)}%"></i></div></div>`).join("");
+  const allBars = Object.entries(ls.points).map(([k, v]) =>
+    `<div class="row ${k === point ? "focus" : ""}"><span>${esc(L.question(POINT_INDEX[k], pointQ(k)))}</span><b>${v}</b><div class="bar"><i style="width:${Math.round(100 * v / Math.max(1, ...Object.values(ls.points)))}%"></i></div></div>`).join("");
+  const examples = (ls.examples || []).map((e, i) =>
+    `<div class="item">
+      <div data-lb="${e.move_id}" class="co-lb">${co.boards.get(e.move_id) ? lessonBoard(e.move_id) : `<p class="muted">${esc(L.loading)}</p>`}</div>
+      <p><strong>${e.move_number}. ${esc(e.san)}</strong> · ${esc(t().errors[e.error_type] || "")}</p>
+      <p class="muted">${esc(L.lesson.exLine(e.opponent || "?", date(e.played_at), e.san))}</p>
+      ${e.best_san ? `<p>${esc(L.lesson.exBest(e.best_san))}${e.refutation_san ? ` · ${esc(L.lesson.exReply(e.refutation_san))}` : ""}</p>` : ""}
+    </div>`).join("");
+  body.innerHTML = `<div class="co-lesson">
+    <span class="co-point">${esc(L.lesson.kicker)}</span>
+    <div class="q">${esc(L.question(POINT_INDEX[point], S.q))}</div>
+    <p class="how">${esc(S.how)}</p>
+    <p>${esc(T.what)}</p>
+    <h3>${esc(L.lesson.yourNumbers(ls.games, ls.days))}</h3>
+    <div class="co-nums">
+      <div class="t"><b>${ls.serious}</b><span>${esc(L.lesson.serious)}</span></div>
+      <div class="t"><b>${n}</b><span>${esc(L.lesson.would)}</span></div>
+      <div class="t"><b>${ls.focus_lost_games}</b><span>${esc(L.lesson.lost)}</span></div>
+    </div>
+    <div class="co-bars">${allBars}</div>
+    ${types.length ? `<h3>${esc(L.lesson.byType)}</h3><div class="co-bars">${bars}</div>` : ""}
+    <h3>${esc(L.lesson.routine)}</h3>
+    ${T.steps.map((s, i) => `<div class="co-tip"><b>${i + 1}.</b> ${esc(s)}</div>`).join("")}
+    ${examples ? `<h3>${esc(L.lesson.examples)}</h3><div class="co-ex">${examples}</div>` : ""}
+    <div class="tac-actions" style="margin-top:14px">
+      <button type="button" class="btn primary grow" data-co="lessonDone">${esc(L.lesson.start)}</button>
+    </div>
+  </div>`;
+  (ls.examples || []).forEach((e) => { if (!co.boards.has(e.move_id)) loadLessonBoard(e.move_id); });
+}
+
+function lessonBoard(id) {
+  const d = co.boards.get(id);
+  if (!d || d === "loading") return `<p class="muted">${esc(tc().loading)}</p>`;
+  if (d === "error" || !d.consistent) return "";
+  return miniBoard(d, "co" + id);
+}
+async function loadLessonBoard(id) {
+  co.boards.set(id, "loading");
+  try { co.boards.set(id, await api(`moves/${id}/board`)); } catch { co.boards.set(id, "error"); }
+  document.querySelectorAll(`[data-lb="${id}"]`).forEach((el) => { el.innerHTML = lessonBoard(id); });
+}
+
+async function lessonDone() {
+  const d = co.data;
+  if (d.lesson && d.lesson.focus && !d.lesson_seen) {
+    d.lesson_seen = true;
+    apiJson("coach/lesson", { day: d.day }).catch(() => {});
   }
-  const item = w.items[idx];
-  if (pb.kind !== "woodpecker" || pb.item !== item || pb.state === "idle") {
-    const pz = item.puzzle;
-    Object.assign(pb, {
-      kind: "woodpecker", item, board: fenBoard(pz.fen), legal: pz.legal, sel: null, marks: {},
-      last: moveSquares(pz.last_move), white: pz.orientation !== "black", moves: [], state: "move",
-      msg: esc(P.wpFind(pz.moves_to_find)), cls: "", extra: "", started: Date.now(),
-    });
-  }
-  const done = w.items.filter((it) => it.result).length;
-  const dots = w.items.map((it, i) => `<span class="tac-dot ${it.result === "solved" ? "solved" : it.result ? "failed" : ""} ${i === idx ? "cur" : ""}">${i + 1}</span>`).join("");
-  const elapsed = (w.seconds || 0);
-  $id("pxBody").innerHTML = `
-    <div class="tac-meta"><strong>${esc(P.wpRound(w.round, done, w.items.length))}</strong>
-      <span class="muted" id="wpClock">${esc(P.wpTime(fmtTime(elapsed)))}</span></div>
-    <div class="tac-dots wp-dots">${dots}</div>
+  setStage("exercise");
+}
+
+// --------------------------------------------------------------------------
+// Aufgaben: Schritt 1 seine Antwort, Schritt 2 dein Zug, Schritt 3 verstehen
+// --------------------------------------------------------------------------
+function openExercise(i, keep = false) {
+  const d = co.data, item = d.items[i];
+  if (!item) return;
+  co.idx = i;
+  cancelDrag();
+  const ex = item.exercise;
+  const hasStep1 = !!ex.refute && !item.result && !item.refute_result;
+  co.ex = { item, step: item.result ? 3 : (hasStep1 ? 1 : 2), phase: "solve", msg: "", msgCls: "", moves: [],
+            tries: 0, hint: false, explain: item.explain || null, done: !!item.result, busy: false };
+  if (co.ex.step === 1) startStep1();
+  else if (co.ex.step === 2) startStep2();
+  else startStep3();
+}
+
+function exMeta() {
+  const L = tc(), E = co.ex, d = co.data, ex = E.item.exercise;
+  const tag = ex.habit ? `<span class="tag mistake">${esc(L.ex.habit)}</span>` :
+    (ex.review ? `<span class="tag">${esc(L.ex.review(ex.box))}</span>` : `<span class="tag accent">${esc(L.ex.fresh)}</span>`);
+  const steps = L.ex.steps.map((s, i) => {
+    const n = i + 1;
+    if (n === 1 && !ex.refute && !E.item.refute_result) return "";
+    const cls = n === E.step ? "on" : (n < E.step ? "ok" : "");
+    return `<span class="${cls}">${n < E.step ? "✓ " : ""}${esc(s)}</span>`;
+  }).join("");
+  return `<div class="co-meta"><span>${esc(L.ex.counter(co.idx + 1, d.items.length))} · ${tag}</span>${pointBadge(ex.point)}</div>
+    <div class="co-steps">${steps}</div>`;
+}
+
+function exShell(ask) {
+  $id("coBody").innerHTML = `${exMeta()}
+    <div class="co-ask" id="coAsk">${ask}</div>
     ${boardHtml()}
-    <p class="tac-msg ${pb.cls}">${pb.msg}</p>
-    ${pb.extra}
-    <div class="tac-actions">${pb.state === "done"
-      ? `<button class="btn primary grow" type="button" data-wpnext="1">${esc(tp().next)}</button>`
-      : pb.state === "move" ? `<button class="btn" type="button" data-wpreveal="1">${esc(P.reveal)}</button>` : ""}</div>
-    ${hist}`;
+    <div class="tac-msg" id="coMsg"></div>
+    <div class="tac-actions" id="coActions"></div>
+    <div id="coExplain"></div>`;
+  renderDots();
 }
 
-// Uhr: laufende Rundenzeit = gespeicherte Zeit + aktuelle Aufgabe.
-setInterval(() => {
-  const el = $id("wpClock");
-  if (!el || pb.kind !== "woodpecker" || pb.state !== "move" && pb.state !== "busy" || !px.wood) return;
-  el.textContent = tp().wpTime(fmtTime((px.wood.seconds || 0) + (Date.now() - pb.started) / 1000));
-}, 1000);
+function renderDots() {
+  const d = co.data;
+  const dots = d.items.map((it, i) => {
+    const cls = it.result === "solved" ? "solved" : it.result === "failed" ? "failed" : "";
+    return `<button type="button" class="tac-dot ${cls} ${i === co.idx && co.stage === "exercise" ? "cur" : ""}" data-exi="${i}">${it.result === "solved" ? "✓" : it.result === "failed" ? "✗" : i + 1}</button>`;
+  }).join("");
+  const el = $id("coDots") || (() => { const e = document.createElement("div"); e.className = "tac-dots"; e.id = "coDots"; $id("coBody").prepend(e); return e; })();
+  el.innerHTML = dots;
+}
 
-async function woodMove(uci, reveal) {
-  const P = tp(), item = pb.item;
-  if (!reveal) pb.moves.push(uci);
-  renderWood();
-  const secs = (Date.now() - pb.started) / 1000;
+function setMsg(html, cls = "") {
+  if (!co.ex) return;
+  co.ex.msg = html; co.ex.msgCls = cls;
+  const el = $id("coMsg");
+  if (el) { el.innerHTML = html; el.className = "tac-msg " + cls; }
+}
+function setActions(html) { const el = $id("coActions"); if (el) el.innerHTML = html; }
+
+function gameInfo(ex) {
+  const g = ex.game || {};
+  return { opp: g.opponent || "?", d: g.played_at ? date(g.played_at) : "", url: g.url };
+}
+
+// --- Schritt 1 -------------------------------------------------------------
+function startStep1() {
+  const L = tc(), E = co.ex, ex = E.item.exercise, g = gameInfo(ex);
+  E.step = 1; E.phase = "solve"; E.tries = 0;
+  const him = tc().side(ex.refute.to_move);
+  exShell(L.ex.ask1(esc(g.opp), esc(g.d), esc(ex.played_san), him));
+  setBoard(ex.refute.fen, { white: ex.orientation !== "black", legal: ex.refute.legal, last: ex.played_uci,
+                            mover: ex.refute.to_move, active: true, onMove: step1Move });
+  drawBoard();
+  setActions(`<button type="button" class="btn" data-co="show1">${esc(L.ex.show1)}</button>
+    <span class="grow"></span><button type="button" class="btn" data-co="skip1">${esc(L.ex.skip1)}</button>`);
+}
+
+async function step1Move(uci) {
+  const L = tc(), E = co.ex, ex = E.item.exercise;
+  if (!E || E.step !== 1) return;
+  const before = bd.board.slice(), beforeLast = bd.last;
+  bd.board = applyUci(bd.board, uci); bd.last = moveSquares(uci);
+  drawBoard();
+  E.phase = "busy";
+  setMsg(`<span class="muted">${esc(L.ex.thinking)}</span>`);
   let res;
   try {
-    res = await apiJson("woodpecker/move", { key: item.key, moves: reveal ? [] : pb.moves, seconds: secs, reveal: !!reveal });
+    res = await apiJson("coach/refute", { day: co.data.day, key: E.item.key, uci });
   } catch (err) {
-    pb.moves.pop(); pb.state = "move"; pb.msg = esc(err.message); pb.cls = "bad";
-    let arr = fenBoard(item.puzzle.fen); pb.moves.forEach((u) => { arr = applyUci(arr, u); }); pb.board = arr;
-    renderWood(); return;
-  }
-  if (res.result === "correct") {
-    pb.board = applyUci(pb.board, res.reply);
-    pb.moves.push(res.reply);
-    pb.last = moveSquares(res.reply);
-    pb.legal = res.legal; pb.state = "move"; pb.msg = esc(P.wpCorrect); pb.cls = "good";
-    renderWood(); return;
-  }
-  const solved = res.result === "solved";
-  if (uci) markMove(uci, solved ? "good" : "bad");
-  const sol = (res.explain && res.explain.solution_san) || res.solution_san;
-  pb.state = "done"; pb.cls = solved ? "good" : "bad";
-  pb.msg = esc(solved ? P.wpSolved : reveal ? P.wpSolution(sol || "") : P.wpWrong(res.san || ""));
-  if (!solved && sol) pb.extra = `<div class="explain"><p>${esc(P.wpSolution(sol))}</p></div>`;
-  if (res.counted !== false) {
-    item.result = solved ? "solved" : "failed";
-    px.wood.seconds = (px.wood.seconds || 0) + secs;
-  }
-  renderWood();
-}
-
-document.addEventListener("click", async (e) => {
-  const sq = e.target.closest("[data-pi]");
-  if (sq && pb.state === "move") {
-    const i = Number(sq.dataset.pi);
-    if (pb.sel != null && pb.sel !== i && pb.legal.some((u) => u.startsWith(sqName(pb.sel) + sqName(i)))) { practiceMove(pb.sel, i); return; }
-    pb.sel = myPiece(pb.board[i]) && pb.sel !== i ? i : null;
-    if (pb.kind === "woodpecker") renderWood(); else drawPractice();
+    bd.board = before; bd.last = beforeLast; bd.active = true; E.phase = "solve"; drawBoard();
+    setMsg(esc(err.message), "bad");
     return;
   }
-  const el = e.target.closest("[data-trmode],[data-pxi],[data-pxnext],[data-pxretry],[data-pxgive],[data-pxreveal],[data-wpstart],[data-wpnext],[data-wpreveal]");
-  if (!el) return;
-  const ds = el.dataset;
-  if (ds.trmode) { setTrMode(ds.trmode); return; }
-  if (ds.pxi) { startItem(pb.kind, Number(ds.pxi)); return; }
-  if (ds.pxretry) { startItem(pb.kind, px.idx[pb.kind]); return; }
-  if (ds.pxnext) {
-    const d = px.data[pb.kind];
-    const next = (px.idx[pb.kind] + 1) % d.items.length;
-    startItem(pb.kind, next); return;
+  if (co.ex !== E) return;
+  if (res.counted) E.item.refute_result = res.result;
+  if (res.result === "good") {
+    markMove(uci, "good"); drawBoard();
+    const facts = factsHtml(res.facts, "reply");
+    setMsg((res.alternative ? L.ex.alt1(esc(res.san), esc(res.punish_san)) : L.ex.good1(esc(res.san))) + facts, "good");
+    E.phase = "done1";
+    setActions(`<button type="button" class="btn primary grow" data-co="toStep2">${esc(L.ex.toStep2)}</button>`);
+    return;
   }
-  if (ds.pxgive) {
-    try { const res = await apiJson("practice/convert/giveup", { key: pb.item.key }); finishConvert(res); }
-    catch (err) { pb.msg = esc(err.message); pb.cls = "bad"; }
-    drawPractice(); return;
+  E.tries += 1;
+  markMove(uci, "bad"); drawBoard();
+  if (E.tries >= 2) {
+    setMsg(L.ex.bad1b(esc(res.san)), "bad");
+    await sleep(900);
+    if (co.ex !== E) return;
+    await revealStep1(before, beforeLast, null);
+    return;
   }
-  if (ds.pxreveal) {
-    pb.state = "busy"; drawPractice();
-    try { finishThreat(await apiJson("practice/threat/check", { key: pb.item.key, uci: "", reveal: true }), null); }
-    catch (err) { pb.state = "move"; pb.msg = esc(err.message); pb.cls = "bad"; }
-    drawPractice(); return;
+  setMsg(L.ex.bad1(esc(res.san)), "bad");
+  await sleep(1100);
+  if (co.ex !== E) return;
+  bd.board = before; bd.last = beforeLast; bd.marks = {}; bd.active = true; E.phase = "solve";
+  drawBoard();
+}
+
+async function revealStep1(board, last, known) {
+  const L = tc(), E = co.ex;
+  E.phase = "busy"; bd.active = false;
+  let res = known;
+  if (!res || !res.punish_uci) {
+    try { res = await apiJson("coach/refute", { day: co.data.day, key: E.item.key, reveal: true }); }
+    catch (err) { setMsg(esc(err.message), "bad"); bd.active = true; E.phase = "solve"; return; }
+    if (res.counted) E.item.refute_result = "revealed";
   }
-  if (ds.wpstart) {
-    try { px.wood = await apiJson("woodpecker/start", { new_cycle: ds.wpstart === "new" }); pb.state = "idle"; }
-    catch (err) { toast(err.message); }
-    renderWood(); return;
+  if (co.ex !== E) return;
+  bd.board = board.slice(); bd.last = last; bd.marks = {}; drawBoard();
+  await sleep(350);
+  if (co.ex !== E) return;
+  await animate([res.punish_uci], 0);
+  markMove(res.punish_uci, "good"); drawBoard();
+  setMsg(L.ex.revealed1(esc(res.punish_san)) + factsHtml(res.facts || [], "reply"), "");
+  E.phase = "done1";
+  setActions(`<button type="button" class="btn primary grow" data-co="toStep2">${esc(L.ex.toStep2)}</button>`);
+}
+
+// --- Schritt 2 (wie die Tagesaufgaben: der Server kennt die Loesung) --------
+function startStep2(practice = false) {
+  const L = tc(), E = co.ex, ex = E.item.exercise;
+  E.step = 2; E.phase = "solve"; E.moves = []; E.hint = false;
+  const ask = ex.open ? L.ex.ask2open(esc(ex.played_san)) :
+    (ex.refute || E.item.refute_result ? L.ex.ask2(esc(ex.played_san)) : L.ex.noStep1(esc(ex.played_san))) +
+    (ex.moves_to_find > 1 ? L.ex.ask2line(ex.moves_to_find) : "");
+  exShell(ask);
+  setBoard(ex.fen, { white: ex.orientation !== "black", legal: ex.legal, last: ex.last_move, mover: ex.to_move,
+                     active: true, onMove: step2Move });
+  drawBoard();
+  if (practice) setMsg(esc(L.ex.practice));
+  else if (E.item.result) setMsg(esc(E.item.result === "solved" ? L.ex.alreadySolved : L.ex.alreadyFailed), E.item.result === "solved" ? "good" : "bad");
+  step2Actions();
+}
+function step2Actions() {
+  const L = tc(), E = co.ex;
+  const busy = E.phase === "busy";
+  setActions(`<button type="button" class="btn" data-co="hint" ${busy || E.hint ? "disabled" : ""}>${esc(L.ex.hint)}</button>
+    <button type="button" class="btn" data-co="reveal" ${busy ? "disabled" : ""}>${esc(L.ex.reveal)}</button>` +
+    (E.item.result ? `<span class="grow"></span><button type="button" class="btn" data-co="next" ${busy ? "disabled" : ""}>${esc(L.ex.next)}</button>` : ""));
+}
+function hintText(ex) {
+  const L = tr(), h = ex.hint || {};
+  if (ex.habit) return tx().habitHint;
+  if (h.mate_in) return L.hintMate(h.mate_in);
+  if (h.missed_motif && L.motif[h.missed_motif]) return L.hintMotif(L.motif[h.missed_motif]);
+  return L.errHint[h.error_type] ? `${L.hintWord} ${L.errHint[h.error_type]}` : L.hintDefault;
+}
+
+async function step2Move(uci) {
+  const L = tc(), E = co.ex;
+  if (!E || E.step !== 2) return;
+  const step = { board: bd.board.slice(), last: bd.last, legal: bd.legal.slice(), moves: E.moves.slice() };
+  bd.board = applyUci(bd.board, uci); bd.last = moveSquares(uci);
+  E.phase = "busy"; drawBoard(); setMsg(""); step2Actions();
+  let res;
+  try {
+    res = await apiJson("tactics/move", { day: co.data.day, key: E.item.key, moves: [...E.moves, uci] });
+  } catch (err) {
+    bd.board = step.board; bd.last = step.last; bd.active = true; E.phase = "solve"; drawBoard(); step2Actions();
+    toast(err.message);
+    return;
   }
-  if (ds.wpnext) { pb.state = "idle"; renderWood(); return; }
-  if (ds.wpreveal) { pb.state = "busy"; woodMove(null, true); return; }
+  if (co.ex !== E) return;
+  if (res.result === "correct") {
+    E.moves.push(uci, res.reply);
+    setMsg(esc(L.ex.correct(res.san)), "good");
+    await sleep(420);
+    if (co.ex !== E) return;
+    bd.board = applyUci(bd.board, res.reply); bd.last = moveSquares(res.reply); bd.legal = res.legal;
+    bd.active = true; E.phase = "solve"; drawBoard();
+    setMsg(esc(L.ex.correctReply(res.san, res.reply_san)), "good");
+    step2Actions();
+  } else if (res.result === "solved") {
+    E.moves.push(uci);
+    markMove(uci, "good"); drawBoard();
+    finishStep2(res, E.item.exercise.open ? L.ex.holds(res.san) : (res.alternative ? L.ex.alt(res.san, res.main_san) : L.ex.solved(res.san)));
+  } else {
+    markMove(uci, "bad"); drawBoard();
+    if (res.counted && !E.item.result) { E.item.result = "failed"; renderDots(); renderRail(); renderHead(); renderTabs(); }
+    const txt = esc(L.ex.wrong(res.san) + (res.punish_san ? L.ex.punish(res.punish_san) : ""));
+    setMsg(txt, "bad");
+    if (res.punish) {
+      await sleep(450);
+      if (co.ex !== E) return;
+      bd.board = applyUci(bd.board, res.punish); bd.last = moveSquares(res.punish); drawBoard();
+    }
+    await sleep(900);
+    if (co.ex !== E) return;
+    bd.board = step.board; bd.last = step.last; bd.legal = step.legal; bd.marks = {}; E.moves = step.moves;
+    bd.active = true; E.phase = "solve"; drawBoard();
+    setMsg(txt + esc(L.ex.tryAgain), "bad");
+    step2Actions();
+  }
+}
+
+function nextText(box, due) {
+  const L = tc();
+  if (box >= 6) return L.ex.learned;
+  return due ? L.ex.comesBack(date(due)) : "";
+}
+
+async function finishStep2(res, text) {
+  const L = tc(), E = co.ex;
+  if (res.counted) E.item.result = "solved";
+  if (res.explain) E.item.explain = res.explain;
+  let txt = text;
+  if (res.counted) txt += " " + nextText(res.box, res.due);
+  else if (E.item.result === "failed") txt += L.ex.stillFailed;
+  setMsg(esc(txt), "good");
+  E.phase = "done";
+  renderDots(); renderRail(); renderHead(); renderTabs();
+  if (res.day_complete) toast(L.done.allDone);
+  refreshStats();
+  await sleep(700);
+  if (co.ex !== E) return;
+  startStep3();
+}
+
+async function revealStep2() {
+  const L = tc(), E = co.ex;
+  E.phase = "busy"; bd.active = false; step2Actions();
+  let res;
+  try { res = await apiJson("tactics/reveal", { day: co.data.day, key: E.item.key }); }
+  catch (err) { E.phase = "solve"; bd.active = true; step2Actions(); toast(err.message); return; }
+  if (co.ex !== E) return;
+  if (!E.item.result) E.item.result = "failed";
+  E.item.explain = res.explain;
+  renderDots(); renderRail(); renderHead(); renderTabs();
+  setMsg(esc(L.ex.howItGoes));
+  setActions("");
+  setBoard(E.item.exercise.fen, { white: E.item.exercise.orientation !== "black", last: E.item.exercise.last_move });
+  drawBoard();
+  await sleep(350);
+  if (co.ex !== E) return;
+  await animate(res.explain.solution, 750);
+  if (co.ex !== E) return;
+  setMsg(esc(L.ex.solution(res.explain.solution_san) + (res.counted ? nextText(res.box, res.due) : "")));
+  if (res.day_complete) toast(L.done.allDone);
+  refreshStats();
+  await sleep(500);
+  if (co.ex !== E) return;
+  startStep3();
+}
+
+function refreshStats() {
+  api("coach/today?day=" + localDay()).then((d) => {
+    if (co.data && d.day === co.data.day) { co.data.stats = d.stats; co.data.progress = d.progress; co.data.history = d.history; renderHead(); }
+  }).catch(() => {});
+}
+
+// --- Schritt 3: verstehen --------------------------------------------------
+async function startStep3() {
+  const L = tc(), E = co.ex, ex = E.item.exercise;
+  E.step = 3; E.phase = "explain";
+  exShell(`<b>${esc(L.ex.steps[2])}</b>`);
+  setBoard(ex.fen, { white: ex.orientation !== "black", last: ex.last_move });
+  drawBoard();
+  if (!E.explain) {
+    $id("coExplain").innerHTML = `<p class="muted">${esc(L.loading)}</p>`;
+    try { E.explain = await api(`coach/explain?day=${co.data.day}&key=${encodeURIComponent(E.item.key)}`); }
+    catch (err) { $id("coExplain").innerHTML = `<p class="note err">${esc(err.message)}</p>`; return; }
+    if (co.ex !== E) return;
+    E.item.explain = E.explain;
+  }
+  renderExplain();
+}
+
+function renderExplain() {
+  const L = tc(), E = co.ex, X = E.explain, ex = E.item.exercise, g = gameInfo(ex);
+  bd.arrows = [];
+  if (X.played.uci) bd.arrows.push({ uci: X.played.uci, cls: "played" });
+  if (X.refutation.uci) bd.arrows.push({ uci: X.refutation.uci, cls: "reply" });
+  if (X.best.uci) bd.arrows.push({ uci: X.best.uci, cls: "best" });
+  drawBoard();
+  const pct = (v) => (v == null ? "?" : Math.round(v));
+  const wb = pct(X.win_best), wp = pct(X.win_played);
+  const point = X.point;
+  const S = point ? tj().steps[point] : null;
+  const playedFacts = factsHtml(X.played_facts, "played", true);
+  const replyFacts = factsHtml(X.refutation_facts, "reply", true, X.refutation.san);
+  const bestFacts = factsHtml(X.best_facts, "best", true, X.best.san);
+  const last = co.idx >= co.data.items.length - 1 && co.data.items.every((i) => i.result);
+  $id("coExplain").innerHTML = `<div class="co-explain">
+    <div class="box"><h4>${esc(L.xp.yourMove)} · <span class="san">${esc(X.played.san || "")}</span>${X.refutation.san ? ` → ${esc(L.xp.hisAnswer)} <span class="san">${esc(X.refutation.san)}</span>` : ""}</h4>
+      ${replyFacts}${playedFacts}
+      <div class="co-win"><span>${esc(L.xp.chance)}</span>
+        <div class="track"><i style="width:${wb}%"></i><i class="after" style="width:${wp}%"></i></div>
+        <span><b>${wb} %</b> ${esc(L.xp.winBefore)} → <b>${wp} %</b> ${esc(L.xp.winAfter)}</span></div>
+    </div>
+    <div class="box"><h4>${esc(X.open ? L.xp.betterOpen : L.xp.better)} · <span class="san">${esc(X.best.line_san || X.best.san || "")}</span></h4>${bestFacts}</div>
+    <div class="box"><h4>${esc(L.xp.why)}</h4>
+      ${point ? `<p><b>${esc(L.xp.checklist(POINT_INDEX[point], S.q))}</b><br>${esc(S.how)}</p>` : `<p>${esc(L.xp.noPoint)}</p>`}
+      ${g.url ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(L.xp.openGame)}</a></p>` : ""}
+    </div>
+  </div>`;
+  setActions(`<button type="button" class="btn" data-co="playPlayed">${esc(L.xp.play.played)}</button>
+    <button type="button" class="btn" data-co="playBest">${esc(L.xp.play.best)}</button>
+    <button type="button" class="btn" data-co="practice">${esc(L.ex.again)}</button>
+    <span class="grow"></span>
+    <button type="button" class="btn primary" data-co="next">${esc(last ? L.ex.finish : L.ex.next)}</button>`);
+}
+
+async function playExplain(which) {
+  const E = co.ex, X = E.explain, ex = E.item.exercise;
+  if (!X || E.phase === "busy") return;
+  E.phase = "busy";
+  setBoard(ex.fen, { white: ex.orientation !== "black", last: ex.last_move });
+  drawBoard();
+  await sleep(300);
+  if (co.ex !== E) return;
+  const line = which === "best" ? X.best.line : [X.played.uci, X.refutation.uci].filter(Boolean);
+  await animate(line, 800);
+  if (co.ex !== E) return;
+  await sleep(600);
+  if (co.ex !== E) return;
+  E.phase = "explain";
+  setBoard(ex.fen, { white: ex.orientation !== "black", last: ex.last_move });
+  renderExplain();
+}
+
+// Figurennamen in den Formen, die ein Satz braucht (s Subjekt, a Objekt,
+// d nach "mit", y "dein"; Grossbuchstabe = Satzanfang).
+function pieceName(sym) {
+  const f = tc().pieces[(sym || "").toLowerCase()] || [sym, sym, sym, sym];
+  const cap = (x) => x.charAt(0).toUpperCase() + x.slice(1);
+  return { s: f[0], a: f[1], d: f[2], y: f[3], S: cap(f[0]), Y: cap(f[3]) };
+}
+function factText(f) {
+  const F = tc().xp.f, P = pieceName;
+  switch (f.kind) {
+    case "mate": return F.mate(P(f.piece), f.to);
+    case "mate_in": return F.mate_in(f.n);
+    case "check": return F.check(P(f.piece), f.to);
+    case "capture": return F.capture(P(f.piece), P(f.taken), f.square, f.free);
+    case "fork": return F.fork(P(f.piece), f.to, f.targets.map((x) => `${P(x.piece).a} ${tc().xp.on} ${x.square}`).join(tc().xp.and));
+    case "pin": return F.pin(P(f.front_piece), f.front, P(f.back_piece), f.back);
+    case "skewer": return F.skewer(P(f.front_piece), f.front, P(f.back_piece), f.back);
+    case "discovered": return F.discovered(P(f.by_piece), f.by, P(f.target_piece), f.target);
+    case "attacks": return F.attacks(P(f.target_piece), f.target, P(f.by_piece), f.undefended);
+    case "mate_threat": return F.mate_threat(f.move);
+    case "promotion": return F.promotion(f.to);
+    case "quiet": return F.quiet;
+    case "moved_into_capture": return F.moved_into_capture(P(f.piece), f.to);
+    case "left_hanging": return F.left_hanging(P(f.piece), f.square, P(f.by_piece), f.by);
+    case "was_already_attacked": return F.was_already_attacked(P(f.piece), f.square);
+    default: return "";
+  }
+}
+function factsHtml(facts, cls, asList = false, san = null) {
+  const items = (facts || []).map(factText).filter(Boolean);
+  if (!items.length) return "";
+  if (!asList) return `<ul class="co-facts">${items.map((s) => `<li class="${cls}">${esc(s)}</li>`).join("")}</ul>`;
+  return `<ul class="co-facts">${items.map((s) => `<li class="${cls}">${san ? `<span class="san">${esc(san)}</span> ` : ""}${esc(s)}</li>`).join("")}</ul>`;
+}
+
+function renderExercise() {
+  const d = co.data;
+  if (!d.items.length) return;
+  if (!co.ex) { openExercise(Math.min(co.idx, d.items.length - 1)); return; }
+  // Neu zeichnen (Sprachwechsel): den Schritt neu aufbauen, Brett behalten.
+  const E = co.ex, keepBoard = { board: bd.board, last: bd.last, marks: bd.marks, arrows: bd.arrows, legal: bd.legal, active: bd.active, onMove: bd.onMove, mover: bd.mover };
+  const msg = E.msg, cls = E.msgCls;
+  if (E.step === 1) startStep1(); else if (E.step === 2) startStep2(); else startStep3();
+  Object.assign(bd, keepBoard);
+  drawBoard();
+  if (msg) setMsg(msg, cls);
+}
+
+function nextExercise() {
+  const d = co.data;
+  for (let k = 1; k <= d.items.length; k++) {
+    const j = (co.idx + k) % d.items.length;
+    if (!d.items[j].result) { openExercise(j); return; }
+  }
+  // Alle erledigt: weiter zum Verwerten oder zum Abschluss.
+  if (d.convert && !d.convert.result) setStage("convert"); else finishSession();
+}
+
+function finishSession() {
+  const d = co.data;
+  if (!d.finished) { d.finished = true; apiJson("coach/finish", { day: d.day }).catch(() => {}); }
+  setStage("done");
+}
+
+// --------------------------------------------------------------------------
+// Gewinn verwerten
+// --------------------------------------------------------------------------
+function renderConvert() {
+  const L = tc(), d = co.data, it = d.convert;
+  const body = $id("coBody");
+  if (!it) {
+    body.innerHTML = `<p class="muted">${esc(L.cv.none)}</p><div class="tac-actions"><button type="button" class="btn primary" data-co="finish">${esc(L.ex.finish)}</button></div>`;
+    return;
+  }
+  if (!co.cv) {
+    co.cv = { item: it, moves: [], state: it.result ? "done" : "move", msg: "", cls: "", extra: "" };
+    setBoard(it.fen, { white: it.orientation !== "black", legal: it.legal, last: it.last_move, mover: it.to_move,
+                       active: !it.result, onMove: convertMove });
+    co.cv.msg = L.cv.ask(L.side(it.orientation), num(it.win_start, 0), esc(it.game.opponent || "?"), esc(date(it.game.played_at)), num(it.fail_below, 0));
+    if (it.result) { co.cv.msg = esc(it.result === "success" ? L.cv.alreadyWin : L.cv.alreadyFail); co.cv.cls = it.result === "success" ? "good" : "bad"; }
+  }
+  const C = co.cv;
+  body.innerHTML = `<div class="co-meta"><span><b>${esc(L.cv.title)}</b></span></div>
+    <div class="co-ask">${C.msg}</div>
+    ${boardHtml()}
+    <div class="tac-msg ${C.cls}" id="coMsg">${C.extra}</div>
+    <div class="tac-actions" id="coActions"></div>`;
+  drawBoard();
+  convertActions();
+}
+function convertActions() {
+  const L = tc(), C = co.cv;
+  let html = "";
+  if (C.state === "move" || C.state === "busy") html = C.moves.length ? `<button type="button" class="btn" data-co="giveup" ${C.state === "busy" ? "disabled" : ""}>${esc(L.cv.giveup)}</button>` : "";
+  else html = `<span class="grow"></span><button type="button" class="btn primary" data-co="finish">${esc(L.ex.finish)}</button>`;
+  setActions(html);
+}
+async function convertMove(uci) {
+  const L = tc(), C = co.cv;
+  if (!C || C.state !== "move") return;
+  bd.board = applyUci(bd.board, uci); bd.marks = {}; bd.last = moveSquares(uci);
+  C.state = "busy"; C.extra = `<span class="muted">${esc(L.cv.thinking)}</span>`;
+  $id("coMsg").innerHTML = C.extra; convertActions(); drawBoard();
+  C.moves.push(uci);
+  let res;
+  try { res = await apiJson("practice/convert/move", { key: C.item.key, moves: C.moves, day: co.data.day }); }
+  catch (err) {
+    C.moves.pop(); C.state = "move"; C.extra = esc(err.message);
+    let arr = fenBoard(C.item.fen); C.moves.forEach((u) => { arr = applyUci(arr, u); }); bd.board = arr; bd.active = true;
+    renderConvert(); return;
+  }
+  if (co.cv !== C) return;
+  if (res.reply) { bd.board = applyUci(bd.board, res.reply); C.moves.push(res.reply); bd.last = moveSquares(res.reply); }
+  if (res.status === "continue") {
+    bd.legal = res.legal; bd.active = true; C.state = "move"; C.cls = "";
+    C.extra = esc(L.cv.state(num(res.win, 0), res.own_moves + 1, 15)) + (res.reply_san ? ` · <span class="san">${esc(res.reply_san)}</span>` : "");
+  } else {
+    const ok = res.status === "success";
+    C.state = "done"; C.cls = ok ? "good" : "bad";
+    C.extra = esc(ok ? (L.cv.win[res.reason] || L.cv.win.limit) : (L.cv.lose[res.reason] || L.cv.lose.no_reply)) + (res.better_san ? esc(L.cv.better(res.better_san)) : "");
+    if (res.better_uci) markMove(res.better_uci, "good");
+    C.item.result = ok ? "success" : "fail";
+    co.data.convert.result = C.item.result;
+    renderRail();
+  }
+  $id("coMsg").innerHTML = C.extra; $id("coMsg").className = "tac-msg " + C.cls;
+  drawBoard(); convertActions();
+}
+async function convertGiveUp() {
+  const L = tc(), C = co.cv;
+  if (!C || C.state !== "move") return;
+  try { await apiJson("practice/convert/giveup", { key: C.item.key, day: co.data.day }); } catch (err) { toast(err.message); return; }
+  C.state = "done"; C.cls = "bad"; C.extra = esc(L.cv.lose.gave_up); bd.active = false;
+  C.item.result = "fail"; co.data.convert.result = "fail";
+  $id("coMsg").innerHTML = C.extra; $id("coMsg").className = "tac-msg bad";
+  renderRail(); convertActions();
+}
+
+// --------------------------------------------------------------------------
+// Abschluss
+// --------------------------------------------------------------------------
+function renderDone() {
+  const L = tc(), d = co.data, p = d.progress || {}, st = d.stats;
+  const solved = d.items.filter((i) => i.result === "solved").length;
+  const allDone = d.items.every((i) => i.result);
+  const lines = [L.done.sub(solved, d.items.length)];
+  if (p.refute_total) lines.push(L.done.refutes(p.refute_good || 0, p.refute_total));
+  if (d.convert && d.convert.result) lines.push(d.convert.result === "success" ? L.done.convertOk : L.done.convertFail);
+  if (st && st.streak) lines.push(L.done.streak(st.streak));
+  const hist = (d.history || []).map((h) => `<i class="${h.done ? "done" : ""} ${h.day === d.day ? "today" : ""}" title="${h.day}: ${h.solved}/${h.total}"></i>`).join("");
+  const stats = st ? `<p class="tac-stats muted">${esc(L.done.pool(st.new, st.learning, st.learned))}${st.last30_done ? " · " + esc(L.done.last30(Math.round(st.last30_solved / st.last30_done * 100))) : ""}</p>` : "";
+  $id("coBody").innerHTML = `<div class="co-done">
+      <div class="big">${allDone && solved === d.items.length ? "🏆" : allDone ? "✓" : "…"}</div>
+      <h3>${esc(L.done.title)}</h3>
+      ${lines.map((l) => `<p style="margin:3px 0">${esc(l)}</p>`).join("")}
+      <p class="muted" style="margin-top:10px">${esc(L.done.lastDays)}</p>
+      <div class="co-hist">${hist}</div>
+      <p class="muted">${esc(L.done.tomorrow)}</p>
+    </div>
+    <div class="tac-dots" id="coDots"></div>
+    ${stats}`;
+  renderDots();
+}
+
+// --------------------------------------------------------------------------
+// Klicks im Training
+// --------------------------------------------------------------------------
+$id("coRail").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-stage]");
+  if (!b || (co.ex && co.ex.phase === "busy")) return;
+  setStage(b.dataset.stage);
+});
+$id("coBody").addEventListener("click", async (e) => {
+  const dot = e.target.closest("[data-exi]");
+  if (dot) { if (!(co.ex && co.ex.phase === "busy")) { co.stage = "exercise"; renderRail(); openExercise(Number(dot.dataset.exi)); } return; }
+  const b = e.target.closest("[data-co]");
+  if (!b || b.disabled) return;
+  const a = b.dataset.co, E = co.ex;
+  if (a === "lessonDone") { lessonDone(); return; }
+  if (a === "finish") { finishSession(); return; }
+  if (!E) return;
+  if (a === "skip1") { if (!E.item.refute_result) { E.item.refute_result = "skipped"; apiJson("coach/refute", { day: co.data.day, key: E.item.key, reveal: true }).catch(() => {}); } startStep2(); return; }
+  if (a === "show1") { if (E.phase === "solve") revealStep1(bd.board.slice(), bd.last, null); return; }
+  if (a === "toStep2") { startStep2(); return; }
+  if (a === "hint") { E.hint = true; setMsg(esc(hintText(E.item.exercise))); step2Actions(); return; }
+  if (a === "reveal") { if (E.phase === "solve") revealStep2(); return; }
+  if (a === "next") { nextExercise(); return; }
+  if (a === "practice") { startStep2(true); return; }
+  if (a === "playPlayed") { playExplain("played"); return; }
+  if (a === "playBest") { playExplain("best"); return; }
+  if (a === "giveup") { convertGiveUp(); return; }
 });
 
 // --------------------------------------------------------------------------
