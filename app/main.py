@@ -1153,7 +1153,7 @@ def coach_refute(body: RefuteBody) -> dict[str, object]:
         with db_engine.connect() as conn:
             row = _tactic_for_day(conn, day, body.key)
     try:
-        res = coach.reveal_refutation(row) if body.reveal else coach.check_refutation(trainer.engine, row, body.uci)
+        res = coach.reveal_refutation(row, trainer.engine) if body.reveal else coach.check_refutation(trainer.engine, row, body.uci)
     except tactics.MoveError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
     outcome = {"good": "good", "bad": "bad", "revealed": "revealed"}[res["result"]]

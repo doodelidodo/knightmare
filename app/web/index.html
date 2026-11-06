@@ -3302,9 +3302,12 @@ const I18N_C = {
         quiet: "a quiet move — it improves the position without a direct threat.",
         moved_into_capture: (p, to) => `${p.Y} was simply hanging on ${to} after your move.`,
         left_hanging: (p, sq, bp, by) => `After the reply ${p.y} on ${sq} hangs (attacked from ${by}).`,
-        was_already_attacked: (p, sq) => `${p.Y} on ${sq} was attacked before you moved — the threat was already there.`,
+        was_already_attacked: (p, sq, att, def) => `${p.Y} on ${sq} was already attacked before your move (by ${att})` +
+          (def ? `, defended only by ${def}.` : " and not defended at all.") + " The threat was already there.",
+        line: (san, m, mate) => `Stockfish's line: ${san}` + (mate ? " — mate." : m < 0 ? ` — you end up ${-m} ${-m === 1 ? "pawn" : "points"} of material behind.` : m > 0 ? ` — you end up ${m} ${m === 1 ? "pawn" : "points"} of material ahead.` : " — material stays level."),
       },
       and: " and ", on: "on",
+      source: "Moves, lines and winning chances: Stockfish. Motifs (fork, pin, skewer …) are only named when Stockfish's line actually wins that material.",
     },
     cv: {
       title: "Convert the win",
@@ -3424,9 +3427,12 @@ const I18N_C = {
         quiet: "ein ruhiger Zug – er verbessert die Stellung ohne direkte Drohung.",
         moved_into_capture: (p, to) => `${p.Y} stand nach deinem Zug auf ${to} einfach im Schlag.`,
         left_hanging: (p, sq, bp, by) => `Nach der Antwort hängt ${p.y} auf ${sq} (angegriffen von ${by}).`,
-        was_already_attacked: (p, sq) => `${p.Y} auf ${sq} war schon vor deinem Zug angegriffen – die Drohung stand bereits.`,
+        was_already_attacked: (p, sq, att, def) => `${p.Y} auf ${sq} war schon vor deinem Zug angegriffen (von ${att})` +
+          (def ? `, gedeckt nur von ${def}.` : " und gar nicht gedeckt.") + " Die Drohung stand bereits.",
+        line: (san, m, mate) => `Stockfish-Variante: ${san}` + (mate ? " – Matt." : m < 0 ? ` – danach hast du ${-m} ${-m === 1 ? "Bauer" : "Punkte"} Material weniger.` : m > 0 ? ` – danach hast du ${m} ${m === 1 ? "Bauer" : "Punkte"} Material mehr.` : " – Material bleibt gleich."),
       },
       and: " und ", on: "auf",
+      source: "Züge, Varianten und Gewinnchancen: Stockfish. Motive (Gabel, Fesselung, Spiess …) stehen nur da, wenn Stockfishs Variante das Material auch wirklich holt.",
     },
     cv: {
       title: "Gewinn verwerten",
@@ -3913,7 +3919,7 @@ async function step1Move(uci) {
   if (res.counted) E.item.refute_result = res.result;
   if (res.result === "good") {
     markMove(uci, "good"); drawBoard();
-    const facts = factsHtml(res.facts, "reply");
+    const facts = factsHtml([...(res.facts || []), ...(res.line ? [res.line] : [])], "reply");
     setMsg((res.alternative ? L.ex.alt1(esc(res.san), esc(res.punish_san)) : L.ex.good1(esc(res.san))) + facts, "good");
     E.phase = "done1";
     setActions(`<button type="button" class="btn primary grow" data-co="toStep2">${esc(L.ex.toStep2)}</button>`);
@@ -3950,7 +3956,7 @@ async function revealStep1(board, last, known) {
   if (co.ex !== E) return;
   await animate([res.punish_uci], 0);
   markMove(res.punish_uci, "good"); drawBoard();
-  setMsg(L.ex.revealed1(esc(res.punish_san)) + factsHtml(res.facts || [], "reply"), "");
+  setMsg(L.ex.revealed1(esc(res.punish_san)) + factsHtml([...(res.facts || []), ...(res.line ? [res.line] : [])], "reply"), "");
   E.phase = "done1";
   setActions(`<button type="button" class="btn primary grow" data-co="toStep2">${esc(L.ex.toStep2)}</button>`);
 }
@@ -4116,8 +4122,8 @@ function renderExplain() {
   const point = X.point;
   const S = point ? tj().steps[point] : null;
   const playedFacts = factsHtml(X.played_facts, "played", true);
-  const replyFacts = factsHtml(X.refutation_facts, "reply", true, X.refutation.san);
-  const bestFacts = factsHtml(X.best_facts, "best", true, X.best.san);
+  const replyFacts = factsHtml(X.refutation_facts, "reply", true, X.refutation.san) + factsHtml(X.refutation_line ? [X.refutation_line] : [], "reply");
+  const bestFacts = factsHtml(X.best_facts, "best", true, X.best.san) + factsHtml(X.best_line ? [X.best_line] : [], "best");
   const last = co.idx >= co.data.items.length - 1 && co.data.items.every((i) => i.result);
   $id("coExplain").innerHTML = `<div class="co-explain">
     <div class="box"><h4>${esc(L.xp.yourMove)} · <span class="san">${esc(X.played.san || "")}</span>${X.refutation.san ? ` → ${esc(L.xp.hisAnswer)} <span class="san">${esc(X.refutation.san)}</span>` : ""}</h4>
@@ -4130,6 +4136,7 @@ function renderExplain() {
     <div class="box"><h4>${esc(L.xp.why)}</h4>
       ${point ? `<p><b>${esc(L.xp.checklist(POINT_INDEX[point], S.q))}</b><br>${esc(S.how)}</p>` : `<p>${esc(L.xp.noPoint)}</p>`}
       ${g.url ? `<p><a href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(L.xp.openGame)}</a></p>` : ""}
+      <p class="muted" style="font-size:0.8rem">${esc(L.xp.source)}</p>
     </div>
   </div>`;
   setActions(`<button type="button" class="btn" data-co="playPlayed">${esc(L.xp.play.played)}</button>
@@ -4147,7 +4154,8 @@ async function playExplain(which) {
   drawBoard();
   await sleep(300);
   if (co.ex !== E) return;
-  const line = which === "best" ? X.best.line : [X.played.uci, X.refutation.uci].filter(Boolean);
+  const line = which === "best" ? ((X.best_line && X.best_line.uci) || X.best.line)
+    : [X.played.uci, ...((X.refutation_line && X.refutation_line.uci) || [X.refutation.uci])].filter(Boolean);
   await animate(line, 800);
   if (co.ex !== E) return;
   await sleep(600);
@@ -4181,7 +4189,11 @@ function factText(f) {
     case "quiet": return F.quiet;
     case "moved_into_capture": return F.moved_into_capture(P(f.piece), f.to);
     case "left_hanging": return F.left_hanging(P(f.piece), f.square, P(f.by_piece), f.by);
-    case "was_already_attacked": return F.was_already_attacked(P(f.piece), f.square);
+    case "was_already_attacked": {
+      const list = (xs, form) => (xs || []).map((x) => `${P(x.piece)[form]} ${tc().xp.on} ${x.square}`).join(tc().xp.and);
+      return F.was_already_attacked(P(f.piece), f.square, list(f.attackers, "d"), list(f.defenders, "d"));
+    }
+    case "line": return F.line(f.san, f.material, f.mate);
     default: return "";
   }
 }

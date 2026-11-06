@@ -1890,15 +1890,20 @@ def test_coach() -> bool:
     ok = True
     kinds = lambda facts: [f["kind"] for f in facts]  # noqa: E731
     # Springergabel mit Schach: c7 greift Ke8 und Ta8 an.
-    facts = coach.describe_move(chess.Board("r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1"), chess.Move.from_uci("d5c7"))
+    mv = lambda *u: [chess.Move.from_uci(x) for x in u]  # noqa: E731
+    fork_board = chess.Board("r3k3/8/8/3N4/8/8/8/4K3 w - - 0 1")
+    facts = coach.describe_move(fork_board, chess.Move.from_uci("d5c7"), line=mv("d5c7", "e8d7", "c7a8"))
     fork = next((f for f in facts if f["kind"] == "fork"), None)
-    ok &= _check("Gabel: Schach + zwei Ziele", "check" in kinds(facts) and fork is not None
+    ok &= _check("Gabel: Schach + zwei Ziele (Variante holt den Turm)", "check" in kinds(facts) and fork is not None
                  and sorted(t["square"] for t in fork["targets"]) == ["a8", "e8"], str(facts))
+    facts = coach.describe_move(fork_board, chess.Move.from_uci("d5c7"))
+    ok &= _check("ohne Variante kein Motiv, nur das Sichere", kinds(facts) == ["check"], str(facts))
     # Turm schlaegt ungedeckten Springer - "umsonst".
     facts = coach.describe_move(chess.Board("4k3/8/8/3n4/8/8/8/3RK3 w - - 0 1"), chess.Move.from_uci("d1d5"))
     ok &= _check("Schlagen einer ungedeckten Figur", kinds(facts) == ["capture"] and facts[0]["free"], str(facts))
     # Fesselung: Lb5 fesselt Sc6 an Ke8 (Laeufer von f1 nach b5).
-    facts = coach.describe_move(chess.Board("4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1"), chess.Move.from_uci("f1b5"))
+    facts = coach.describe_move(chess.Board("4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1"), chess.Move.from_uci("f1b5"),
+                                line=mv("f1b5", "e8e7", "b5c6"))
     ok &= _check("Fesselung erkannt", "pin" in kinds(facts) and next(f for f in facts if f["kind"] == "pin")["front"] == "c6", str(facts))
     # Mattdrohung: Dh5 im Schaefermatt-Aufbau droht Dxf7#.
     facts = coach.describe_move(chess.Board("r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 2 3"),
@@ -1911,6 +1916,25 @@ def test_coach() -> bool:
     # Ruhiger Zug ohne alles.
     facts = coach.describe_move(chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 0 1"), chess.Move.from_uci("e1d1"))
     ok &= _check("ruhiger Zug", kinds(facts) == ["quiet"], str(facts))
+
+    # Aus einer echten Partie (6.11.): 20. Qc1? Rxb1. Geometrisch "Spiess" Turm
+    # b8 -> Dame c8 -> Turm e8 - aber die Dame nimmt zurueck. Kein Motiv.
+    real = chess.Board("1rq1r1k1/4nppp/p1p1p3/2PpPbB1/3P4/P4N2/5PPP/1R1Q1RK1 w - - 0 20")
+    facts = coach.describe_move(real, chess.Move.from_uci("b1b8"), line=mv("b1b8", "c8b8", "f3h4", "e7g6"))
+    ok &= _check("Rxb8 Qxb8: kein Spiess", kinds(facts) == ["capture"], str(facts))
+    qc1 = real.copy()
+    qc1.push_uci("d1c1")
+    line = mv("b8b1", "c1b1", "f5b1", "f1b1", "h7h6")
+    facts = coach.describe_move(qc1, chess.Move.from_uci("b8b1"), line=line)
+    ok &= _check("Rxb1: kein Spiess Dame/Tf1", kinds(facts) == ["capture"], str(facts))
+    lf = coach.line_fact(qc1, line, chess.WHITE)
+    ok &= _check("Variante bis Ende der Schlagfolge, Bilanz -6", lf is not None and lf["uci"] == ["b8b1", "c1b1", "f5b1", "f1b1"]
+                 and lf["material"] == -6, str(lf))
+    why = coach.why_played_is_bad(real, chess.Move.from_uci("d1c1"), chess.Move.from_uci("b8b1"))
+    att = next((f for f in why if f["kind"] == "was_already_attacked"), None)
+    ok &= _check("b1 angegriffen von Lf5 und Tb8, gedeckt nur von Dd1", att is not None
+                 and sorted(a["square"] for a in att["attackers"]) == ["b8", "f5"]
+                 and [d["square"] for d in att["defenders"]] == ["d1"], str(why))
 
     # Warum der eigene Zug schlecht war: Springer nach c6, wo der Springer d4 ihn nimmt.
     before = chess.Board("1r2r1k1/p1p2ppp/5b2/4n3/3NP3/P2P4/1PP3PP/R1B2RK1 b - - 4 20")

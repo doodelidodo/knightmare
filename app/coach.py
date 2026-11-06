@@ -171,11 +171,66 @@ def _threatens_mate(after: chess.Board) -> Optional[str]:
     return None
 
 
-def describe_move(before: chess.Board, move: chess.Move, mate_in: Optional[int] = None) -> list[dict]:
+MOTIF_KINDS = ("fork", "pin", "skewer", "discovered", "attacks")
+LINE_MAX_PLIES = 10
+
+
+def _claimed_squares(fact: dict) -> set[int]:
+    """Wo das Motiv Material holen will: Gabel - eines der Ziele, Spiess - die
+    hintere Figur, Fesselung - die gefesselte, Abzug/Angriff - das Ziel."""
+    names: list[str] = []
+    if fact["kind"] == "fork":
+        names = [t["square"] for t in fact.get("targets", []) if t.get("piece") != "k"]
+    elif fact["kind"] == "skewer":
+        names = [fact["back"]]
+    elif fact["kind"] == "pin":
+        names = [fact["front"]]
+    elif fact["kind"] in ("discovered", "attacks"):
+        names = [fact["target"]]
+    return {chess.parse_square(n) for n in names}
+
+
+def _line_captures(before: chess.Board, line: list[chess.Move]) -> set[int]:
+    """Felder, auf denen die Seite am Zug (before.turn) in der Variante schlaegt."""
+    mover = before.turn
+    b = before.copy(stack=False)
+    out: set[int] = set()
+    for mv in line:
+        if mv not in b.legal_moves:
+            break
+        if b.turn == mover and b.is_capture(mv):
+            out.add(mv.to_square)
+        b.push(mv)
+    return out
+
+
+def describe_move(before: chess.Board, move: chess.Move, mate_in: Optional[int] = None,
+                  line: Optional[list[chess.Move]] = None) -> list[dict]:
     """Was tut dieser Zug? Eine Liste von Fakten mit Feldern, aus der die
-    Oberflaeche Saetze baut. Reihenfolge: das Schlagendste zuerst."""
+    Oberflaeche Saetze baut. Reihenfolge: das Schlagendste zuerst.
+
+    Sicher aus dem Brett: Matt, Schach, Schlagen, Umwandlung, Mattdrohung.
+    Motive (Gabel, Spiess, Fesselung, Abzug, Angriff) dagegen nur, wenn die
+    Stockfish-Variante `line` (beginnt mit `move`) das behauptete Material
+    auch wirklich schlaegt. Geometrie allein reicht nicht: "Rxb8 spiesst
+    Dame c8 und Turm e8" ist geometrisch richtig und schachlich falsch,
+    weil die Dame einfach zuruecknimmt. Ohne Variante: keine Motive."""
     if move not in before.legal_moves:
         return []
+    facts = _describe_raw(before, move, mate_in)
+    taken = _line_captures(before, line) if line else set()
+    kept = []
+    for f in facts:
+        if f["kind"] in MOTIF_KINDS and not (_claimed_squares(f) & taken):
+            continue
+        kept.append(f)
+    if not kept:
+        piece = _sym(before, move.from_square)
+        kept.append({"kind": "quiet", "piece": piece, "to": chess.square_name(move.to_square)})
+    return kept
+
+
+def _describe_raw(before: chess.Board, move: chess.Move, mate_in: Optional[int] = None) -> list[dict]:
     mover = before.turn
     victim = not mover
     after = before.copy(stack=False)
@@ -236,6 +291,54 @@ def describe_move(before: chess.Board, move: chess.Move, mate_in: Optional[int] 
     return facts
 
 
+def _material(board: chess.Board, color: chess.Color) -> int:
+    return sum(MATERIAL_VALUES.get(p.piece_type, 0) for p in board.piece_map().values()
+               if p.color == color and p.piece_type != chess.KING)
+
+
+def engine_line(eng: Engine, board: chess.Board, first: chess.Move) -> list[chess.Move]:
+    """Die Stockfish-Hauptvariante nach `first`, mit `first` vorne. Ohne
+    Engine nur der Zug selbst."""
+    line = [first]
+    if not eng.available or first not in board.legal_moves:
+        return line
+    b = board.copy(stack=False)
+    b.push(first)
+    if b.is_game_over():
+        return line
+    try:
+        info = eng.analyse(b)[0]
+    except Exception:  # noqa: BLE001 - dann eben ohne Variante
+        log.warning("Variante nicht gerechnet", exc_info=True)
+        return line
+    return line + list(info.get("pv") or [])[: LINE_MAX_PLIES - 1]
+
+
+def line_fact(board: chess.Board, line: list[chess.Move], us: chess.Color) -> Optional[dict]:
+    """Die Variante bis zum Ende der Schlagfolge, mit der Materialbilanz aus
+    Sicht von `us` (in Bauerneinheiten). Gezeigt wird der erste Zug und dann
+    alle direkt folgenden Schlag-, Schach- und Umwandlungszuege; der erste
+    ruhige Zug beendet sie - sonst stuende die Bilanz mitten im Abtausch."""
+    b = board.copy(stack=False)
+    shown: list[chess.Move] = []
+    for mv in line:
+        if mv not in b.legal_moves:
+            break
+        forcing = b.is_capture(mv) or mv.promotion is not None or b.gives_check(mv)
+        if shown and not forcing:
+            break
+        b.push(mv)
+        shown.append(mv)
+        if b.is_game_over():
+            break
+    if len(shown) < 2:
+        return None
+    start = _material(board, us) - _material(board, not us)
+    end = _material(b, us) - _material(b, not us)
+    return {"kind": "line", "san": board.variation_san(shown), "uci": [m.uci() for m in shown],
+            "material": end - start, "mate": b.is_checkmate()}
+
+
 def why_played_is_bad(before: chess.Board, played: chess.Move, refutation: Optional[chess.Move]) -> list[dict]:
     """Was der eigene Zug angerichtet hat - aus Sicht nach der Widerlegung:
     welche eigenen Figuren danach haengen, ob die gezogene Figur selbst
@@ -253,7 +356,7 @@ def why_played_is_bad(before: chess.Board, played: chess.Move, refutation: Optio
         # Was danach noch haengt (ab Leichtfigur) - aber nicht, was die
         # Widerlegung selbst schon benennt (Gabel, Angriff), sonst steht es doppelt.
         named = set()
-        for f in describe_move(after, refutation):
+        for f in _describe_raw(after, refutation):
             for key in ("target", "front", "back"):
                 if f.get(key):
                     named.add(chess.parse_square(f[key]))
@@ -266,11 +369,16 @@ def why_played_is_bad(before: chess.Board, played: chess.Move, refutation: Optio
         for s, a in sorted(hanging.items(), key=lambda x: -PIECE_VALUE[b2.piece_type_at(x[0])])[:2]:
             out.append({"kind": "left_hanging", "piece": _sym(b2, s), "square": chess.square_name(s),
                         "by": chess.square_name(a), "by_piece": _sym(b2, a)})
-    # Haengte die Figur schon vor dem Zug (Drohung uebersehen)?
+    # Haengte die Figur schon vor dem Zug (Drohung uebersehen)? Mit
+    # Angreifern und Verteidigern, damit man es auf dem Brett nachzaehlen kann.
     before_hanging = _en_prise(before, us)
     if refutation is not None and refutation.to_square in before_hanging and refutation.to_square != played.to_square:
-        out.append({"kind": "was_already_attacked", "piece": _sym(before, refutation.to_square),
-                    "square": chess.square_name(refutation.to_square)})
+        sq = refutation.to_square
+        out.append({"kind": "was_already_attacked", "piece": _sym(before, sq), "square": chess.square_name(sq),
+                    "attackers": [{"square": chess.square_name(a), "piece": _sym(before, a)}
+                                  for a in sorted(before.attackers(not us, sq))],
+                    "defenders": [{"square": chess.square_name(d), "piece": _sym(before, d)}
+                                  for d in sorted(before.attackers(us, sq))]})
     return out
 
 
@@ -370,14 +478,35 @@ def explain(db: DbEngine, eng: Engine, row) -> dict:
     }
     if before is None:
         return out
+    us = before.turn
+    out["refutation_line"] = None
+    out["best_line"] = None
     if after is not None and refutation is not None and refutation in after.legal_moves:
         out["refutation"]["san"] = after.san(refutation)
-        out["refutation_facts"] = describe_move(after, refutation)
+        rline = engine_line(eng, after, refutation)
+        out["refutation_facts"] = describe_move(after, refutation, line=rline)
+        out["refutation_line"] = line_fact(after, rline, us) if len(rline) > 1 else None
     if played is not None:
         out["played_facts"] = why_played_is_bad(before, played, refutation)
     if best is not None and best in before.legal_moves:
         out["best"]["san"] = before.san(best)
-        out["best_facts"] = describe_move(before, best, row.mate_in if row.mate_in and 0 < row.mate_in <= 5 else None)
+        # Die gespeicherte Loesung ist schon Stockfish; danach weiter mit der Engine.
+        stored = [chess.Move.from_uci(u) for u in sol]
+        b = before.copy(stack=False)
+        for mv in stored:
+            if mv not in b.legal_moves:
+                break
+            b.push(mv)
+        bline = stored
+        if eng.available and not b.is_game_over() and len(stored) < LINE_MAX_PLIES:
+            try:
+                bline = stored + list(eng.analyse(b)[0].get("pv") or [])[: LINE_MAX_PLIES - len(stored)]
+            except Exception:  # noqa: BLE001
+                bline = stored
+        out["best_facts"] = describe_move(before, best, row.mate_in if row.mate_in and 0 < row.mate_in <= 5 else None,
+                                          line=bline)
+        out["best_line"] = line_fact(before, bline, us) if len(bline) > 1 else None
+    out["engine"] = eng.available
     return out
 
 
@@ -420,18 +549,23 @@ def check_refutation(eng: Engine, row, uci: str) -> dict:
         punish = chess.Move.from_uci(row.punish_uci)
         res["punish_uci"] = row.punish_uci
         res["punish_san"] = after.san(punish) if punish in after.legal_moves else None
-        res["facts"] = describe_move(after, move)
+        line = engine_line(eng, after, move)
+        res["facts"] = describe_move(after, move, line=line)
+        res["line"] = line_fact(after, line, them) if len(line) > 1 else None
     return res
 
 
-def reveal_refutation(row) -> dict:
+def reveal_refutation(row, eng: Optional[Engine] = None) -> dict:
     _before, _played, after = _boards(row)
     if after is None or not row.punish_uci:
         raise MoveError("no_refute_step")
     punish = chess.Move.from_uci(row.punish_uci)
-    return {"result": "revealed", "punish_uci": row.punish_uci,
-            "punish_san": after.san(punish) if punish in after.legal_moves else None,
-            "facts": describe_move(after, punish) if punish in after.legal_moves else []}
+    if punish not in after.legal_moves:
+        return {"result": "revealed", "punish_uci": row.punish_uci, "punish_san": None, "facts": [], "line": None}
+    line = engine_line(eng, after, punish) if eng is not None else [punish]
+    return {"result": "revealed", "punish_uci": row.punish_uci, "punish_san": after.san(punish),
+            "facts": describe_move(after, punish, line=line),
+            "line": line_fact(after, line, after.turn) if len(line) > 1 else None}
 
 
 # ---------------------------------------------------------------------------
@@ -533,7 +667,7 @@ def session(db: DbEngine, eng: Engine, scope: Optional[TacticSettings], day: dat
         ex = exercise_payload(db, eng, trow)
         items.append({"key": it["key"], "pos": it["pos"], "result": it["result"],
                       "refute_result": refutes.get(it["key"]), "exercise": ex,
-                      "explain": explain(db, eng, trow) if it["result"] else None})
+                      "explain": None})
     # Fokus-Aufgaben zuerst, sonst die Reihenfolge des Tages.
     items.sort(key=lambda i: (0 if (focus and i["exercise"]["point"] == focus) else 1, i["pos"]))
 
