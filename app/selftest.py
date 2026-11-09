@@ -2039,6 +2039,132 @@ def test_coach() -> bool:
     return bool(ok)
 
 
+# --------------------------------------------------------------------------
+# 20) Highlights: Momente einer Woche
+# --------------------------------------------------------------------------
+def test_content() -> bool:
+    from datetime import datetime
+    from types import SimpleNamespace
+
+    from . import coach, content
+
+    ok = True
+    g = lambda gid, result, term=None: SimpleNamespace(  # noqa: E731
+        id=gid, url="u", platform="lichess", time_class="rapid", played_at=datetime(2026, 11, 5, 18), color="white",
+        result=result, opponent="x", opponent_rating=1100, my_rating=1100, opening_family="Pirc", opening_name=None,
+        termination=term)
+
+    def mv(i, ply, before, after, loss, cat="ok", **kw):
+        base = dict(id=i, ply=ply, move_number=(ply + 1) // 2, san="Qd5", cp_before=before, cp_after=after,
+                    win_loss=loss, category=cat, error_type=None, missed_motif=None, mate_in=None,
+                    best_move_san=None, refutation_san=None, clock_seconds=None)
+        base.update(kw)
+        return SimpleNamespace(**base)
+
+    # Absturz: +7 -> -5 in einem Zug, Partie verloren.
+    moves = [mv(1, 41, 700, 690, 0.1), mv(2, 43, 700, -500, 80, "blunder", error_type="hanging_piece")]
+    kinds = [m["kind"] for m in content.game_moments(g(1, "loss"), moves)]
+    ok &= _check("Absturz erkannt", kinds == ["collapse"], str(kinds))
+    # Gegnergeschenk: nach meinem Zug 0.0, vor dem naechsten +3 - und ich nehme es (Verlust 1).
+    moves = [mv(3, 21, 10, 0, 0.5), mv(4, 23, 300, 290, 1.0)]
+    found = content.game_moments(g(2, "win"), moves)
+    ok &= _check("Gegnerpatzer bestraft", [m["kind"] for m in found] == ["punished"] and found[0]["gift"] > 20, str(found))
+    moves = [mv(5, 21, 10, 0, 0.5), mv(6, 23, 300, -50, 32, "blunder")]
+    kinds = [m["kind"] for m in content.game_moments(g(3, "loss"), moves)]
+    ok &= _check("Gegnerpatzer nicht bestraft", "unpunished" in kinds, str(kinds))
+    # Gegnerzug mit Luecke (ein Zug fehlt in der Liste) zaehlt nicht.
+    moves = [mv(7, 21, 10, 0, 0.5), mv(8, 25, 300, 290, 1.0)]
+    ok &= _check("nur direkt aufeinanderfolgende Zuege", content.game_moments(g(4, "win"), moves) == [])
+    # Verpasstes Matt und Comeback.
+    moves = [mv(9, 11, -900, -900, 0), mv(10, 31, 1000, 800, 5, "mistake", mate_in=2, error_type="missed_mate")]
+    kinds = sorted(m["kind"] for m in content.game_moments(g(5, "win"), moves))
+    ok &= _check("Matt verpasst + Comeback", kinds == ["comeback", "missed_mate"], str(kinds))
+    # Zeit: gewonnen gestanden, auf Zeit verloren - aber nicht, wenn der letzte Zug Matt war.
+    moves = [mv(11, 61, 800, 800, 0)]
+    ok &= _check("Zeit-Drama", [m["kind"] for m in content.game_moments(g(6, "loss", "Opp won on time"), moves)] == ["clock"])
+    moves = [mv(12, 61, 800, 1000, 0, san="Rg1#")]
+    ok &= _check("Matt als letzter Zug ist kein Zeit-Drama",
+                 content.game_moments(g(7, "loss", "Opp won on time"), moves) == [])
+    # Auswahl: derselbe Zug nur einmal, hoechstens zwei pro Partie, staerkster zuerst.
+    ms = [{"kind": "a", "score": 10, "game": {"id": 1}, "ply": 5}, {"kind": "b", "score": 30, "game": {"id": 1}, "ply": 5},
+          {"kind": "c", "score": 20, "game": {"id": 1}, "ply": 7}, {"kind": "d", "score": 15, "game": {"id": 1}, "ply": 9},
+          {"kind": "e", "score": 5, "game": {"id": 2}, "ply": 1}]
+    ok &= _check("Auswahl: dedupe, max. 2 pro Partie", [m["kind"] for m in content.pick(ms)] == ["b", "c", "e"])
+    # Variante: die Folge endet beim ersten ruhigen Zug - eine Antwort auf Schach
+    # ist aber nicht ruhig, sonst bricht eine Mattfolge nach dem ersten Zug ab.
+    lf = coach.line_fact(chess.Board("k7/8/1K6/8/8/8/8/7R w - - 0 1"),
+                         [chess.Move.from_uci(u) for u in ("h1h7", "a8b8", "h7h8")], chess.WHITE)
+    ok &= _check("Variante: ruhiger Erstzug ohne Folge -> keine Variante", lf is None, str(lf))
+    lf = coach.line_fact(chess.Board("7k/8/5K2/8/8/8/8/1R6 w - - 0 1"),
+                         [chess.Move.from_uci(u) for u in ("b1b8", "h8h7", "b8h8")], chess.WHITE)
+    ok &= _check("Variante: Antwort auf Schach gehoert dazu", lf is not None and len(lf["uci"]) == 3, str(lf))
+    return bool(ok)
+
+
+# --------------------------------------------------------------------------
+# 21) Wochen-Session: Fehler der Woche trainieren
+# --------------------------------------------------------------------------
+def test_week_session() -> bool:
+    from datetime import date, datetime, timedelta
+
+    from sqlalchemy import select
+
+    from . import coach, tactics as tx
+    from .models import utc_now
+
+    ok = True
+    eng = _temp_db()
+    now = utc_now()
+    fen = "1r2r1k1/p1p2ppp/5b2/4n3/3NP3/P2P4/1PP3PP/R1B2RK1 b - - 4 20"
+    with eng.begin() as conn:
+        for uuid, days_ago in (("lichess:wk1", 2), ("lichess:old", 20)):
+            gid = conn.execute(tx.GAMES.insert().values(
+                platform="lichess", uuid=uuid, url="u", played_at=now - timedelta(days=days_ago), time_class="rapid",
+                time_control="600+0", rated=True, color="black", result="loss", opponent="x", pgn="",
+                inaccuracies=0, mistakes=1, blunders=0, analyzed_at=now, created_at=now)).inserted_primary_key[0]
+            conn.execute(tx.MOVES.insert().values(
+                game_id=gid, ply=40, move_number=20, san="Nc6", phase="middlegame", cp_before=-30, cp_after=-500,
+                cp_loss=470, win_loss=28.0, category="mistake", error_type="hanging_piece", best_move_san="Nxd3",
+                played_at=now - timedelta(days=days_ago), time_class="rapid", color="black", platform="lichess"))
+            conn.execute(tx.TACTICS.insert().values(
+                key=f"{uuid}#40", status="ready", game_uuid=uuid, ply=40, fen=fen, played_uci="e5c6", played_san="Nc6",
+                punish_uci="d4c6", solution="e5d3", solution_san="20...Nxd3", error_type="hanging_piece",
+                color="black", platform="lichess", time_class="rapid", played_at=now - timedelta(days=days_ago),
+                box=0, attempts=0, solved=0, priority=3.0))
+    no_engine = tx.Engine(None, 0.1)
+    sess = coach.week_session(eng, no_engine, tx.TacticSettings(), 0, now=now)
+    ok &= _check("Woche: nur die Aufgabe aus den letzten 7 Tagen", [i["key"] for i in sess["items"]] == ["lichess:wk1#40"]
+                 and sess["candidates"] == 1, str([i["key"] for i in sess["items"]]))
+    ok &= _check("Woche: mit Schritt 1 (Widerlegung)", sess["items"][0]["exercise"]["refute"] is not None)
+    old = coach.week_session(eng, no_engine, tx.TacticSettings(), 2, now=now)
+    ok &= _check("Woche: offset 2 findet die alte", [i["key"] for i in old["items"]] == ["lichess:old#40"])
+    wid = sess["week"]
+    ok &= _check("Woche: Aufgabe gehoert dazu, fremde nicht", coach.week_has(eng, wid, "lichess:wk1#40")
+                 and not coach.week_has(eng, wid, "lichess:old#40"))
+    today = date.today()
+    ok &= _check("Woche: erster Versuch zaehlt, zweiter nicht",
+                 coach.record_week(eng, wid, "lichess:wk1#40", False, today)
+                 and not coach.record_week(eng, wid, "lichess:wk1#40", True, today))
+    with eng.connect() as conn:
+        t = conn.execute(select(tx.TACTICS).where(tx.TACTICS.c.key == "lichess:wk1#40")).first()
+    ok &= _check("Woche: Wiederholung nachgefuehrt (Stufe 1, morgen)", t.box == 1 and t.due == today + timedelta(days=1)
+                 and t.attempts == 1, str((t.box, t.due, t.attempts)))
+    # Schon heute in der Tages-Session gezaehlt -> Leitner bleibt, Woche zaehlt trotzdem.
+    with eng.begin() as conn:
+        conn.execute(tx.TACTICS.update().where(tx.TACTICS.c.key == "lichess:old#40").values(last_seen=today, box=3))
+    coach.record_week(eng, old["week"], "lichess:old#40", True, today)
+    with eng.connect() as conn:
+        t = conn.execute(select(tx.TACTICS).where(tx.TACTICS.c.key == "lichess:old#40")).first()
+    ok &= _check("Woche: am selben Tag nicht doppelt fuer die Wiederholung", t.box == 3 and (t.attempts or 0) == 0)
+    ok &= _check("Woche: Schritt 1 erster Ausgang", coach.record_week_refute(eng, wid, "lichess:wk1#40", "good")
+                 and not coach.record_week_refute(eng, wid, "lichess:wk1#40", "bad"))
+    sess = coach.week_session(eng, no_engine, tx.TacticSettings(), 0, now=now)
+    it = sess["items"][0]
+    ok &= _check("Woche: Ergebnisse im Stand", it["result"] == "failed" and it["refute_result"] == "good"
+                 and sess["progress"]["exercises"] == 1)
+    return bool(ok)
+
+
 def select_games():
     from sqlmodel import select
 
@@ -2109,8 +2235,14 @@ def main() -> int:
     print("\n19) Coach: Fakten, Widerlegung, offene Aufgaben")
     coach_ok = test_coach()
 
+    print("\n20) Highlights: Momente einer Woche")
+    content_ok = test_content()
+
+    print("\n21) Wochen-Session")
+    week_ok = test_week_session()
+
     print("\n" + "=" * 66)
-    if (coach_ok and threat_ok and journey_ok and om_ok and scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
+    if (week_ok and content_ok and coach_ok and threat_ok and journey_ok and om_ok and scope_ok and study_ok and practice_ok and review_ok and helpers_ok and mapping_ok and lichess_ok and classification_ok
             and missed_ok and analysis_ok and tactics_ok and focus_ok and dup_ok and board_ok
             and online_ok):
         print("Alles in Ordnung.")

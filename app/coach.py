@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from collections import Counter
 from datetime import date, datetime, timedelta
 from typing import Any, Optional
@@ -44,9 +45,10 @@ from sqlalchemy.engine import Engine as DbEngine
 from . import analysis, practice
 from .analysis import MATERIAL_VALUES
 from .journey import CHECKLIST, checklist_point
-from .models import ChessCoachDay, ChessGame, ChessMove, ChessTactic, ChessTacticDay, utc_now
+from .models import ChessCoachDay, ChessGame, ChessMove, ChessTactic, ChessTacticDay, ChessWeekTask, utc_now
 from .tactics import (Engine, MoveError, TacticSettings, legal_moves, mate_for, puzzle_payload,
                       scope_where, win_for)
+from . import tactics as _tactics
 
 log = logging.getLogger(__name__)
 
@@ -324,7 +326,8 @@ def line_fact(board: chess.Board, line: list[chess.Move], us: chess.Color) -> Op
     for mv in line:
         if mv not in b.legal_moves:
             break
-        forcing = b.is_capture(mv) or mv.promotion is not None or b.gives_check(mv)
+        # Antwort auf Schach gehoert dazu: 23.Ke4 nach 22...Lg1+ ist erzwungen, nicht ruhig.
+        forcing = b.is_capture(mv) or mv.promotion is not None or b.gives_check(mv) or b.is_check()
         if shown and not forcing:
             break
         b.push(mv)
@@ -765,3 +768,187 @@ def history(db: DbEngine, today: date, days: int = 14) -> list[dict]:
         out.append({"day": day.isoformat(), "done": bool(results) and all(results),
                     "solved": sum(1 for r in (results or []) if r == "solved"), "total": len(results or [])})
     return out
+
+
+# ---------------------------------------------------------------------------
+# Wochen-Session: "Diese Woche trainieren" (seit 1.20)
+# ---------------------------------------------------------------------------
+WEEK = ChessWeekTask.__table__
+WEEK_MAX = 20
+_week_lock = threading.Lock()
+_week_status: dict[str, Any] = {"preparing": None}
+
+
+def week_window(offset: int = 0, now: Optional[datetime] = None, days: int = 7) -> tuple[datetime, datetime]:
+    """Derselbe Zeitraum wie im Highlights-Reiter (content.week)."""
+    now = now or utc_now()
+    end = now - timedelta(days=days * offset)
+    return end - timedelta(days=days), end
+
+
+def week_id(start: datetime) -> str:
+    return start.date().isoformat()
+
+
+def week_candidates(db: DbEngine, start: datetime, end: datetime, settings: Optional[TacticSettings]) -> list[dict]:
+    """Die ernsten Fehler (und verpassten Matts) aus den Partien des Zeitraums,
+    als Kandidaten fuer tactics.prepare - mit PGN, wie find_candidates."""
+    m, g = MOVES.c, GAMES.c
+    min_cp = settings.min_cp_before if settings else -300
+    with db.connect() as conn:
+        rows = conn.execute(
+            select(m.ply, m.category, m.error_type, m.missed_motif, m.mate_in, m.played_at, m.game_id, g.uuid,
+                   g.url, g.platform, g.time_class, g.color, g.opponent, g.pgn, g.played_at.label("gplayed"))
+            .select_from(MOVES.join(GAMES, g.id == m.game_id))
+            .where(g.played_at >= start, g.played_at < end,
+                   (m.category.in_(SERIOUS)) | (m.mate_in > 0), m.best_move_san.is_not(None),
+                   m.cp_before >= min_cp)
+            .order_by(g.played_at, m.ply)
+        ).all()
+    today = date.today()
+    out = []
+    for r in rows:
+        mate_in = r.mate_in if r.mate_in and r.mate_in > 0 else None
+        out.append({
+            "key": _tactics.tactic_key(r.uuid, r.ply), "game_id": r.game_id, "ply": r.ply, "category": r.category,
+            "error_type": r.error_type, "missed_motif": r.missed_motif, "mate_in": mate_in,
+            "priority": _tactics.priority(r.category, mate_in, r.missed_motif, r.error_type, r.played_at, today),
+            "game_uuid": r.uuid, "url": r.url, "played_at": r.gplayed, "platform": r.platform,
+            "time_class": r.time_class, "color": r.color, "opponent": r.opponent, "pgn": r.pgn,
+        })
+    return out
+
+
+def prepare_week(db: DbEngine, eng: Engine, settings: TacticSettings, cands: list[dict]) -> int:
+    """Rechnet Kandidaten ohne chess_tactic-Zeile nach. Gibt die Zahl der neu
+    gerechneten zurueck. Hoechstens ein Lauf gleichzeitig."""
+    if not eng.available or not _week_lock.acquire(blocking=False):
+        return 0
+    done = 0
+    try:
+        with db.connect() as conn:
+            known = {r[0] for r in conn.execute(select(TACTICS.c.key).where(TACTICS.c.key.in_([c["key"] for c in cands])))} if cands else set()
+        for cand in cands:
+            if cand["key"] in known:
+                continue
+            try:
+                row = _tactics.prepare(eng, cand, settings)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("Wochen-Aufgabe %s nicht vorbereitet: %s", cand["key"], exc)
+                row = {"key": cand["key"], "status": "unsuitable", "reason": f"error: {exc}"[:120], "ply": cand["ply"],
+                       "box": 0, "attempts": 0, "solved": 0, "prepared_at": utc_now()}
+            with db.begin() as conn:
+                _tactics.upsert(conn, TACTICS, row, ["key"])
+            done += 1
+        return done
+    finally:
+        _week_status["preparing"] = None
+        _week_lock.release()
+
+
+def week_session(db: DbEngine, eng: Engine, settings: TacticSettings, offset: int = 0,
+                 now: Optional[datetime] = None, background: bool = True) -> dict:
+    """Aufgaben aus den Partien des Zeitraums. Fehlende werden (im Hintergrund)
+    vorbereitet; die Seite fragt nach, solange `preparing` gesetzt ist."""
+    start, end = week_window(offset, now)
+    wid = week_id(start)
+    cands = week_candidates(db, start, end, settings)
+    keys = [c["key"] for c in cands]
+    with db.connect() as conn:
+        rows = {r.key: r for r in conn.execute(select(TACTICS).where(TACTICS.c.key.in_(keys)))} if keys else {}
+        results = {r.key: r for r in conn.execute(select(WEEK).where(WEEK.c.week == wid))}
+    missing = [c for c in cands if c["key"] not in rows]
+    preparing = False
+    if missing and eng.available:
+        if background:
+            if not _week_lock.locked():
+                _week_status["preparing"] = wid
+                threading.Thread(target=prepare_week, args=(db, eng, settings, missing), name="knightmare-week",
+                                 daemon=True).start()
+            preparing = True
+        else:
+            prepare_week(db, eng, settings, missing)
+            return week_session(db, eng, settings, offset, now, background=False)
+    ready = [r for r in rows.values() if r.status == "ready"]
+    # Gleiche Stellung nur einmal (derselbe Eroeffnungsfehler in zwei Partien).
+    seen: set[str] = set()
+    picked = []
+    for r in sorted(ready, key=lambda r: (-(r.priority or 0), r.key)):
+        pk = _tactics.position_key(r.fen)
+        if pk and pk in seen:
+            continue
+        seen.add(pk)
+        picked.append(r)
+        if len(picked) >= WEEK_MAX:
+            break
+    picked.sort(key=lambda r: (r.played_at or datetime.min, r.ply or 0))
+    items = []
+    for pos, r in enumerate(picked):
+        res = results.get(r.key)
+        items.append({"key": r.key, "pos": pos, "result": res.result if res else None,
+                      "refute_result": res.refute_result if res else None,
+                      "exercise": exercise_payload(db, eng, r), "explain": None})
+    return {
+        "mode": "week", "week": wid, "offset": offset, "start": start.isoformat(), "end": end.isoformat(),
+        "items": items, "candidates": len(cands), "preparing": preparing or _week_status["preparing"] == wid,
+        "engine": eng.available,
+        "progress": {"exercises": sum(1 for i in items if i["result"]), "exercises_total": len(items),
+                     "solved": sum(1 for i in items if i["result"] == "solved"),
+                     "refute_good": sum(1 for i in items if i["refute_result"] == "good"),
+                     "refute_total": sum(1 for i in items if i["exercise"]["refute"] or i["refute_result"])},
+    }
+
+
+def week_has(db: DbEngine, week: str, key: str) -> bool:
+    """Gehoert die Aufgabe zu einer Partie dieses Zeitraums? (week = Starttag)"""
+    try:
+        start = datetime.fromisoformat(week)
+    except ValueError:
+        return False
+    with db.connect() as conn:
+        row = conn.execute(select(TACTICS.c.game_uuid, TACTICS.c.status).where(TACTICS.c.key == key)).first()
+        if row is None or row.status != "ready":
+            return False
+        game = conn.execute(select(GAMES.c.played_at).where(GAMES.c.uuid == row.game_uuid)).first()
+    if game is None:
+        return False
+    # Rollende Fenster beginnen mitten am Tag: einen Tag Spielraum nach vorn.
+    return start - timedelta(days=1) <= game.played_at <= start + timedelta(days=8)
+
+
+def week_result(db: DbEngine, week: str, key: str):
+    with db.connect() as conn:
+        return conn.execute(select(WEEK).where(WEEK.c.week == week, WEEK.c.key == key)).first()
+
+
+def record_week(db: DbEngine, week: str, key: str, solved: bool, today: date) -> bool:
+    """Erster Versuch in der Wochen-Session zaehlt - auch fuer die Wiederholung
+    (Leitner), ausser die Aufgabe wurde heute schon gezaehlt (Tages-Session)."""
+    with db.begin() as conn:
+        row = conn.execute(select(WEEK).where(WEEK.c.week == week, WEEK.c.key == key)).first()
+        if row is not None and row.result:
+            return False
+        value = "solved" if solved else "failed"
+        if row is None:
+            conn.execute(WEEK.insert().values(week=week, key=key, result=value, updated_at=utc_now()))
+        else:
+            conn.execute(update(WEEK).where(WEEK.c.week == week, WEEK.c.key == key).values(result=value, updated_at=utc_now()))
+        t = conn.execute(select(TACTICS).where(TACTICS.c.key == key)).first()
+        if t is not None and t.last_seen != today:
+            box, due = _tactics.schedule(t.box or 0, solved, today)
+            conn.execute(update(TACTICS).where(TACTICS.c.key == key).values(
+                box=box, due=due, attempts=(t.attempts or 0) + 1, solved=(t.solved or 0) + (1 if solved else 0),
+                last_seen=today, last_result=value, updated_at=utc_now()))
+    return True
+
+
+def record_week_refute(db: DbEngine, week: str, key: str, result: str) -> bool:
+    with db.begin() as conn:
+        row = conn.execute(select(WEEK).where(WEEK.c.week == week, WEEK.c.key == key)).first()
+        if row is not None and row.refute_result:
+            return False
+        if row is None:
+            conn.execute(WEEK.insert().values(week=week, key=key, refute_result=result, updated_at=utc_now()))
+        else:
+            conn.execute(update(WEEK).where(WEEK.c.week == week, WEEK.c.key == key).values(refute_result=result, updated_at=utc_now()))
+    return True

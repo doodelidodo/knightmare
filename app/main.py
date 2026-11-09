@@ -29,7 +29,7 @@ from sqlalchemy import select as sa_select
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
-from . import __version__, coach, focus, journey, practice, progress, repertoire, review, stats, tactics
+from . import __version__, coach, content, focus, journey, practice, progress, repertoire, review, stats, tactics
 from .analysis import ERROR_LABELS, MISSED_LABELS
 from .config import (
     SETUP_KEYS,
@@ -900,11 +900,13 @@ class TacticMoveBody(BaseModel):
     day: date
     key: str = Field(max_length=90)
     moves: list[str] = Field(min_length=1, max_length=20)
+    week: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")  # Wochen-Session (seit 1.20)
 
 
 class TacticRevealBody(BaseModel):
     day: date
     key: str = Field(max_length=90)
+    week: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")  # Wochen-Session (seit 1.20)
 
 
 def _tactic_for_day(conn, day: date, key: str):
@@ -915,6 +917,25 @@ def _tactic_for_day(conn, day: date, key: str):
     if row is None or row.status != "ready":
         raise HTTPException(status_code=404, detail="not_found")
     return row
+
+
+def _tactic_row(day: date, key: str, week: Optional[str]):
+    """Aufgabe aus der Tagesauswahl - oder, mit week, aus der Wochen-Session."""
+    if week:
+        if not coach.week_has(db_engine, week, key):
+            raise HTTPException(status_code=404, detail="not_in_week")
+        with db_engine.connect() as conn:
+            return conn.execute(sa_select(tactics.TACTICS).where(tactics.TACTICS.c.key == key)).first()
+    with db_engine.connect() as conn:
+        return _tactic_for_day(conn, day, key)
+
+
+def _finish_week(day: date, week: str, key: str, solved: bool) -> dict[str, object]:
+    counted = coach.record_week(db_engine, week, key, solved, day)
+    with db_engine.connect() as conn:
+        row = conn.execute(sa_select(tactics.TACTICS).where(tactics.TACTICS.c.key == key)).first()
+    return {"counted": counted, "day_complete": False, "explain": tactics.explanation(row),
+            "box": row.box, "due": row.due.isoformat() if row.due else None}
 
 
 def _day_complete(conn, day: date) -> bool:
@@ -939,12 +960,18 @@ def tactics_move(body: TacticMoveBody) -> dict[str, object]:
     Aufdecken an den Browser."""
     trainer = tactics.get_trainer()
     day = _tactic_day(body.day)
-    with db_engine.connect() as conn:
-        row = _tactic_for_day(conn, day, body.key)
+    row = _tactic_row(day, body.key, body.week)
     try:
         res = tactics.check_move(trainer.engine, row, body.moves, trainer.settings)
     except tactics.MoveError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
+    if body.week:
+        if res["result"] in ("solved", "wrong"):
+            fin = _finish_week(day, body.week, body.key, res["result"] == "solved")
+            res["counted"] = fin["counted"]
+            if res["result"] == "solved":
+                res.update(fin)
+        return res
     if res["result"] == "solved":
         res.update(_finish(day, body.key, True))
     elif res["result"] == "wrong":
@@ -959,8 +986,9 @@ def tactics_move(body: TacticMoveBody) -> dict[str, object]:
 @api.post("/tactics/reveal")
 def tactics_reveal(body: TacticRevealBody) -> dict[str, object]:
     day = _tactic_day(body.day)
-    with db_engine.connect() as conn:
-        _tactic_for_day(conn, day, body.key)
+    _tactic_row(day, body.key, body.week)
+    if body.week:
+        return _finish_week(day, body.week, body.key, False)
     return _finish(day, body.key, False)
 
 
@@ -1099,8 +1127,48 @@ def woodpecker_move(body: WoodMoveBody) -> dict[str, object]:
 
 
 # --------------------------------------------------------------------------
+# Fuers Video: die letzten 7 Tage als Momente (seit 1.19)
+# --------------------------------------------------------------------------
+@api.get("/content/week")
+def content_week(
+    offset: int = Query(default=0, ge=0, le=104),
+    days: int = Query(default=7, ge=1, le=31),
+    time_class: Optional[str] = TimeClassParam,
+    platform: Optional[str] = PlatformParam,
+    session: Session = Depends(get_session),
+) -> dict[str, object]:
+    return content.week(session, time_class=_clean_time_class(time_class),
+                        platform=_clean_platform(platform), offset=offset, days=days)
+
+
+@api.get("/content/moment/{move_id}")
+def content_moment(move_id: int, session: Session = Depends(get_session)) -> dict[str, object]:
+    """Stellung, Stockfish-Varianten und Export fuer ein Reel. Rechnet mit
+    der Trainings-Engine (eigener Prozess); online ohne Engine."""
+    eng = None if current_settings().online_mode else tactics.get_trainer().engine
+    result = content.moment(session, move_id, eng)
+    if not result.get("found"):
+        raise HTTPException(status_code=404, detail="move_not_found")
+    return result
+
+
+# --------------------------------------------------------------------------
 # Coach: die gefuehrte Tages-Session (seit 1.18)
 # --------------------------------------------------------------------------
+@api.get("/coach/week")
+def coach_week(offset: int = Query(default=0, ge=0, le=104)) -> dict[str, object]:
+    """Wochen-Session: die Fehler aus den Partien der letzten 7 Tage (bzw.
+    offset Zeitraeume zurueck) als Aufgaben im Coach-Format."""
+    if current_settings().online_mode:
+        return {"mode": "week", "items": [], "preparing": False, "engine": False, "problem": "disabled"}
+    trainer = tactics.get_trainer()
+    if not trainer.enabled:
+        return {"mode": "week", "items": [], "preparing": False, "engine": False, "problem": "disabled"}
+    data = coach.week_session(db_engine, trainer.engine, trainer.settings, offset)
+    data["problem"] = None if trainer.engine.available else "no_engine"
+    return data
+
+
 @api.get("/coach/today")
 def coach_today(day: Optional[date] = Query(default=None)) -> dict[str, object]:
     """Lektion, Aufgaben in zwei Schritten, Verwertung, Stand des Tages.
@@ -1137,6 +1205,7 @@ class RefuteBody(BaseModel):
     key: str = Field(max_length=90)
     uci: str = Field(default="", max_length=5)
     reveal: bool = False
+    week: Optional[str] = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")  # Wochen-Session (seit 1.20)
 
 
 @api.post("/coach/refute")
@@ -1146,27 +1215,33 @@ def coach_refute(body: RefuteBody) -> dict[str, object]:
     haengt weiter nur an Schritt 2."""
     trainer = tactics.get_trainer()
     day = _tactic_day(body.day)
-    with db_engine.connect() as conn:
-        row = _tactic_for_day(conn, day, body.key)
+    row = _tactic_row(day, body.key, body.week)
     if not row.punish_uci:
         coach.ensure_punish(db_engine, trainer.engine, row)
-        with db_engine.connect() as conn:
-            row = _tactic_for_day(conn, day, body.key)
+        row = _tactic_row(day, body.key, body.week)
     try:
         res = coach.reveal_refutation(row, trainer.engine) if body.reveal else coach.check_refutation(trainer.engine, row, body.uci)
     except tactics.MoveError as exc:
         raise HTTPException(status_code=400, detail=exc.code) from exc
     outcome = {"good": "good", "bad": "bad", "revealed": "revealed"}[res["result"]]
-    res["counted"] = coach.record_refute(db_engine, day, body.key, outcome)
+    res["counted"] = (coach.record_week_refute(db_engine, body.week, body.key, outcome) if body.week
+                      else coach.record_refute(db_engine, day, body.key, outcome))
     return res
 
 
 @api.get("/coach/explain")
-def coach_explain(day: date, key: str = Query(max_length=90)) -> dict[str, object]:
+def coach_explain(day: date, key: str = Query(max_length=90),
+                  week: Optional[str] = Query(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")) -> dict[str, object]:
     """Die Erklaerung zu einer Aufgabe - erst, wenn sie geloest oder
     aufgedeckt ist (sonst stuende die Loesung vorher im Netzwerk)."""
     d = _tactic_day(day)
     trainer = tactics.get_trainer()
+    if week:
+        row = _tactic_row(d, key, week)
+        state = coach.week_result(db_engine, week, key)
+        if state is None or state.result is None:
+            raise HTTPException(status_code=409, detail="not_finished")
+        return coach.explain(db_engine, trainer.engine, row)
     with db_engine.connect() as conn:
         row = _tactic_for_day(conn, d, key)
         D = tactics.DAYS

@@ -124,6 +124,49 @@ in English and German. No language model, nothing leaves your computer.
 Puzzles are prepared after each run from the mistakes found, about a second of
 engine time per candidate, in a separate low-resource Stockfish process.
 
+## Highlights: the week as material for videos and reels
+
+The **Highlights** tab looks at the last 7 days (step back week by week) and
+ranks the moments that carry a story — not the most instructive mistakes, the
+ones with drama:
+
+| Moment | When |
+| --- | --- |
+| **Collapse** | You were clearly better (65%+) and gave away 30+ points in one move. |
+| **Missed mate** | A forced mate (up to 5) was on the board. |
+| **Missed tactic** | A fork, discovered attack, skewer or pin was there, and you made a mistake instead. |
+| **Punished** | Your opponent gave away 20+ points and your very next move took it. |
+| **Not punished** | … and your next move gave it straight back. |
+| **Comeback** | Won or drawn from 20% or less. |
+| **Clock drama** | Lost on time in a winning position, or saved by the clock. |
+
+Opponent moves are not stored, but their effect is: the jump between the
+evaluation after your move and before your next one. At most two moments per
+game, strongest first.
+
+Each moment comes with the position on a board (your move, Stockfish's move,
+the refutation), Stockfish's lines with the material balance, a hook and a
+caption suggestion, and buttons to copy the hook, the FEN, or the whole moment
+as JSON for a reel script (FEN, moves in SAN and UCI, evaluations, link). On
+top: the week in numbers and a rough outline for a video. "Last 7 days" is
+also a period on the analysis tab now.
+
+### Present it live — and train it
+
+**▶ Present live** turns the highlights into a full-screen show in landscape,
+made for recording or streaming with OBS. A title card with the week in numbers,
+then each moment in up to three steps: the **puzzle** (position, side to move,
+a question for the viewers — press `C` for a 10-second countdown), **my move**
+(animated, with the reply that punished it), and **Stockfish** (the better line,
+animated). `Space`/`→` next, `←` back, `R` replay, `F` full screen, `Esc` exit;
+clicking the right or left half of the screen works too.
+
+**🎯 Train this week** puts the mistakes from those 7 days into the Training
+tab as their own session — the same two steps as every day (his answer, your
+move, then the explanation). Missing puzzles are prepared in the background.
+The first attempt counts for spaced repetition too, unless the puzzle was
+already counted in today's daily session.
+
 ## See it on the board
 
 Every mistake in every list has a **Show board** link. It opens a small board
@@ -425,6 +468,9 @@ GET  /api/repertoire/leaks?color=black        # opening mistakes you repeat
 GET  /api/repertoire/tree?color=white&key=... # explorer over your own games
 POST /api/repertoire/check                    # drill: is this move good enough here?
 GET  /api/progress                            # month by month: accuracy, conversion, habits
+GET  /api/content/week?offset=0              # highlights of the last 7 days
+GET  /api/content/moment/{move_id}            # position, Stockfish lines, reel export
+GET  /api/coach/week?offset=0                 # this week's mistakes as a session (solve with week=…)
 GET  /api/coach/today  /api/coach/explain   POST /api/coach/refute  /api/coach/lesson  /api/coach/finish
 GET  /api/practice/convert   POST /api/practice/convert/move  /api/practice/convert/giveup
 GET  /api/woodpecker   POST /api/woodpecker/start  /api/woodpecker/move

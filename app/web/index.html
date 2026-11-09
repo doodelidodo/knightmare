@@ -322,6 +322,7 @@
   .co-ex .mini { width: 100%; }
   .co-tip { padding: 10px 12px; border-radius: 11px; border-left: 3px solid var(--accent); background: var(--surface-soft); margin: 10px 0; font-size: 0.92rem; }
   .co-done { text-align: center; padding: 10px 0 4px; }
+  .co-rail .co-back { margin-left: auto; background: transparent; }
   .co-done .big { font-size: 34px; }
   .co-done h3 { margin: 6px 0 2px; font-size: 1.3rem; color: var(--heading); }
   .co-hist { display: flex; gap: 4px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
@@ -331,6 +332,64 @@
   .co-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.86rem; color: var(--muted); margin: 4px 0 8px; }
   .co-extra { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
   @media (max-width: 480px) { .co-lesson .q { font-size: 1.25rem; } }
+  /* --- Highlights (seit 1.19) ------------------------------------------- */
+  .wk-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 12px; }
+  .wk-nav .grow { flex: 1; }
+  .wk-tiles { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 6px 0 14px; }
+  .wk-tiles .kpi { padding: 12px 14px; }
+  .wk-video { padding: 12px 14px; border-radius: 12px; background: var(--surface-soft); margin: 4px 0 16px; }
+  .wk-video h3 { margin: 0; font-size: 1rem; color: var(--heading); }
+  .wk-video ol { margin: 8px 0 0; padding-left: 22px; font-size: 0.92rem; }
+  .wk-video li { margin: 3px 0; }
+  .wk-list { display: grid; gap: 14px; }
+  .wk-m { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px; padding: 14px;
+          border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  .wk-board .mini { width: 100%; }
+  .wk-text p { margin: 4px 0; font-size: 0.92rem; }
+  .wk-hook { margin: 6px 0 2px; font-size: 1.2rem; color: var(--heading); line-height: 1.3; }
+  .wk-kind { display: inline-block; font-size: 0.76rem; font-weight: 700; border-radius: 999px; padding: 2px 10px;
+             border: 1px solid var(--border); color: var(--muted); }
+  .wk-kind.k-collapse, .wk-kind.k-unpunished { color: var(--bad); border-color: var(--bad); }
+  .wk-kind.k-punished, .wk-kind.k-comeback { color: var(--good); border-color: var(--good); }
+  .wk-kind.k-missed_mate, .wk-kind.k-missed_tactic, .wk-kind.k-clock { color: var(--accent); border-color: var(--accent); }
+  .wk-cap { font-style: italic; }
+  .wk-text .tac-actions { margin-top: 10px; }
+  .wk-text .tac-actions .btn { font-size: 0.82rem; padding: 6px 10px; text-decoration: none; }
+  .wk-table { overflow-x: auto; }
+  .wk-table table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .wk-table th, .wk-table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .wk-table .res-win { color: var(--good); } .wk-table .res-loss { color: var(--bad); }
+  @media (max-width: 640px) { .wk-m { grid-template-columns: 1fr; } }
+  /* --- Praesentationsmodus (seit 1.20) ---------------------------------- */
+  .wk-live { flex-basis: 100%; display: flex; gap: 8px; flex-wrap: wrap; }
+  .live { position: fixed; inset: 0; z-index: 80; background: var(--bg); color: var(--text); display: flex;
+          flex-direction: column; justify-content: center; outline: none; cursor: default; user-select: none; }
+  .live-wait { text-align: center; font-size: 1.4rem; color: var(--muted); }
+  .live-progress { position: absolute; top: 0; left: 0; right: 0; height: 5px; background: var(--border); }
+  .live-progress i { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+  .live-keys { position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 0.78rem; color: var(--muted); opacity: 0.7; }
+  .live-stage { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4vw; align-items: center; padding: 3vh 5vw; }
+  .live-board .mini { width: min(84vh, 54vw); border-radius: 10px; box-shadow: var(--shadow); }
+  .live-side { font-size: clamp(1rem, 1.6vw, 1.6rem); }
+  .live-side .wk-kind { font-size: 0.8em; padding: 4px 14px; }
+  .live-meta { color: var(--muted); margin: 10px 0 14px; font-size: 0.8em; }
+  .live-steps { margin-bottom: 18px; font-size: 0.7em; }
+  .live-ask { font-size: 1.7em; font-weight: 800; color: var(--heading); line-height: 1.2; margin: 6px 0 12px; }
+  .live-sub { color: var(--muted); margin: 6px 0; }
+  .live-good { color: var(--good); font-weight: 700; } .live-bad { color: var(--bad); font-weight: 700; font-size: 1.2em; }
+  .live-facts { padding-left: 1.2em; margin: 8px 0; } .live-facts li { margin: 4px 0; }
+  .live-cd { margin-top: 3vh; display: flex; align-items: baseline; gap: 16px; }
+  .live-cd b { font-size: 4.5em; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .live-cd span { color: var(--muted); font-size: 1.1em; }
+  .live-card { text-align: center; padding: 4vh 6vw; }
+  .live-card h1 { font-size: clamp(2.4rem, 6vw, 5.5rem); margin: 8px 0; color: var(--heading); }
+  .live-brand { color: var(--accent); font-weight: 800; letter-spacing: 0.05em; font-size: clamp(1rem, 1.8vw, 1.6rem); }
+  .live-big { font-size: clamp(1.4rem, 2.6vw, 2.4rem); color: var(--heading); max-width: 26em; margin: 2vh auto; }
+  .live-tiles { display: flex; justify-content: center; gap: 2vw; flex-wrap: wrap; margin-top: 5vh; }
+  .live-tile { min-width: 12vw; padding: 2.2vh 2vw; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); }
+  .live-tile b { display: block; font-size: clamp(2rem, 4.4vw, 4.2rem); color: var(--heading); line-height: 1.05; }
+  .live-tile span { color: var(--muted); font-size: clamp(0.8rem, 1.2vw, 1.1rem); }
+  @media (max-aspect-ratio: 1/1) { .live-stage { grid-template-columns: 1fr; } .live-board .mini { width: min(92vw, 58vh); margin: 0 auto; } }
   .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: var(--heading);
            color: var(--bg); padding: 9px 16px; border-radius: 10px; font-size: 0.9rem; opacity: 0;
            transition: opacity 0.2s; pointer-events: none; z-index: 60; max-width: calc(100% - 32px); }
@@ -513,6 +572,7 @@
   <nav class="tabs" id="tabs">
     <button class="tab" type="button" data-view="journey" id="tabJourney"></button>
     <button class="tab" type="button" data-view="analyse" id="tabAnalyse"></button>
+    <button class="tab" type="button" data-view="week" id="tabWeek"></button>
     <button class="tab" type="button" data-view="games" id="tabGames"></button>
     <button class="tab" type="button" data-view="openings" id="tabOpenings"></button>
     <button class="tab" type="button" data-view="train" id="tabTrain"></button>
@@ -539,6 +599,15 @@
     <div class="two">
       <div class="card"><h2 id="jrTrendTitle"></h2><p class="muted" id="jrTrendIntro"></p><div id="jrTrend"></div></div>
       <div class="card"><h2 id="jrVideoTitle"></h2><p class="muted" id="jrVideoIntro"></p><div id="jrVideo"></div></div>
+    </div>
+  </div>
+
+  <div id="viewWeek" hidden>
+    <div class="card">
+      <h2 id="wkTitle"></h2>
+      <p class="muted" id="wkIntro"></p>
+      <div class="wk-nav" id="wkNav"></div>
+      <div id="wkBody"></div>
     </div>
   </div>
 
@@ -691,7 +760,7 @@ const I18N = {
     noData: (m) => `Could not load data: ${m}`,
     gameType: "Game type", period: "Period", all: "All", platform: "Platform",
     onlineHome: "Start another analysis", privacy: "Privacy",
-    d30: "Last 30 days", d90: "Last 90 days", dAll: "All time",
+    d7: "Last 7 days", d30: "Last 30 days", d90: "Last 90 days", dAll: "All time",
     ultrabullet: "UltraBullet", bullet: "Bullet", blitz: "Blitz", rapid: "Rapid",
     classical: "Classical", daily: "Daily",
     chesscom: "Chess.com", lichess: "Lichess", pgn: "PGN",
@@ -838,7 +907,7 @@ const I18N = {
     noData: (m) => `Daten nicht abrufbar: ${m}`,
     gameType: "Partieart", period: "Zeitraum", all: "Alle", platform: "Plattform",
     onlineHome: "Weitere Analyse starten", privacy: "Datenschutz",
-    d30: "Letzte 30 Tage", d90: "Letzte 90 Tage", dAll: "Alles",
+    d7: "Letzte 7 Tage", d30: "Letzte 30 Tage", d90: "Letzte 90 Tage", dAll: "Alles",
     ultrabullet: "UltraBullet", bullet: "Bullet", blitz: "Blitz", rapid: "Rapid",
     classical: "Klassisch", daily: "Täglich",
     chesscom: "Chess.com", lichess: "Lichess", pgn: "PGN",
@@ -1016,7 +1085,7 @@ function weeklyQuery() {
   if (platform !== "all") parts.push("platform=" + platform);
   return parts.length ? "?" + parts.join("&") : "";
 }
-const RANGES = { "30": 30, "90": 90, "all": null };
+const RANGES = { "7": 7, "30": 30, "90": 90, "all": null };
 
 // Relative Pfade: funktioniert unter / genauso wie hinter /chess/
 async function api(path) {
@@ -1229,6 +1298,7 @@ function render() {
   renderGamesView();
   renderOpeningsView();
   renderJourney();
+  renderWeekView();
   renderProgress();
   renderFooter();
   renderTabs();
@@ -1270,7 +1340,7 @@ function renderFilters() {
 
   document.getElementById("rangeChips").innerHTML =
     `<span class="label">${L.period}</span>` +
-    [["30", L.d30], ["90", L.d90], ["all", L.dAll]].map(([k, label]) =>
+    [["7", L.d7], ["30", L.d30], ["90", L.d90], ["all", L.dAll]].map(([k, label]) =>
       `<button class="chip ${range === k ? "on" : ""}" data-range="${k}">${label}</button>`).join("");
 
   document.getElementById("colorChips").innerHTML =
@@ -1904,7 +1974,7 @@ I18N.de.tr = {
 };
 const tr = () => I18N[lang].tr;
 
-const VIEWS = ["journey", "analyse", "games", "openings", "train"];
+const VIEWS = ["journey", "analyse", "week", "games", "openings", "train"];
 let view = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : store.get("knightmare.view", "journey");
 if (!VIEWS.includes(view)) view = "journey";
 
@@ -1916,6 +1986,8 @@ function renderTabs() {
   document.getElementById("tabJourney").textContent = tj().tab;
   document.getElementById("viewJourney").hidden = view !== "journey";
   document.getElementById("tabGames").textContent = tx().tabGames;
+  document.getElementById("tabWeek").textContent = tw().tab;
+  document.getElementById("viewWeek").hidden = view !== "week";
   document.getElementById("tabOpenings").textContent = tx().tabOpenings;
   document.getElementById("tabTrain").innerHTML = esc(L.tabTrain) +
     (items.length ? `<span class="badge">${done}/${items.length}</span>` : "");
@@ -1927,7 +1999,7 @@ function renderTabs() {
   // Filter gehoeren zu den Auswertungen - im Training nur Laerm.
   ["platformChips", "classChips", "rangeChips"].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.hidden = view === "train" || (view === "journey" && id === "rangeChips");
+    if (el) el.hidden = view === "train" || ((view === "journey" || view === "week") && id === "rangeChips");
   });
 }
 
@@ -1941,6 +2013,7 @@ function setView(v) {
   if (v === "games") renderGamesView();
   if (v === "openings") renderOpeningsView();
   if (v === "journey") renderJourney();
+  if (v === "week") renderWeekView();
 }
 
 document.getElementById("tabs").addEventListener("click", (e) => {
@@ -3327,10 +3400,18 @@ const I18N_C = {
       last30: (p) => `30 days: ${p} % solved at first try`,
       allDone: "All puzzles done — see you tomorrow.",
     },
+    wk: {
+      title: "Train your week", introShort: "Your mistakes of the last 7 days as puzzles.",
+      intro: (a, b) => `Your mistakes from ${a} to ${b} as puzzles — the same two steps as every day. The first attempt counts for the review schedule too.`,
+      none: "No mistakes in these 7 days that make a real puzzle. Good week!",
+      head: (d, n, p) => `${d}/${n} done` + (p ? " · more are being prepared…" : ""),
+      back: "← Back to today's session", start: "Train last week →",
+      doneTitle: "Week trained", doneSub: "Missed ones come back in your daily session tomorrow.",
+    },
     errors: { expected_own_move: "That is not your move.", sequence_mismatch: "The position is out of sync — reload the page.",
               unknown_move: "Unknown move.", illegal_move: "Illegal move.", not_in_day: "This puzzle is not part of today.",
               not_found: "Puzzle not found.", day_out_of_range: "Date out of range — reload the page.", no_refute_step: "No reply to find here.",
-              no_engine: "No engine available.", not_finished: "Solve it first." },
+              no_engine: "No engine available.", not_finished: "Solve it first.", not_in_week: "This puzzle is not from that week." },
   },
   de: {
     title: "Deine Session heute", tabTrain: "Training",
@@ -3452,28 +3533,59 @@ const I18N_C = {
       last30: (p) => `30 Tage: ${p} % auf Anhieb gelöst`,
       allDone: "Alle Aufgaben erledigt – bis morgen.",
     },
+    wk: {
+      title: "Deine Woche trainieren", introShort: "Deine Fehler der letzten 7 Tage als Aufgaben.",
+      intro: (a, b) => `Deine Fehler vom ${a} bis ${b} als Aufgaben – dieselben zwei Schritte wie jeden Tag. Der erste Versuch zählt auch für die Wiederholung.`,
+      none: "Keine Fehler in diesen 7 Tagen, aus denen eine echte Aufgabe wird. Gute Woche!",
+      head: (d, n, p) => `${d}/${n} erledigt` + (p ? " · weitere werden vorbereitet …" : ""),
+      back: "← Zurück zur Tages-Session", start: "Letzte Woche trainieren →",
+      doneTitle: "Woche durchtrainiert", doneSub: "Verfehlte kommen ab morgen in deiner Tages-Session wieder.",
+    },
     errors: { expected_own_move: "Das ist nicht dein Zug.", sequence_mismatch: "Die Stellung ist aus dem Takt – Seite neu laden.",
               unknown_move: "Unbekannter Zug.", illegal_move: "Ungültiger Zug.", not_in_day: "Diese Aufgabe gehört nicht zu heute.",
               not_found: "Aufgabe nicht gefunden.", day_out_of_range: "Datum ausserhalb des Bereichs – Seite neu laden.", no_refute_step: "Hier gibt es keine Antwort zu finden.",
-              no_engine: "Keine Engine da.", not_finished: "Erst lösen." },
+              no_engine: "Keine Engine da.", not_finished: "Erst lösen.", not_in_week: "Diese Aufgabe stammt nicht aus dieser Woche." },
   },
 };
 const tc = () => I18N_C[lang];
 const POINT_INDEX = { threat: 1, chance: 2, safe: 3, reply: 4 };
 
 // Zustand der Session und des einen Bretts.
-const co = { data: null, error: null, poll: null, stage: null, idx: 0, ex: null, cv: null, boards: new Map() };
+const co = { data: null, error: null, poll: null, stage: null, idx: 0, ex: null, cv: null, boards: new Map(),
+             mode: "day", weekOffset: 0 };
+// Koerper fuer die Loese-Aufrufe: Tag immer, in der Wochen-Session dazu die Woche.
+function cbody(o) {
+  return { ...o, day: co.data ? co.data.day : localDay(), ...(co.mode === "week" && co.data ? { week: co.data.week } : {}) };
+}
+function weekQs() { return co.mode === "week" && co.data ? "&week=" + co.data.week : ""; }
 const bd = { board: null, white: true, legal: [], sel: null, last: null, marks: {}, hl: [], arrows: [], mover: "white", active: false, onMove: null };
 // Alte Namen, die der Rest der Seite benutzt.
 const tac = { get data() { return co.data; }, get pos() { return co.ex; } };
 
 function loadTactics(keep = false) { return loadCoach(keep); }
 
+async function startWeekTraining(offset) {
+  co.mode = "week"; co.weekOffset = offset || 0;
+  co.data = null; co.ex = null; co.stage = null;
+  if (view !== "train") setView("train"); else renderTraining();
+  await loadCoach();
+}
+function backToDay() {
+  co.mode = "day"; co.data = null; co.ex = null; co.stage = null;
+  renderTraining();
+  loadCoach();
+}
+
 async function loadCoach(keep = false) {
   clearTimeout(co.poll);
   let d;
   try {
-    d = await api("coach/today?day=" + localDay());
+    if (co.mode === "week") {
+      d = await api("coach/week?offset=" + co.weekOffset);
+      d.day = localDay();
+    } else {
+      d = await api("coach/today?day=" + localDay());
+    }
     co.error = null;
   } catch (err) {
     co.error = err.message;
@@ -3482,7 +3594,7 @@ async function loadCoach(keep = false) {
     return;
   }
   const prevKey = keep && co.ex ? co.ex.item.key : null;
-  const newDay = !co.data || co.data.day !== d.day;
+  const newDay = !co.data || co.data.day !== d.day || co.data.week !== d.week;
   co.data = d;
   renderTabs();
   if (!d.items.length) {
@@ -3491,6 +3603,7 @@ async function loadCoach(keep = false) {
     if (view === "train") renderTraining();
     return;
   }
+  if (co.mode === "week" && d.preparing) co.poll = setTimeout(() => loadCoach(true), 5000);
   if (prevKey && !newDay) {
     // Die laufende Aufgabe behalten, nur Zaehler auffrischen.
     const item = d.items.find((i) => i.key === prevKey);
@@ -3527,8 +3640,9 @@ function setStage(s) {
 // Alles im Training neu zeichnen - nach Sprachwechsel oder Reiterwechsel.
 function renderTraining() {
   const L = tc(), d = co.data;
-  $id("coTitle").textContent = L.title;
-  $id("coIntro").textContent = L.intro;
+  const week = co.mode === "week";
+  $id("coTitle").textContent = week ? L.wk.title : L.title;
+  $id("coIntro").textContent = week ? (d && d.start ? L.wk.intro(date(d.start), date(d.end)) : L.wk.introShort) : L.intro;
   $id("coIntro").hidden = !!(d && d.items.length && co.stage && co.stage !== "lesson");
   renderRail();
   renderHead();
@@ -3540,9 +3654,10 @@ function renderTraining() {
     if (d.problem === "disabled") html = esc(L.disabled);
     else if (d.problem === "no_engine") html = esc(L.noEngine);
     else if (d.preparing) html = `${esc(L.preparing)}<br><span class="muted">${esc(L.preparingSub)}</span>`;
+    else if (co.mode === "week") html = esc(L.wk.none);
     else if (d.problem === "failed") html = esc(L.failed(d.error || ""));
     else html = esc(L.none);
-    body.innerHTML = `<div class="tac-empty">${html}</div>`;
+    body.innerHTML = `<div class="tac-empty">${html}</div>` + (co.mode === "week" ? `<div class="tac-actions" style="justify-content:center"><button type="button" class="btn" data-co="backDay">${esc(L.wk.back)}</button></div>` : "");
     return;
   }
   if (!co.stage) co.stage = pickStage(d);
@@ -3556,6 +3671,7 @@ function renderHead() {
   const L = tc(), d = co.data;
   const el = $id("coHead");
   if (!d || !d.items.length) { el.textContent = ""; return; }
+  if (co.mode === "week") { el.textContent = L.wk.head(d.items.filter((i) => i.result).length, d.items.length, d.preparing); return; }
   const done = d.items.filter((i) => i.result).length;
   el.textContent = L.head(done, d.items.length, d.stats ? d.stats.streak : 0);
 }
@@ -3570,7 +3686,9 @@ function renderRail() {
   if (d.convert) steps.push({ id: "convert", label: L.rail.convert, done: !!d.convert.result });
   steps.push({ id: "done", label: L.rail.done, done: d.finished });
   el.innerHTML = steps.map((s, i) =>
-    `<button type="button" data-stage="${s.id}" class="${co.stage === s.id ? "on" : ""} ${s.done ? "done" : ""}"><span class="n">${s.done ? "✓" : i + 1}</span>${esc(s.label)}</button>`).join("");
+    `<button type="button" data-stage="${s.id}" class="${co.stage === s.id ? "on" : ""} ${s.done ? "done" : ""}"><span class="n">${s.done ? "✓" : i + 1}</span>${esc(s.label)}</button>`).join("") +
+    (co.mode === "week" ? `<button type="button" data-co="backDay" class="co-back">${esc(L.wk.back)}</button>`
+      : `<button type="button" data-co="weekTrain" class="co-back">${esc(L.wk.start)}</button>`);
 }
 
 // --------------------------------------------------------------------------
@@ -3909,7 +4027,7 @@ async function step1Move(uci) {
   setMsg(`<span class="muted">${esc(L.ex.thinking)}</span>`);
   let res;
   try {
-    res = await apiJson("coach/refute", { day: co.data.day, key: E.item.key, uci });
+    res = await apiJson("coach/refute", cbody({ key: E.item.key, uci }));
   } catch (err) {
     bd.board = before; bd.last = beforeLast; bd.active = true; E.phase = "solve"; drawBoard();
     setMsg(esc(err.message), "bad");
@@ -3946,7 +4064,7 @@ async function revealStep1(board, last, known) {
   E.phase = "busy"; bd.active = false;
   let res = known;
   if (!res || !res.punish_uci) {
-    try { res = await apiJson("coach/refute", { day: co.data.day, key: E.item.key, reveal: true }); }
+    try { res = await apiJson("coach/refute", cbody({ key: E.item.key, reveal: true })); }
     catch (err) { setMsg(esc(err.message), "bad"); bd.active = true; E.phase = "solve"; return; }
     if (res.counted) E.item.refute_result = "revealed";
   }
@@ -3999,7 +4117,7 @@ async function step2Move(uci) {
   E.phase = "busy"; drawBoard(); setMsg(""); step2Actions();
   let res;
   try {
-    res = await apiJson("tactics/move", { day: co.data.day, key: E.item.key, moves: [...E.moves, uci] });
+    res = await apiJson("tactics/move", cbody({ key: E.item.key, moves: [...E.moves, uci] }));
   } catch (err) {
     bd.board = step.board; bd.last = step.last; bd.active = true; E.phase = "solve"; drawBoard(); step2Actions();
     toast(err.message);
@@ -4065,7 +4183,7 @@ async function revealStep2() {
   const L = tc(), E = co.ex;
   E.phase = "busy"; bd.active = false; step2Actions();
   let res;
-  try { res = await apiJson("tactics/reveal", { day: co.data.day, key: E.item.key }); }
+  try { res = await apiJson("tactics/reveal", cbody({ key: E.item.key })); }
   catch (err) { E.phase = "solve"; bd.active = true; step2Actions(); toast(err.message); return; }
   if (co.ex !== E) return;
   if (!E.item.result) E.item.result = "failed";
@@ -4088,6 +4206,7 @@ async function revealStep2() {
 }
 
 function refreshStats() {
+  if (co.mode === "week") return;
   api("coach/today?day=" + localDay()).then((d) => {
     if (co.data && d.day === co.data.day) { co.data.stats = d.stats; co.data.progress = d.progress; co.data.history = d.history; renderHead(); }
   }).catch(() => {});
@@ -4102,7 +4221,7 @@ async function startStep3() {
   drawBoard();
   if (!E.explain) {
     $id("coExplain").innerHTML = `<p class="muted">${esc(L.loading)}</p>`;
-    try { E.explain = await api(`coach/explain?day=${co.data.day}&key=${encodeURIComponent(E.item.key)}`); }
+    try { E.explain = await api(`coach/explain?day=${co.data.day}&key=${encodeURIComponent(E.item.key)}${weekQs()}`); }
     catch (err) { $id("coExplain").innerHTML = `<p class="note err">${esc(err.message)}</p>`; return; }
     if (co.ex !== E) return;
     E.item.explain = E.explain;
@@ -4229,6 +4348,7 @@ function nextExercise() {
 
 function finishSession() {
   const d = co.data;
+  if (co.mode === "week") { setStage("done"); return; }
   if (!d.finished) { d.finished = true; apiJson("coach/finish", { day: d.day }).catch(() => {}); }
   setStage("done");
 }
@@ -4312,6 +4432,22 @@ async function convertGiveUp() {
 // --------------------------------------------------------------------------
 function renderDone() {
   const L = tc(), d = co.data, p = d.progress || {}, st = d.stats;
+  if (co.mode === "week") {
+    const solved = d.items.filter((i) => i.result === "solved").length;
+    const good = d.items.filter((i) => i.refute_result === "good").length;
+    const withRef = d.items.filter((i) => i.exercise.refute || i.refute_result).length;
+    $id("coBody").innerHTML = `<div class="co-done">
+        <div class="big">${solved === d.items.length ? "🏆" : "✓"}</div>
+        <h3>${esc(L.wk.doneTitle)}</h3>
+        <p style="margin:3px 0">${esc(L.done.sub(solved, d.items.length))}</p>
+        ${withRef ? `<p style="margin:3px 0">${esc(L.done.refutes(good, withRef))}</p>` : ""}
+        <p class="muted" style="margin-top:10px">${esc(L.wk.doneSub)}</p>
+        <div class="tac-actions" style="justify-content:center"><button type="button" class="btn primary" data-co="backDay">${esc(L.wk.back)}</button></div>
+      </div>
+      <div class="tac-dots" id="coDots"></div>`;
+    renderDots();
+    return;
+  }
   const solved = d.items.filter((i) => i.result === "solved").length;
   const allDone = d.items.every((i) => i.result);
   const lines = [L.done.sub(solved, d.items.length)];
@@ -4337,6 +4473,8 @@ function renderDone() {
 // Klicks im Training
 // --------------------------------------------------------------------------
 $id("coRail").addEventListener("click", (e) => {
+  const back = e.target.closest("[data-co]");
+  if (back) { if (back.dataset.co === "backDay") backToDay(); else startWeekTraining(0); return; }
   const b = e.target.closest("[data-stage]");
   if (!b || (co.ex && co.ex.phase === "busy")) return;
   setStage(b.dataset.stage);
@@ -4348,9 +4486,11 @@ $id("coBody").addEventListener("click", async (e) => {
   if (!b || b.disabled) return;
   const a = b.dataset.co, E = co.ex;
   if (a === "lessonDone") { lessonDone(); return; }
+  if (a === "backDay") { backToDay(); return; }
+  if (a === "weekTrain") { startWeekTraining(0); return; }
   if (a === "finish") { finishSession(); return; }
   if (!E) return;
-  if (a === "skip1") { if (!E.item.refute_result) { E.item.refute_result = "skipped"; apiJson("coach/refute", { day: co.data.day, key: E.item.key, reveal: true }).catch(() => {}); } startStep2(); return; }
+  if (a === "skip1") { if (!E.item.refute_result) { E.item.refute_result = "skipped"; apiJson("coach/refute", cbody({ key: E.item.key, reveal: true })).catch(() => {}); } startStep2(); return; }
   if (a === "show1") { if (E.phase === "solve") revealStep1(bd.board.slice(), bd.last, null); return; }
   if (a === "toStep2") { startStep2(); return; }
   if (a === "hint") { E.hint = true; setMsg(esc(hintText(E.item.exercise))); step2Actions(); return; }
@@ -4360,6 +4500,611 @@ $id("coBody").addEventListener("click", async (e) => {
   if (a === "playPlayed") { playExplain("played"); return; }
   if (a === "playBest") { playExplain("best"); return; }
   if (a === "giveup") { convertGiveUp(); return; }
+});
+
+// --------------------------------------------------------------------------
+// Highlights: die letzten 7 Tage als Rohstoff fuer Video und Reels (seit 1.19)
+// --------------------------------------------------------------------------
+const I18N_W = {
+  en: {
+    tab: "Highlights", title: "Highlights of the week",
+    intro: "The last 7 days as material for videos and reels: the moments with drama, ranked. Each one with the position, Stockfish's lines and a hook — and the data for your reel script, ready to copy.",
+    prev: "← 7 days earlier", next: "7 days later →", loading: "Loading…", detailLoading: "Stockfish is looking at it…",
+    none: "No analysed games in these 7 days.", noMoments: "No moment with real drama this week — solid chess, boring reels.",
+    range: (a, b) => `${a} – ${b}`,
+    tiles: {
+      games: "games", record: (w, d, l) => `${w} wins · ${d} draws · ${l} losses`,
+      rating: "rating", ratingSub: (a, b) => `${a} → ${b}`,
+      acc: "accuracy", accSub: "average of your moves",
+      clean: "without a blunder", cleanSub: (n) => `of ${n} games`,
+      gifts: "gifts punished", giftsSub: (p, g) => `${p} of ${g} opponent blunders`,
+    },
+    kinds: {
+      collapse: "💥 Collapse", missed_mate: "♛ Missed mate", missed_tactic: "🎯 Missed tactic",
+      punished: "✅ Punished", unpunished: "🙈 Not punished", comeback: "🔄 Comeback", clock: "⏱ Clock drama",
+    },
+    hook: {
+      collapse: (m) => `From ${ev(m.eval_before)} to ${ev(m.eval_after)} in ONE move.`,
+      missed_mate: (m) => `Mate in ${m.mate_in}. Can you find it?`,
+      missed_tactic: (m) => `${motifName(m.missed_motif)} on the board. Do you see it?`,
+      punished: (m, d) => d && d.last && d.last.san ? `He plays ${d.last.san}. What now?` : "He just blundered. What now?",
+      unpunished: () => "He hands me the game — and I?",
+      comeback: (m) => `${Math.round(m.lowest)} % winning chance. And then…`,
+      clock: (m) => (m.game.result === "loss" ? "Winning position. And then the clock." : "Lost position — but the clock…"),
+    },
+    caption: {
+      collapse: (m) => `I played ${m.san}. What did I miss? 👀`,
+      missed_mate: (m) => `I played ${m.san} instead. 🤦 Solution at the end.`,
+      missed_tactic: (m) => `I played ${m.san}. Would you have seen it?`,
+      punished: (m) => `This time I saw it: ${m.san}. Would you?`,
+      unpunished: (m) => `I played ${m.san}. Look at what was there instead.`,
+      comeback: () => "Never resign too early. Would you have played on?",
+      clock: () => "Who else loses more to the clock than to the opponent?",
+    },
+    why: {
+      collapse: (m) => `Winning chance ${Math.round(m.win_before)} % → ${Math.round(m.win_after)} % with ${m.san}.`,
+      missed_mate: (m) => `A mate in ${m.mate_in} was on the board; you played ${m.san}.`,
+      missed_tactic: (m) => `${motifName(m.missed_motif)} was there; you played ${m.san} (${Math.round(m.win_before)} % → ${Math.round(m.win_after)} %).`,
+      punished: (m) => `His move gave away ${Math.round(m.gift)} points (${Math.round(m.win_before_gift)} % → ${Math.round(m.win_before)} %), and you took it with ${m.san}.`,
+      unpunished: (m) => `His move gave away ${Math.round(m.gift)} points, but ${m.san} gave it back (${Math.round(m.win_before)} % → ${Math.round(m.win_after)} %).`,
+      comeback: (m) => `At move ${m.move_number} you were down to ${Math.round(m.lowest)} % — and still ${m.game.result === "win" ? "won" : "drew"}.`,
+      clock: (m) => `Final position ${Math.round(m.final)} % for you — ${m.game.result === "loss" ? "lost on time" : "decided by the clock"}.`,
+    },
+    meta: (o, d, r, n) => `vs ${o} · ${d} · ${r} · move ${n}`,
+    result: { win: "won", loss: "lost", draw: "draw" },
+    played: "You played", best: "Stockfish", reply: "Punished by", line: "Line",
+    sameBest: "— the best move.",
+    copyHook: "Copy hook", copyReel: "Copy reel data", copyFen: "Copy FEN", openGame: "Open game ↗", report: "Game report",
+    copied: "Copied.",
+    video: {
+      title: "Your video, roughly", intro: "A suggestion from this week's numbers — copy it and change what you like.",
+      copy: "Copy outline",
+      cold: (h) => `Cold open: ${h}`,
+      games: (n, w, d, l) => `The week: ${n} games, ${w}–${d}–${l}`,
+      moment: (k, h, o) => `${k}: ${h} (vs ${o})`,
+      stats: (acc, clean, n) => `Stockfish verdict: ${acc} % accuracy, ${clean} of ${n} games without a blunder`,
+      lesson: (q) => `Lesson of the week: “${q}”`,
+      next: "Next week: …",
+    },
+    gamesTitle: "All games of the week", head: ["Date", "Opponent", "Result", "Accuracy", "Swing", ""],
+  },
+  de: {
+    tab: "Highlights", title: "Highlights der Woche",
+    intro: "Die letzten 7 Tage als Rohstoff für Videos und Reels: die Momente mit Dramatik, nach Stärke sortiert. Jeder mit Stellung, Stockfish-Varianten und einem Hook – und den Daten für dein Reel-Skript zum Kopieren.",
+    prev: "← 7 Tage früher", next: "7 Tage später →", loading: "Lädt …", detailLoading: "Stockfish schaut es sich an …",
+    none: "Keine analysierten Partien in diesen 7 Tagen.", noMoments: "Kein Moment mit echter Dramatik diese Woche – solides Schach, langweilige Reels.",
+    range: (a, b) => `${a} – ${b}`,
+    tiles: {
+      games: "Partien", record: (w, d, l) => `${w} Siege · ${d} Remis · ${l} Niederlagen`,
+      rating: "Elo", ratingSub: (a, b) => `${a} → ${b}`,
+      acc: "Genauigkeit", accSub: "Schnitt deiner Züge",
+      clean: "ohne Patzer", cleanSub: (n) => `von ${n} Partien`,
+      gifts: "Geschenke genutzt", giftsSub: (p, g) => `${p} von ${g} Gegnerpatzern`,
+    },
+    kinds: {
+      collapse: "💥 Absturz", missed_mate: "♛ Matt verpasst", missed_tactic: "🎯 Taktik verpasst",
+      punished: "✅ Bestraft", unpunished: "🙈 Nicht bestraft", comeback: "🔄 Comeback", clock: "⏱ Zeit-Drama",
+    },
+    hook: {
+      collapse: (m) => `Von ${ev(m.eval_before)} auf ${ev(m.eval_after)} in EINEM Zug.`,
+      missed_mate: (m) => `Matt in ${m.mate_in}. Findest du es?`,
+      missed_tactic: (m) => `${motifName(m.missed_motif)} auf dem Brett. Siehst du sie?`,
+      punished: (m, d) => d && d.last && d.last.san ? `Er spielt ${d.last.san}. Was jetzt?` : "Er hat gerade gepatzt. Was jetzt?",
+      unpunished: () => "Er schenkt mir die Partie – und ich?",
+      comeback: (m) => `${Math.round(m.lowest)} % Gewinnchance. Und dann …`,
+      clock: (m) => (m.game.result === "loss" ? "Gewonnen gestanden. Und dann die Uhr." : "Verloren gestanden – aber die Uhr …"),
+    },
+    caption: {
+      collapse: (m) => `Ich habe ${m.san} gespielt. Was habe ich übersehen? 👀`,
+      missed_mate: (m) => `Ich habe stattdessen ${m.san} gespielt. 🤦 Lösung am Schluss.`,
+      missed_tactic: (m) => `Ich habe ${m.san} gespielt. Hättest du es gesehen?`,
+      punished: (m) => `Diesmal habe ich es gesehen: ${m.san}. Du auch?`,
+      unpunished: (m) => `Ich habe ${m.san} gespielt. Schau, was stattdessen ging.`,
+      comeback: () => "Nie zu früh aufgeben. Hättest du weitergespielt?",
+      clock: () => "Wer verliert auch öfter gegen die Uhr als gegen den Gegner?",
+    },
+    why: {
+      collapse: (m) => `Gewinnchance ${Math.round(m.win_before)} % → ${Math.round(m.win_after)} % mit ${m.san}.`,
+      missed_mate: (m) => `Ein Matt in ${m.mate_in} stand auf dem Brett; du hast ${m.san} gespielt.`,
+      missed_tactic: (m) => `${motifName(m.missed_motif)} war da; du hast ${m.san} gespielt (${Math.round(m.win_before)} % → ${Math.round(m.win_after)} %).`,
+      punished: (m) => `Sein Zug hat ${Math.round(m.gift)} Punkte verschenkt (${Math.round(m.win_before_gift)} % → ${Math.round(m.win_before)} %), und du hast mit ${m.san} zugegriffen.`,
+      unpunished: (m) => `Sein Zug hat ${Math.round(m.gift)} Punkte verschenkt, aber ${m.san} gab es zurück (${Math.round(m.win_before)} % → ${Math.round(m.win_after)} %).`,
+      comeback: (m) => `Im ${m.move_number}. Zug warst du bei ${Math.round(m.lowest)} % – und hast trotzdem ${m.game.result === "win" ? "gewonnen" : "remis gehalten"}.`,
+      clock: (m) => `Schlussstellung ${Math.round(m.final)} % für dich – ${m.game.result === "loss" ? "auf Zeit verloren" : "die Uhr hat entschieden"}.`,
+    },
+    meta: (o, d, r, n) => `gegen ${o} · ${d} · ${r} · Zug ${n}`,
+    result: { win: "gewonnen", loss: "verloren", draw: "remis" },
+    played: "Du spieltest", best: "Stockfish", reply: "Bestraft durch", line: "Variante",
+    sameBest: "– der beste Zug.",
+    copyHook: "Hook kopieren", copyReel: "Reel-Daten kopieren", copyFen: "FEN kopieren", openGame: "Partie öffnen ↗", report: "Partiebericht",
+    copied: "Kopiert.",
+    video: {
+      title: "Dein Video, grob", intro: "Ein Vorschlag aus den Zahlen der Woche – kopieren und ändern, was du willst.",
+      copy: "Gerüst kopieren",
+      cold: (h) => `Cold Open: ${h}`,
+      games: (n, w, d, l) => `Die Woche: ${n} Partien, ${w}–${d}–${l}`,
+      moment: (k, h, o) => `${k}: ${h} (gegen ${o})`,
+      stats: (acc, clean, n) => `Stockfish-Fazit: ${acc} % Genauigkeit, ${clean} von ${n} Partien ohne Patzer`,
+      lesson: (q) => `Lehre der Woche: «${q}»`,
+      next: "Nächste Woche: …",
+    },
+    gamesTitle: "Alle Partien der Woche", head: ["Datum", "Gegner", "Ergebnis", "Genauigkeit", "Ausschlag", ""],
+  },
+};
+const tw = () => I18N_W[lang];
+const wk = { sig: null, data: null, loading: false, error: null, offset: 0, details: new Map(), queue: [] };
+
+// Bewertung in Bauern aus eigener Sicht. Die Analyse begrenzt auf +-10 -
+// dort steht meist ein Matt oder eine ganze Figur mehr, also "+10" ohne Komma.
+function ev(p) {
+  if (p == null) return "?";
+  const sign = p > 0 ? "+" : p < 0 ? "−" : "±";
+  return Math.abs(p) >= 10 ? sign + "10" : sign + Math.abs(p).toFixed(1);
+}
+function motifName(m) {
+  const n = { fork: { de: "Eine Gabel", en: "A fork" }, discovered: { de: "Ein Abzug", en: "A discovered attack" },
+              skewer: { de: "Ein Spiess", en: "A skewer" }, pin: { de: "Eine Fesselung", en: "A pin" } };
+  return (n[m] || { de: "Eine Taktik", en: "A tactic" })[lang];
+}
+function weekQuery() {
+  const parts = ["offset=" + wk.offset];
+  if (timeClass !== "all") parts.push("time_class=" + timeClass);
+  if (platform !== "all") parts.push("platform=" + platform);
+  return "?" + parts.join("&");
+}
+
+async function loadWeek() {
+  const sig = weekQuery();
+  wk.sig = sig; wk.loading = true; wk.error = null;
+  renderWeekView();
+  try {
+    const d = await api("content/week" + sig);
+    if (wk.sig !== sig) return;
+    wk.data = d;
+  } catch (err) { if (wk.sig === sig) wk.error = err.message; }
+  wk.loading = false;
+  renderWeekView();
+  // Details nacheinander laden - die Engine rechnet ohnehin eins nach dem anderen.
+  if (wk.data && wk.sig === sig) {
+    for (const m of wk.data.moments) {
+      if (wk.sig !== sig) return;
+      if (!m.move_id || wk.details.has(m.move_id)) continue;
+      wk.details.set(m.move_id, "loading");
+      try { wk.details.set(m.move_id, await api(`content/moment/${m.move_id}`)); }
+      catch { wk.details.set(m.move_id, "error"); }
+      fillMoment(m);
+    }
+  }
+}
+
+function renderWeekView() {
+  const W = tw(), el = $id("wkBody");
+  if (!el) return;
+  $id("wkTitle").textContent = W.title;
+  $id("wkIntro").textContent = W.intro;
+  if (view === "week" && wk.sig !== weekQuery() && !wk.loading) { loadWeek(); return; }
+  const d = wk.data;
+  const nav = (d ? `<span class="muted">${esc(W.range(date(d.start), date(d.end)))}</span>` : "") +
+    `<span class="grow"></span><button class="btn" type="button" data-wk="prev">${esc(W.prev)}</button>` +
+    `<button class="btn" type="button" data-wk="next" ${wk.offset === 0 ? "disabled" : ""}>${esc(W.next)}</button>`;
+  const trainN = d && d.summary ? (d.summary.blunders || 0) + (d.summary.mistakes || 0) : 0;
+  const L2 = tl();
+  $id("wkNav").innerHTML = nav + (d && d.summary && d.summary.games ? `<div class="wk-live">
+      <button class="btn primary" type="button" data-wklive="present" ${d.moments.length ? "" : "disabled"}>${esc(L2.present)}</button>
+      <button class="btn" type="button" data-wklive="train" ${trainN ? "" : "disabled"}>${esc(trainN ? L2.train(trainN) : L2.trainNone)}</button>
+    </div>` : "");
+  if (wk.error) { el.innerHTML = `<p class="note err">${esc(wk.error)}</p>`; return; }
+  if (!d || (wk.loading && !d)) { el.innerHTML = `<p class="muted">${esc(W.loading)}</p>`; return; }
+  const s = d.summary;
+  if (!s.games) { el.innerHTML = `<p class="muted">${esc(W.none)}</p>`; return; }
+  const T = W.tiles;
+  const tile = (n, h, p) => `<div class="kpi"><div class="num">${esc(n)}</div><h3>${esc(h)}</h3><p>${esc(p)}</p></div>`;
+  const delta = s.rating_start != null && s.rating_end != null ? s.rating_end - s.rating_start : null;
+  const tiles = [
+    tile(s.games, T.games, T.record(s.wins, s.draws, s.losses)),
+    s.rating_end != null ? tile((delta > 0 ? "+" : delta < 0 ? "−" : "±") + Math.abs(delta || 0), T.rating, T.ratingSub(s.rating_start, s.rating_end)) : "",
+    s.accuracy != null ? tile(num(s.accuracy, 0) + " %", T.acc, T.accSub) : "",
+    tile(s.blunder_free, T.clean, T.cleanSub(s.games)),
+    s.gifts ? tile(`${s.punished}/${s.gifts}`, T.gifts, T.giftsSub(s.punished, s.gifts)) : "",
+  ].join("");
+  const moments = d.moments.length
+    ? d.moments.map((m, i) => `<div class="wk-m" id="wkm${i}" data-wki="${i}">${momentHtml(m, i)}</div>`).join("")
+    : `<p class="muted">${esc(W.noMoments)}</p>`;
+  el.innerHTML = `<div class="kpis wk-tiles">${tiles}</div>
+    ${d.moments.length ? videoHtml(d) : ""}
+    <div class="wk-list">${moments}</div>
+    ${gamesHtml(d)}`;
+}
+
+function momentHtml(m, i) {
+  const W = tw(), det = wk.details.get(m.move_id);
+  const g = m.game;
+  const hook = W.hook[m.kind](m, det && det !== "loading" && det !== "error" ? det : null);
+  let board = `<p class="muted">${esc(W.detailLoading)}</p>`, lines = "";
+  if (det === "error") board = "";
+  else if (det && det !== "loading") {
+    const best = det.best && !det.best.same ? det.best.uci : null;
+    const bd2 = { fen: det.fen, orientation: det.orientation, last: det.last ? det.last.uci : null,
+                  played: det.best && det.best.same ? null : det.played.uci,
+                  best: det.best && det.best.same ? det.played.uci : best,
+                  refutation: det.refutation && det.win_after < 50 ? det.refutation.uci : null, consistent: true };
+    board = miniBoard(bd2, "wk" + i);
+    const row = (cls, label, san, extra) => `<li class="${cls}"><b>${esc(label)}</b> <span class="san">${esc(san)}</span>${extra || ""}</li>`;
+    const lf = (l) => (l && l.line ? ` <span class="muted">· ${esc(factText(l.line))}</span>` : "");
+    lines = `<ul class="co-facts">
+      ${row("played", W.played, det.played.san, det.best && det.best.same ? ` ${esc(W.sameBest)}` : "")}
+      ${det.refutation && det.win_after < 50 ? row("reply", W.reply, det.refutation.san, lf(det.refutation)) : ""}
+      ${det.best && !det.best.same ? row("best", W.best, det.best.san, lf(det.best)) : ""}
+    </ul>`;
+  }
+  const pct = (v) => Math.max(0, Math.min(100, Math.round(v || 0)));
+  const swing = m.win_before != null ? `<div class="co-win"><div class="track"><i style="width:${pct(m.kind === "punished" || m.kind === "unpunished" ? m.win_before_gift : m.win_before)}%"></i><i class="after" style="width:${pct(m.kind === "punished" ? m.win_before : m.win_after)}%"></i></div><span><b>${ev(m.kind === "punished" || m.kind === "unpunished" ? m.eval_before_gift : m.eval_before)}</b> → <b>${ev(m.kind === "punished" ? m.eval_before : m.eval_after)}</b></span></div>` : "";
+  const link = g.url && g.platform !== "pgn" ? `<a class="btn" href="${esc(g.url)}" target="_blank" rel="noopener noreferrer">${esc(W.openGame)}</a>` : "";
+  return `<div class="wk-board">${board}</div>
+    <div class="wk-text">
+      <span class="wk-kind k-${m.kind}">${esc(W.kinds[m.kind])}</span>
+      <h3 class="wk-hook">${esc(hook)}</h3>
+      <p class="muted">${esc(W.meta(g.opponent || "?", date(g.played_at), W.result[g.result] || g.result, m.move_number))}</p>
+      <p>${esc(W.why[m.kind](m))}</p>
+      ${swing}${lines}
+      <p class="muted wk-cap">“${esc(W.caption[m.kind](m))}”</p>
+      <div class="tac-actions">
+        <button class="btn" type="button" data-wkcopy="hook" data-wki="${i}">${esc(W.copyHook)}</button>
+        <button class="btn" type="button" data-wkcopy="reel" data-wki="${i}" ${det && det !== "loading" && det !== "error" ? "" : "disabled"}>${esc(W.copyReel)}</button>
+        <button class="btn" type="button" data-wkcopy="fen" data-wki="${i}" ${det && det.fen ? "" : "disabled"}>${esc(W.copyFen)}</button>
+        <button class="btn" type="button" data-report="${g.id}">${esc(W.report)}</button>
+        ${link}
+      </div>
+    </div>`;
+}
+
+function fillMoment(m) {
+  const d = wk.data;
+  if (!d || view !== "week") return;
+  const i = d.moments.indexOf(m);
+  const el = $id("wkm" + i);
+  if (el) el.innerHTML = momentHtml(m, i);
+}
+
+function videoOutline(d) {
+  const W = tw(), V = W.video, s = d.summary;
+  const top = d.moments[0];
+  const lines = [];
+  if (top) lines.push(V.cold(W.hook[top.kind](top, wk.details.get(top.move_id))));
+  lines.push(V.games(s.games, s.wins, s.draws, s.losses));
+  d.moments.slice(0, 5).forEach((m) => {
+    const det = wk.details.get(m.move_id);
+    lines.push(V.moment(W.kinds[m.kind].replace(/^\S+\s/, ""), W.hook[m.kind](m, det && det.fen ? det : null), m.game.opponent || "?"));
+  });
+  if (s.accuracy != null) lines.push(V.stats(num(s.accuracy, 0), s.blunder_free, s.games));
+  const pts = Object.entries(s.points || {}).sort((a, b) => b[1] - a[1]);
+  if (pts.length && pts[0][1] > 0) lines.push(V.lesson(tj().steps[pts[0][0]].q));
+  lines.push(V.next);
+  return lines;
+}
+function videoHtml(d) {
+  const V = tw().video;
+  return `<div class="wk-video">
+    <div class="tac-top"><h3>${esc(V.title)}</h3><button class="btn" type="button" data-wkcopy="video">${esc(V.copy)}</button></div>
+    <p class="muted">${esc(V.intro)}</p>
+    <ol>${videoOutline(d).map((l) => `<li>${esc(l)}</li>`).join("")}</ol>
+  </div>`;
+}
+
+function gamesHtml(d) {
+  const W = tw();
+  const rows = d.games.slice().reverse().map((g) => `<tr>
+      <td>${esc(date(g.played_at))}</td><td>${esc(g.opponent || "?")}</td>
+      <td class="res-${g.result}">${esc(W.result[g.result] || g.result)}</td>
+      <td>${num(g.accuracy, 0)} %</td>
+      <td>${Math.round(g.worst_win)} – ${Math.round(g.best_win)} %</td>
+      <td><a href="#" data-report="${g.id}">${esc(W.report)}</a></td></tr>`).join("");
+  return `<h3 style="margin-top:22px">${esc(W.gamesTitle)}</h3>
+    <div class="wk-table"><table><thead><tr>${W.head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); toast(tw().copied); }
+  catch {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast(tw().copied); } catch { /* egal */ }
+    ta.remove();
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const nav = e.target.closest("[data-wk]");
+  if (nav && !nav.disabled) {
+    wk.offset = Math.max(0, wk.offset + (nav.dataset.wk === "prev" ? 1 : -1));
+    wk.data = null; wk.sig = null;
+    renderWeekView();
+    return;
+  }
+  const c = e.target.closest("[data-wkcopy]");
+  if (!c || c.disabled || !wk.data) return;
+  const W = tw(), kind = c.dataset.wkcopy;
+  if (kind === "video") { copyText(videoOutline(wk.data).map((l, i) => `${i + 1}. ${l}`).join("\n")); return; }
+  const m = wk.data.moments[Number(c.dataset.wki)];
+  if (!m) return;
+  const det = wk.details.get(m.move_id);
+  const ok = det && det !== "loading" && det !== "error";
+  if (kind === "hook") copyText(W.hook[m.kind](m, ok ? det : null) + "\n" + W.caption[m.kind](m));
+  else if (kind === "fen" && ok) copyText(det.fen);
+  else if (kind === "reel" && ok) {
+    copyText(JSON.stringify({ ...det.export, kind: m.kind, hook: W.hook[m.kind](m, det), caption: W.caption[m.kind](m),
+                              opponent: m.game.opponent, date: m.game.played_at.slice(0, 10), result: m.game.result,
+                              mate_in: m.mate_in || null }, null, 2));
+  }
+});
+
+// --------------------------------------------------------------------------
+// Praesentationsmodus (seit 1.20): die Highlights der Woche live durchgehen.
+// Grosses Brett im Querformat fuer OBS, gesteuert mit der Tastatur:
+// Raetsel -> dein Zug (und was er erlaubt hat) -> Stockfish -> naechster Moment.
+// --------------------------------------------------------------------------
+const I18N_L = {
+  en: {
+    present: "▶ Present live", train: (n) => `🎯 Train this week (${n} ${n === 1 ? "mistake" : "mistakes"})`, trainNone: "🎯 Train this week",
+    loading: "Preparing the moments with Stockfish…",
+    keys: "Space / → next · ← back · C countdown · R replay · F fullscreen · Esc exit",
+    introTitle: "My week", introSub: (a, b) => `${a} – ${b}`,
+    outroTitle: "Your turn", outro: (n) => (n ? `${n} ${n === 1 ? "mistake" : "mistakes"} this week — now I train them in Knightmare.` : "That was the week."),
+    outroSub: "Find your own patterns: knightmare.abetterdodo.ch",
+    steps: ["Puzzle", "My move", "Stockfish"],
+    toMove: (c) => (c === "white" ? "White to move" : "Black to move"),
+    ask: {
+      collapse: () => "I'm winning here. What do you play?",
+      missed_mate: (m) => `Mate in ${m.mate_in}. Can you find it?`,
+      missed_tactic: (m) => `${motifName(m.missed_motif)} is on the board. Do you see it?`,
+      punished: (m, d) => d && d.last && d.last.san ? `He just played ${d.last.san}. What now?` : "He just blundered. What now?",
+      unpunished: (m, d) => d && d.last && d.last.san ? `He just played ${d.last.san}. What now?` : "He just blundered. What now?",
+      comeback: () => "This looks lost. Can it still be saved?",
+      clock: () => "Who is better here — and what will the clock say?",
+    },
+    played: (san) => `I played ${san}.`, punish: (san) => `And he answers ${san}.`,
+    best: (san) => `Stockfish: ${san}`, same: "That was also Stockfish's move. ✓",
+    countdown: "Your guess?", rec: "wins – draws – losses",
+  },
+  de: {
+    present: "▶ Live präsentieren", train: (n) => `🎯 Diese Woche trainieren (${n} Fehler)`, trainNone: "🎯 Diese Woche trainieren",
+    loading: "Die Momente werden mit Stockfish vorbereitet …",
+    keys: "Leertaste / → weiter · ← zurück · C Countdown · R nochmal · F Vollbild · Esc beenden",
+    introTitle: "Meine Woche", introSub: (a, b) => `${a} – ${b}`,
+    outroTitle: "Jetzt du", outro: (n) => (n ? `${n} Fehler diese Woche – die trainiere ich jetzt in Knightmare.` : "Das war die Woche."),
+    outroSub: "Finde deine eigenen Muster: knightmare.abetterdodo.ch",
+    steps: ["Rätsel", "Mein Zug", "Stockfish"],
+    toMove: (c) => (c === "white" ? "Weiss am Zug" : "Schwarz am Zug"),
+    ask: {
+      collapse: () => "Ich stehe auf Gewinn. Was spielst du?",
+      missed_mate: (m) => `Matt in ${m.mate_in}. Findest du es?`,
+      missed_tactic: (m) => `${motifName(m.missed_motif)} steht auf dem Brett. Siehst du sie?`,
+      punished: (m, d) => d && d.last && d.last.san ? `Er hat gerade ${d.last.san} gespielt. Was jetzt?` : "Er hat gerade gepatzt. Was jetzt?",
+      unpunished: (m, d) => d && d.last && d.last.san ? `Er hat gerade ${d.last.san} gespielt. Was jetzt?` : "Er hat gerade gepatzt. Was jetzt?",
+      comeback: () => "Das sieht verloren aus. Geht da noch was?",
+      clock: () => "Wer steht hier besser – und was sagt die Uhr?",
+    },
+    played: (san) => `Ich habe ${san} gespielt.`, punish: (san) => `Und er antwortet ${san}.`,
+    best: (san) => `Stockfish: ${san}`, same: "Das war auch der Zug von Stockfish. ✓",
+    countdown: "Dein Tipp?", rec: "Siege – Remis – Niederlagen",
+  },
+};
+const tl = () => I18N_L[lang];
+const live = { open: false, slides: [], i: 0, run: 0, timer: null, cd: 0 };
+
+function arrFen(arr) {
+  let out = "";
+  for (let r = 7; r >= 0; r--) {
+    let empty = 0;
+    for (let f = 0; f < 8; f++) {
+      const p = arr[r * 8 + f];
+      if (!p) { empty++; continue; }
+      if (empty) { out += empty; empty = 0; }
+      out += p;
+    }
+    if (empty) out += empty;
+    if (r) out += "/";
+  }
+  return out + " w - - 0 1";
+}
+
+function buildSlides() {
+  const d = wk.data, slides = [{ type: "intro" }];
+  d.moments.forEach((m) => {
+    const det = wk.details.get(m.move_id);
+    if (!det || det === "loading" || det === "error") return;
+    slides.push({ type: "puzzle", m, det });
+    slides.push({ type: "played", m, det });
+    if (det.best && !det.best.same) slides.push({ type: "best", m, det });
+  });
+  slides.push({ type: "outro" });
+  return slides;
+}
+
+async function openLive() {
+  if (!wk.data || !wk.data.moments.length) return;
+  live.open = true;
+  let el = $id("live");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "live";
+    el.className = "live";
+    el.tabIndex = -1;
+    document.body.appendChild(el);
+  }
+  el.hidden = false;
+  el.innerHTML = `<div class="live-wait">${esc(tl().loading)}</div>`;
+  el.focus();
+  // Fehlende Details nachladen, bevor es losgeht.
+  for (const m of wk.data.moments) {
+    if (!live.open) return;
+    if (m.move_id && !wk.details.has(m.move_id)) {
+      wk.details.set(m.move_id, "loading");
+      try { wk.details.set(m.move_id, await api(`content/moment/${m.move_id}`)); } catch { wk.details.set(m.move_id, "error"); }
+    }
+    while (wk.details.get(m.move_id) === "loading") { await sleep(300); if (!live.open) return; }
+  }
+  live.slides = buildSlides();
+  live.i = 0;
+  showSlide();
+}
+
+function closeLive() {
+  live.open = false; live.run++;
+  clearInterval(live.timer);
+  const el = $id("live");
+  if (el) el.hidden = true;
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+}
+
+function liveBoard(arr, det, last, arrows) {
+  const d = { fen: arrFen(arr), orientation: det.orientation, last, consistent: true, ...arrows };
+  return miniBoard(d, "live");
+}
+
+function liveStatsHtml() {
+  const W = tw(), T = W.tiles, s = wk.data.summary;
+  const delta = s.rating_start != null && s.rating_end != null ? s.rating_end - s.rating_start : null;
+  const tile = (n, h) => `<div class="live-tile"><b>${esc(n)}</b><span>${esc(h)}</span></div>`;
+  return `<div class="live-tiles">
+    ${tile(s.games, T.games)}
+    ${tile(`${s.wins}–${s.draws}–${s.losses}`, tl().rec)}
+    ${delta != null ? tile((delta > 0 ? "+" : delta < 0 ? "−" : "±") + Math.abs(delta), `${T.rating} ${s.rating_start} → ${s.rating_end}`) : ""}
+    ${s.accuracy != null ? tile(num(s.accuracy, 0) + " %", T.acc) : ""}
+    ${tile(s.blunder_free, T.clean)}
+  </div>`;
+}
+
+function showSlide() {
+  const el = $id("live");
+  if (!el || !live.open) return;
+  live.run++;
+  clearInterval(live.timer); live.cd = 0;
+  const L = tl(), W = tw(), sl = live.slides[live.i], d = wk.data;
+  const progress = `<div class="live-progress"><i style="width:${Math.round((live.i + 1) / live.slides.length * 100)}%"></i></div>`;
+  const keys = `<div class="live-keys">${esc(L.keys)}</div>`;
+  if (sl.type === "intro" || sl.type === "outro") {
+    const trainN = (d.summary.blunders || 0) + (d.summary.mistakes || 0);
+    el.innerHTML = `${progress}<div class="live-card">
+      <div class="live-brand">♞ Knightmare</div>
+      <h1>${esc(sl.type === "intro" ? L.introTitle : L.outroTitle)}</h1>
+      ${sl.type === "intro" ? `<p class="live-sub">${esc(L.introSub(date(d.start), date(d.end)))}</p>${liveStatsHtml()}`
+        : `<p class="live-big">${esc(L.outro(trainN))}</p><p class="live-sub">${esc(L.outroSub)}</p>`}
+    </div>${keys}`;
+    return;
+  }
+  const m = sl.m, det = sl.det, g = m.game;
+  const steps = L.steps.map((t, k) => {
+    const on = (sl.type === "puzzle" && k === 0) || (sl.type === "played" && k === 1) || (sl.type === "best" && k === 2);
+    return `<span class="${on ? "on" : ""}">${esc(t)}</span>`;
+  }).join("");
+  let text = "";
+  if (sl.type === "puzzle") text = `<p class="live-ask">${esc(L.ask[m.kind](m, det))}</p><p class="live-sub">${esc(L.toMove(det.to_move))}</p>`;
+  else if (sl.type === "played") {
+    text = `<p class="live-ask">${esc(L.played(det.played.san))}</p>`;
+    if (det.best && det.best.same) text += `<p class="live-good">${esc(L.same)}</p>`;
+    if (det.refutation && det.win_after < 50) {
+      text += `<p class="live-bad">${esc(L.punish(det.refutation.san))}</p>`;
+      if (det.refutation.line) text += `<p class="live-sub">${esc(factText(det.refutation.line))}</p>`;
+    }
+    text += `<p class="live-sub">${esc(W.why[m.kind](m))}</p>`;
+  } else {
+    text = `<p class="live-ask live-good">${esc(L.best(det.best.san))}</p>`;
+    if (det.best.line) text += `<p class="live-sub">${esc(factText(det.best.line))}</p>`;
+    const facts = (det.best.facts || []).filter((f) => f.kind !== "quiet").map(factText).filter(Boolean);
+    if (facts.length) text += `<ul class="live-facts">${facts.map((f) => `<li>${esc(det.best.san)} ${esc(f)}</li>`).join("")}</ul>`;
+  }
+  el.innerHTML = `${progress}<div class="live-stage">
+      <div class="live-board" id="liveBoard"></div>
+      <div class="live-side">
+        <span class="wk-kind k-${m.kind}">${esc(W.kinds[m.kind])}</span>
+        <div class="live-meta">${esc(W.meta(g.opponent || "?", date(g.played_at), W.result[g.result] || g.result, m.move_number))}</div>
+        <div class="co-steps live-steps">${steps}</div>
+        ${text}
+        <div class="live-cd" id="liveCd"></div>
+      </div>
+    </div>${keys}`;
+  playSlide();
+}
+
+async function playSlide() {
+  const sl = live.slides[live.i], run = live.run, det = sl.det;
+  const box = () => $id("liveBoard");
+  let arr = fenBoard(det.fen);
+  const lastUci = det.last ? det.last.uci : null;
+  const draw = (last, arrows) => { if (box() && live.run === run) box().innerHTML = liveBoard(arr, det, last, arrows || {}); };
+  draw(lastUci, {});
+  if (sl.type === "puzzle") return;
+  await sleep(700);
+  const step = async (uci, cls) => {
+    if (live.run !== run) return false;
+    draw(lastUci, { [cls]: uci });
+    await sleep(650);
+    if (live.run !== run) return false;
+    arr = applyUci(arr, uci);
+    draw(uci, { [cls]: uci });
+    await sleep(900);
+    return live.run === run;
+  };
+  if (sl.type === "played") {
+    const good = det.best && det.best.same;
+    if (!(await step(det.played.uci, good ? "best" : "played"))) return;
+    if (det.refutation && det.win_after < 50) {
+      const line = det.refutation.line ? det.refutation.line.uci : [det.refutation.uci];
+      for (const u of line) if (!(await step(u, "refutation"))) return;
+    }
+  } else if (sl.type === "best") {
+    const line = det.best.line ? det.best.line.uci : (det.best.line_uci || [det.best.uci]).slice(0, 1);
+    for (let k = 0; k < line.length; k++) if (!(await step(line[k], k % 2 === 0 ? "best" : "refutation"))) return;
+  }
+}
+
+function countdown(secs = 10) {
+  const el = $id("liveCd");
+  if (!el) return;
+  clearInterval(live.timer);
+  live.cd = secs;
+  const tick = () => {
+    if (!$id("liveCd")) { clearInterval(live.timer); return; }
+    $id("liveCd").innerHTML = live.cd > 0 ? `<b>${live.cd}</b><span>${esc(tl().countdown)}</span>` : "";
+    if (live.cd <= 0) clearInterval(live.timer);
+    live.cd--;
+  };
+  tick();
+  live.timer = setInterval(tick, 1000);
+}
+
+document.addEventListener("keydown", (e) => {
+  if (!live.open) return;
+  const k = e.key;
+  if (k === "Escape") { e.preventDefault(); closeLive(); return; }
+  if (!live.slides.length) return;
+  if (k === " " || k === "ArrowRight" || k === "PageDown" || k === "Enter") {
+    e.preventDefault();
+    if (live.i < live.slides.length - 1) { live.i++; showSlide(); }
+  } else if (k === "ArrowLeft" || k === "PageUp" || k === "Backspace") {
+    e.preventDefault();
+    if (live.i > 0) { live.i--; showSlide(); }
+  } else if (k === "c" || k === "C") { e.preventDefault(); countdown(10); }
+  else if (k === "r" || k === "R") { e.preventDefault(); showSlide(); }
+  else if (k === "f" || k === "F") {
+    e.preventDefault();
+    const el = $id("live");
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else if (el && el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  }
+});
+// Klick auf die rechte Haelfte = weiter, linke = zurueck (Fernbedienung, Maus).
+document.addEventListener("click", (e) => {
+  if (!live.open || !e.target.closest("#live") || !live.slides.length) return;
+  if (e.clientX > window.innerWidth / 2) { if (live.i < live.slides.length - 1) { live.i++; showSlide(); } }
+  else if (live.i > 0) { live.i--; showSlide(); }
+});
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-wklive]");
+  if (!b || b.disabled) return;
+  if (b.dataset.wklive === "present") openLive();
+  else startWeekTraining(wk.offset);
 });
 
 // --------------------------------------------------------------------------

@@ -272,6 +272,21 @@ class ChessCoachDay(SQLModel, table=True):
     updated_at: Optional[datetime] = Field(default=None)
 
 
+class ChessWeekTask(SQLModel, table=True):
+    """Ergebnisse der Wochen-Session (seit 1.20): "Diese Woche trainieren".
+    week = erster Tag des Zeitraums (ISO). Die Aufgaben selbst sind die
+    normalen chess_tactic-Zeilen aus den Partien dieses Zeitraums; hier steht
+    nur, wie der erste Versuch in der Wochen-Session ausging."""
+
+    __tablename__ = "chess_week_task"
+
+    week: str = Field(primary_key=True, max_length=10)
+    key: str = Field(primary_key=True, max_length=90)
+    result: Optional[str] = Field(default=None, max_length=10)          # solved | failed
+    refute_result: Optional[str] = Field(default=None, max_length=10)   # good | bad | revealed | skipped
+    updated_at: Optional[datetime] = Field(default=None)
+
+
 class ChessPractice(SQLModel, table=True):
     """Uebungsstellungen jenseits der Taktik: "Gewinn verwerten" (kind=convert)
     und "Was droht?" (kind=threat). Wie bei den Aufgaben werden auch
